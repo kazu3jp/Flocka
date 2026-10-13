@@ -1,3 +1,4 @@
+import { LegalDocument } from "./LegalDocument";
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
@@ -408,9 +409,7 @@ export function AuthScreen() {
       )}
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
-          <T color={C.muted} size={13}>
-            {legal}の本文は、公開前にこちらへ掲載します。
-          </T>
+          <LegalDocument title={legal} />
           <Btn plain label="閉じる" onPress={() => setLegal(null)} />
         </Sheet>
       )}

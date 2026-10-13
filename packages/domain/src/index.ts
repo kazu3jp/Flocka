@@ -5,3 +5,5 @@ export * from "./navigation";
 export * from "./catalog";
 export * from "./api";
 export * from "./sync";
+
+export * from "./legal";
