@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["FlockaNearbyModule"]
+  },
+  "android": {
+    "modules": ["jp.kazu3.flocka.nearby.FlockaNearbyModule"]
+  }
+}

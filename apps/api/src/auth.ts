@@ -30,6 +30,13 @@ export const requireSession = createMiddleware<ApiContext>(async (c, next) => {
       "EMAIL_NOT_VERIFIED",
       "メールアドレスを確認してください",
     );
+  const expectedAccount = c.req.header("X-Flocka-Account");
+  if (expectedAccount && expectedAccount !== session.user.id)
+    throw new ApiError(
+      401,
+      "ACCOUNT_CHANGED",
+      "アカウントが切り替わりました。操作を再開してください",
+    );
   c.set("accountId", session.user.id);
   await next();
 });

@@ -10,40 +10,32 @@ import {
   C,
   Choice,
   Header,
-  LinkButton,
   Panel,
   S,
-  Sheet,
   T,
 } from "../../components/ui";
-import { PEOPLE, parseDemoQR, startExchange } from "@flocka/domain";
+import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
-
+import { useInvite } from "./use-invite";
+import { useAction } from "../sync/use-action";
 export function Scan() {
-  const { s, nav, update, toast } = useApp(),
+  const { s, api, refresh, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
-    [examples, setExamples] = useState(false),
     [permission, requestPermission] = useCameraPermissions(),
+    focused = useIsFocused(),
     scanned = useRef(false),
-    focused = useIsFocused();
-  const receive = (data: string) => {
+    { invite, error: inviteError, busy: creating, renew } = useInvite(),
+    { busy, error, run } = useAction();
+  const receive = (value: string) => {
     if (scanned.current) return;
-    const peerId = parseDemoQR(data);
-    if (!peerId) {
-      toast(
-        "このデモ用のQRではありません。実際のユーザー交換はサーバー未接続です。",
-      );
-      scanned.current = true;
-      return;
-    }
-    const id = update((x) => startExchange(x, peerId));
-    if (!id) {
-      toast("ブロックした人とは交換できません");
-      scanned.current = true;
-      return;
-    }
     scanned.current = true;
-    nav.replace("confirm", { cid: id });
+    void run(async () => {
+      const code = parseInviteQR(value);
+      if (!code) throw new Error("Flockaの交換用QRを読み取ってください");
+      const exchange = await api.startExchange(code);
+      await refresh();
+      nav.replace("confirm", { cid: exchange.id });
+    });
   };
   return (
     <Board>
@@ -68,106 +60,91 @@ export function Scan() {
         </View>
       </View>
       {mode === "show" ? (
-        <>
-          <View style={{ flex: 1, justifyContent: "center", gap: 20 }}>
-            <Panel
-              style={{ alignItems: "center", gap: 16, paddingVertical: 30 }}
-            >
+        <View style={{ flex: 1, justifyContent: "center", gap: 16 }}>
+          <Panel style={{ alignItems: "center", gap: 16, paddingVertical: 28 }}>
+            {invite ? (
               <QRCode
-                value={JSON.stringify({
-                  type: "flocka-local-profile",
-                  version: 1,
-                  name: s.profile.name,
-                  role: s.profile.role,
-                  self: s.self,
-                })}
+                value={inviteQR(invite.code)}
                 size={230}
                 color={C.ink}
                 backgroundColor={C.paper}
               />
-              <Avatar
-                name={s.profile.name}
-                avatar={s.profile.avatar}
-                size={56}
-              />
-              <T display color={C.ink} size={20}>
-                {s.profile.name}
-              </T>
-            </Panel>
-            <T size={12} style={{ textAlign: "center" }}>
-              プロフィールのQRです。実際のユーザー同士の交換・承認にはサーバー接続が必要です。
-            </T>
-          </View>
-        </>
-      ) : (
-        <>
-          <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
-            {permission?.granted && focused ? (
-              <View
-                style={{
-                  height: 320,
-                  borderWidth: 3,
-                  borderColor: C.yellow,
-                  borderRadius: 20,
-                  overflow: "hidden",
-                }}
-              >
-                <CameraView
-                  style={S.fill}
-                  facing="back"
-                  barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-                  onBarcodeScanned={({ data }) => receive(data)}
-                />
-              </View>
             ) : (
-              <Panel style={S.gap}>
-                <T color={C.ink}>QRの読み取りにカメラを使います。</T>
-                <Btn
-                  label="カメラを許可する"
-                  onPress={() => {
-                    requestPermission()
-                      .then((p) => {
-                        if (!p.granted)
-                          toast(
-                            "カメラが許可されていません。端末の設定で許可してください。",
-                          );
-                      })
-                      .catch(() => toast("カメラを利用できませんでした"));
-                  }}
-                />
-              </Panel>
+              <T color={C.ink}>交換コードを作成中…</T>
             )}
-            <Btn
-              plain
-              small
-              label="もう一度読み取る"
-              onPress={() => {
-                scanned.current = false;
-                toast("読み取りを再開しました");
-              }}
-            />
-            <T size={12}>
-              別端末に表示した体験用QRを読み取ると、元のデモ交換へ進みます。
+            <Avatar name={s.profile.name} avatar={s.profile.avatar} size={56} />
+            <T display color={C.ink} size={20}>
+              {s.profile.name}
             </T>
-          </View>
-        </>
-      )}
-      <LinkButton label="体験用QRを見る" onPress={() => setExamples(true)} />
-      {examples && (
-        <Sheet title="体験用の相手QR" onClose={() => setExamples(false)}>
-          <T size={13}>別端末のこの画面をカメラで読み取ってください。</T>
-          {Object.entries(PEOPLE).map(([id, p]) => (
-            <Panel key={id} style={{ alignItems: "center", gap: 8 }}>
-              <QRCode
-                value={`flocka-demo://peer/${id}`}
-                size={150}
-                color={C.ink}
-                backgroundColor={C.paper}
+            {invite && (
+              <T color={C.muted} size={12}>
+                有効期限{" "}
+                {new Date(invite.expiresAt).toLocaleTimeString("ja-JP")}
+              </T>
+            )}
+          </Panel>
+          <T size={12}>
+            相手が読み取ると確認画面が開きます。双方が「交換する」を押すと成立します。
+          </T>
+          <Btn
+            plain
+            small
+            label="QRを更新する"
+            disabled={creating}
+            onPress={() => void renew()}
+          />
+        </View>
+      ) : (
+        <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
+          {permission?.granted && focused ? (
+            <View
+              style={{
+                height: 320,
+                borderWidth: 3,
+                borderColor: C.yellow,
+                borderRadius: 20,
+                overflow: "hidden",
+              }}
+            >
+              <CameraView
+                style={S.fill}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                onBarcodeScanned={({ data }) => receive(data)}
               />
-              <T color={C.ink}>{p.name}</T>
+            </View>
+          ) : (
+            <Panel style={S.gap}>
+              <T color={C.ink}>
+                相手の交換用QRを読み取るためにカメラを使います。
+              </T>
+              <Btn
+                label="カメラを許可する"
+                onPress={() =>
+                  void run(async () => {
+                    const permission = await requestPermission();
+                    if (!permission.granted)
+                      throw new Error("端末の設定からカメラを許可してください");
+                  })
+                }
+              />
             </Panel>
-          ))}
-        </Sheet>
+          )}
+          <Btn
+            plain
+            small
+            label="もう一度読み取る"
+            disabled={busy}
+            onPress={() => {
+              scanned.current = false;
+            }}
+          />
+        </View>
+      )}
+      {(error || inviteError) && (
+        <T color={C.yellow} accessibilityRole="alert">
+          {error || inviteError}
+        </T>
       )}
     </Board>
   );

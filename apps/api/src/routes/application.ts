@@ -235,3 +235,27 @@ applicationRoutes.get("/players/:id/public", async (c) => {
     .all<TestimonyRow>();
   return c.json({ items: rows.results.map(toTestimony) });
 });
+
+applicationRoutes.post("/invites/status", async (c) => {
+  const { code } = await readJson(c, createExchangeSchema),
+    owner = c.get("accountId");
+  const row = await c.env.DB.prepare(
+    "SELECT expires_at, used_by FROM invites WHERE code_hash = ? AND account_id = ?",
+  )
+    .bind(await hashToken(code), owner)
+    .first<{ expires_at: string; used_by: string | null }>();
+  if (!row)
+    throw new ApiError(404, "INVITE_NOT_FOUND", "交換コードが見つかりません");
+  let exchange = null;
+  if (row.used_by) {
+    const [a, b] = [owner, row.used_by].sort();
+    const found = await c.env.DB.prepare(
+      "SELECT id FROM exchanges WHERE player_a = ? AND player_b = ? AND status != 'cancelled'",
+    )
+      .bind(a, b)
+      .first<{ id: string }>();
+    if (found)
+      exchange = await new ExchangesRepository(c.env.DB).get(found.id, owner);
+  }
+  return c.json({ expiresAt: row.expires_at, exchange });
+});

@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import React, { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -22,7 +23,6 @@ import {
 } from "../../components/ui";
 import {
   CARDS,
-  PEOPLE,
   allPieces,
   bareCard,
   derive,
@@ -33,8 +33,10 @@ import {
 } from "@flocka/domain";
 import { useApp } from "../../store";
 function GuessContent({ id }: { id: string }) {
-  const { s, d, nav, update, toast, setOpening } = useApp(),
+  const { s, d, nav, api, refresh, toast, setOpening, peers } = useApp(),
+    { busy, error, run } = useAction(),
     p = allPieces(s).find((p) => p.id === id),
+    [wasConfirmed] = useState(p ? d.cards[p.card].confirmed : false),
     [guess, setGuess] = useState<string | null>(null),
     [stage, setStage] = useState<"guess" | "opening" | "open">("guess"),
     [reduced, setReduced] = useState(false),
@@ -60,21 +62,25 @@ function GuessContent({ id }: { id: string }) {
     preview = JSON.parse(JSON.stringify(s)) as State;
   openPiece(preview, p.id, guess || "skip");
   const after = derive(preview).cards[p.card],
-    became = after.confirmed && !d.cards[p.card].confirmed;
+    became = after.confirmed && !wasConfirmed;
   const choose = (k: string) => {
     if (stage !== "guess") return;
-    setGuess(k);
-    if (reduced) {
-      setStage("open");
-      return;
-    }
-    setStage("opening");
-    Animated.timing(scale, {
-      toValue: 1.08,
-      duration: 450,
-      useNativeDriver: true,
-    }).start();
-    timer.current = setTimeout(() => setStage("open"), 450);
+    void run(async () => {
+      const saved = await api.openTestimony(p.id, k);
+      await refresh();
+      setGuess(saved.guess ?? "skip");
+      if (reduced) {
+        setStage("open");
+        return;
+      }
+      setStage("opening");
+      Animated.timing(scale, {
+        toValue: 1.08,
+        duration: 450,
+        useNativeDriver: true,
+      }).start();
+      timer.current = setTimeout(() => setStage("open"), 450);
+    });
   };
   return (
     <Board safeTop safeBottom>
@@ -91,6 +97,7 @@ function GuessContent({ id }: { id: string }) {
           </Pressable>
         }
       />
+      {error && <T color={C.yellow}>{error}</T>}
       <ScrollView
         contentContainerStyle={{ gap: 16, paddingBottom: 16 }}
         style={S.fill}
@@ -111,11 +118,12 @@ function GuessContent({ id }: { id: string }) {
                 color={C.ink}
                 style={{ marginTop: -48, marginBottom: 30 }}
               >
-                {PEOPLE[p.fromId].name}より
+                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より
               </T>
             </Animated.View>
             <T display size={24} style={{ textAlign: "center" }}>
-              {PEOPLE[p.fromId].name}の{p.kind === "vibe" ? "印象" : "メモ"}は、
+              {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}の
+              {p.kind === "vibe" ? "印象" : "メモ"}は、
               {"\n"}どのカードの証言？
             </T>
             <View style={[S.row, { gap: 8 }]}>
@@ -124,7 +132,9 @@ function GuessContent({ id }: { id: string }) {
                   key={k}
                   card={bareCard(k, s.self.includes(k))}
                   style={{ flex: 1, height: 220 }}
-                  onPress={() => choose(k)}
+                  onPress={() => {
+                    if (!busy) choose(k);
+                  }}
                 />
               ))}
             </View>
@@ -137,7 +147,7 @@ function GuessContent({ id }: { id: string }) {
           <>
             <Panel>
               <T size={12} color={C.muted}>
-                {PEOPLE[p.fromId].name}より ·{" "}
+                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
                 {p.kind === "vibe" ? "会話の印象" : "見た場面"}
               </T>
               <T display size={20} color={C.ink}>
@@ -183,7 +193,6 @@ function GuessContent({ id }: { id: string }) {
         <Btn
           label="デッキに加える"
           onPress={() => {
-            update((x) => openPiece(x, p.id, guess || "skip"));
             setOpening(null);
             nav.goTab("find", undefined, true);
             if (became)

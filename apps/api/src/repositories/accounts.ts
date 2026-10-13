@@ -31,6 +31,7 @@ export class AccountsRepository {
       profile: profileSchema.parse(JSON.parse(row.profile_json)),
       self: JSON.parse(row.self_json),
       avatarAvailable: row.avatar_key !== null,
+      avatarVersion: row.avatar_key,
     });
   }
   async getPlayer(id: string): Promise<RemotePlayer> {

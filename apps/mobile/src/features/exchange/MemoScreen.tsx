@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import React, { useState } from "react";
 import { ScrollView, View } from "react-native";
 import {
@@ -12,16 +13,17 @@ import {
   S,
   T,
 } from "../../components/ui";
-import { CARDS, PEOPLE, now } from "@flocka/domain";
+import { CARDS } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function Memo() {
-  const { s, update, nav, toast } = useApp(),
+  const { s, api, refresh, nav, toast, peers } = useApp(),
     [step, setStep] = useState(0),
     [to, setTo] = useState(""),
     [card, setCard] = useState(""),
     [story, setStory] = useState(""),
-    [sent, setSent] = useState(false);
+    [sent, setSent] = useState(false),
+    { busy, error, run } = useAction();
   const members = [
     ...new Set(
       s.connections
@@ -30,30 +32,17 @@ export function Memo() {
     ),
   ];
   const send = () => {
-    const allowed = update((x) => {
-      if (
-        !x.connections.some(
-          (c) => c.peerId === to && c.status === "accepted",
-        ) ||
-        x.blocked.includes(to) ||
-        story.trim().length < 8 ||
-        !CARDS[card]
-      )
-        return false;
-      x.sentProofs.push({
-        id: "sp-" + Date.now(),
-        toId: to,
-        card,
-        story: story.trim(),
-        kind: "proof",
-        createdAt: now(),
-      });
-      return true;
-    });
-    if (allowed) {
+    void run(async () => {
+      const exchange = s.connections.find(
+        (connection) =>
+          connection.peerId === to && connection.status === "accepted",
+      );
+      if (!exchange) throw new Error("交換が成立した相手を選んでください");
+      await api.sendScene(exchange.id, card, story.trim());
       setSent(true);
-      toast(`${PEOPLE[to].name}に封筒を贈りました（デモ）`);
-    }
+      await refresh();
+      toast(`${peers[to]?.profile.name ?? "相手"}に封筒を贈りました`);
+    });
   };
   if (sent)
     return (
@@ -65,7 +54,8 @@ export function Memo() {
           </View>
           <Panel>
             <T color={C.muted} size={12}>
-              {PEOPLE[to].name}へ · {CARDS[card].name}
+              {peers[to]?.profile.name ?? "プロフィールを取得中"}へ ·{" "}
+              {CARDS[card].name}
             </T>
             <T display color={C.ink}>
               「{story}」
@@ -74,7 +64,7 @@ export function Memo() {
           <T display size={26} style={{ textAlign: "center" }}>
             封筒で贈りました
           </T>
-          <T size={12}>端末内に記録しました。相手への通信は未接続です。</T>
+          <T size={12}>相手の受信箱に封筒を届けました。</T>
         </View>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
       </Board>
@@ -86,6 +76,7 @@ export function Memo() {
         onBack={() => (step ? setStep(step - 1) : nav.pop())}
         right={<T size={12}>{step + 1}/3</T>}
       />
+      {error && <T color={C.yellow}>{error}</T>}
       <ScrollView
         style={S.fill}
         contentContainerStyle={{ gap: 14, paddingBottom: 14 }}
@@ -95,7 +86,7 @@ export function Memo() {
           {step === 0
             ? "誰に贈る？"
             : step === 1
-              ? `${PEOPLE[to]?.name}の、どの強み？`
+              ? `${peers[to]?.profile.name}の、どの強み？`
               : "その強みを見た場面は？"}
         </T>
         {step === 0 &&
@@ -107,7 +98,7 @@ export function Memo() {
             members.map((id) => (
               <Choice
                 key={id}
-                label={PEOPLE[id].name}
+                label={peers[id]?.profile.name ?? "プロフィールを取得中"}
                 selected={to === id}
                 onPress={() => setTo(id)}
               />
@@ -142,7 +133,7 @@ export function Memo() {
       </ScrollView>
       <Btn
         label={step < 2 ? "次へ" : "封筒で贈る"}
-        disabled={![!!to, !!card, story.trim().length >= 8][step]}
+        disabled={busy || ![!!to, !!card, story.trim().length >= 8][step]}
         onPress={() => (step < 2 ? setStep(step + 1) : send())}
       />
     </Board>

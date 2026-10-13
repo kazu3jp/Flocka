@@ -11,11 +11,11 @@ import {
   StrengthCard,
   T,
 } from "../../components/ui";
-import { PEOPLE, wordsOf } from "@flocka/domain";
+import { wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function CardDetail({ cardKey }: { cardKey: string }) {
-  const { s, d, nav, update } = useApp(),
+  const { s, d, nav, update, peers } = useApp(),
     c = d.cards[cardKey];
   if (!c)
     return (
@@ -87,7 +87,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         >
           <Panel>
             <T color={C.ink}>
-              {PEOPLE[p.fromId].name} ·{" "}
+              {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"} ·{" "}
               {p.guess === "skip"
                 ? "予想なし"
                 : p.guess === p.card

@@ -9,15 +9,16 @@ import {
   StrengthCard,
   T,
 } from "../../components/ui";
-import { PEOPLE, PEER_PROFILE, bareCard, type Card } from "@flocka/domain";
+import { bareCard, type Card } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
+  const { peers } = useApp();
   return (
     <Avatar
-      name={PEOPLE[id]?.name}
+      name={peers[id]?.profile.name}
       size={size}
-      avatar={{ type: "motif", ...PEER_PROFILE[id]?.avatar }}
+      avatar={peers[id]?.profile.avatar}
     />
   );
 }
@@ -29,21 +30,17 @@ export function Player({
   peerId?: string;
   onPick?: () => void;
 }) {
-  const { s, d } = useApp(),
-    peer = peerId ? PEER_PROFILE[peerId] : null;
+  const { s, d, peers } = useApp(),
+    peer = peerId ? peers[peerId] : null;
   const chosen = s.showcase
     .map((k) => d.deck.find((c) => c.key === k))
     .filter((c): c is Card => !!c);
   const cards = peer
-    ? peer.cards.map(([k, n]) => ({
-        ...bareCard(k),
-        givers: Array(n).fill("peer"),
-        confirmed: n >= 2,
-      }))
+    ? peer.self.map((key) => bareCard(key))
     : chosen.length
       ? chosen
       : d.deck.slice(0, 3);
-  const interests = peer ? peer.interests : s.profile.interests;
+  const interests = peer ? peer.profile.interests : s.profile.interests;
   return (
     <Panel style={{ flex: 1, padding: 0, overflow: "hidden", minHeight: 330 }}>
       <View
@@ -62,11 +59,11 @@ export function Player({
           <Avatar name={s.profile.name} avatar={s.profile.avatar} size={64} />
         )}
         <T display size={26} color={C.ink} style={S.fill}>
-          {peerId ? PEOPLE[peerId].name : s.profile.name}
+          {peerId ? peer?.profile.name : s.profile.name}
         </T>
       </View>
       <T size={13} color={C.muted} style={{ paddingHorizontal: 16 }}>
-        {peerId ? PEOPLE[peerId].role : s.profile.role}
+        {peerId ? peer?.profile.role : s.profile.role}
       </T>
       <View style={[S.row, { paddingHorizontal: 16 }]}>
         <T size={12} color={C.ink} style={S.fill}>

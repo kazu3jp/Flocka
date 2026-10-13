@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import React, { useState } from "react";
 import {
   Board,
@@ -10,14 +11,17 @@ import {
   Sheet,
   T,
 } from "../../components/ui";
-import { PEOPLE, approveExchange } from "@flocka/domain";
 import { useApp } from "../../store";
 import { Player } from "./player-card";
 
 export function Confirm({ cid }: { cid: string }) {
-  const { s, nav, update, toast } = useApp(),
+  const { s, nav, api, refresh, toast, peers } = useApp(),
     [memoOpen, setMemoOpen] = useState(false),
-    c = s.connections.find((c) => c.id === cid);
+    c = s.connections.find((c) => c.id === cid),
+    [context, setContextDraft] = useState(
+      c?.context ?? { place: "", trigger: "" },
+    ),
+    { busy, error, run } = useAction();
   if (!c)
     return (
       <Board>
@@ -25,24 +29,30 @@ export function Confirm({ cid }: { cid: string }) {
         <T>交換が見つかりませんでした。</T>
       </Board>
     );
-  const done = !!c.context.place.trim() && !!c.context.trigger.trim(),
+  const done = !!context.place.trim() && !!context.trigger.trim(),
     pending = c.status === "pending" && !c.myApproved;
   const approve = () => {
     if (!done) {
       setMemoOpen(true);
       return;
     }
-    const accepted = update((x) => approveExchange(x, cid));
-    if (accepted) {
+    void run(async () => {
+      const exchange = await api.approveExchange(
+        cid,
+        context.place,
+        context.trigger,
+      );
+      await refresh();
       setMemoOpen(false);
-      toast(`交換成立！${PEOPLE[c.peerId].name}とつながりました（デモ）`);
-    }
+      toast(
+        exchange.status === "accepted"
+          ? `交換成立！${peers[c.peerId]?.profile.name ?? "相手"}とつながりました`
+          : "承認しました。相手の承認を待っています",
+      );
+    });
   };
   const setContext = (key: "place" | "trigger", value: string) =>
-    update((x) => {
-      const cc = x.connections.find((v) => v.id === cid);
-      if (cc) cc.context[key] = value;
-    });
+    setContextDraft((current) => ({ ...current, [key]: value }));
   return (
     <Board>
       <Header
@@ -52,6 +62,7 @@ export function Confirm({ cid }: { cid: string }) {
           <T size={12}>{c.status === "accepted" ? "交換成立" : "内容確認"}</T>
         }
       />
+      {error && <T color={C.yellow}>{error}</T>}
       <Player peerId={c.peerId} />
       {!pending && (
         <Panel style={{ padding: 10 }}>
@@ -71,7 +82,8 @@ export function Confirm({ cid }: { cid: string }) {
       {c.status === "accepted" ? (
         <>
           <T size={14} style={{ textAlign: "center" }}>
-            {PEOPLE[c.peerId].name}とつながりました！
+            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+            とつながりました！
           </T>
           <Btn
             label={c.vibe ? "交換へ戻る" : "印象を贈る"}
@@ -85,18 +97,18 @@ export function Confirm({ cid }: { cid: string }) {
         <>
           <Btn
             label={c.myApproved ? "相手の承認を待っています…" : "交換する"}
-            disabled={c.myApproved}
+            disabled={c.myApproved || busy}
             onPress={approve}
           />
           <LinkButton
             label="キャンセル"
             onPress={() => {
-              update((x) => {
-                const cc = x.connections.find((v) => v.id === cid);
-                if (cc) cc.status = "cancelled";
+              void run(async () => {
+                await api.cancelExchange(cid);
+                await refresh();
+                toast("キャンセルしました");
+                nav.pop();
               });
-              toast("キャンセルしました");
-              nav.pop();
             }}
           />
         </>
@@ -109,21 +121,21 @@ export function Confirm({ cid }: { cid: string }) {
           <Field
             label="場所・イベント名（必須）"
             maxLength={60}
-            value={c.context.place}
+            value={context.place}
             placeholder="例：学校のラウンジ、勉強会"
             onChangeText={(v) => setContext("place", v)}
           />
           <Field
             label="交換のきっかけ（必須）"
             maxLength={100}
-            value={c.context.trigger}
+            value={context.trigger}
             placeholder="例：同じチームで発表を準備した"
             onChangeText={(v) => setContext("trigger", v)}
           />
           <Btn
             label={pending ? "保存して交換する" : "保存する"}
-            disabled={!done}
-            onPress={() => (pending ? approve() : setMemoOpen(false))}
+            disabled={!done || busy}
+            onPress={approve}
           />
           {!done && <T size={12}>2つの項目を入力すると進めます</T>}
         </Sheet>

@@ -10,11 +10,11 @@ import {
   S,
   T,
 } from "../../components/ui";
-import { PEOPLE, wordsOf } from "@flocka/domain";
+import { wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function Pieces() {
-  const { d, nav, setOpening } = useApp();
+  const { d, nav, setOpening, peers } = useApp();
   return (
     <Board scroll>
       <Header title="届いた証言" onBack={nav.pop} />
@@ -37,8 +37,8 @@ export function Pieces() {
               {p.opened ? <Icon name="doc" color={C.ink} /> : <Envelope />}
               <View style={S.fill}>
                 <T color={C.ink}>
-                  {PEOPLE[p.fromId].name}より ·{" "}
-                  {p.opened ? "開封済み" : "未開封"}
+                  {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より
+                  · {p.opened ? "開封済み" : "未開封"}
                 </T>
                 <T color={C.muted} size={13}>
                   {p.opened ? wordsOf(p) : "どのカードの証言か予想しよう"}

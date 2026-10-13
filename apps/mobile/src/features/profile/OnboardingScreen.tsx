@@ -1,4 +1,3 @@
-import { getApiClient } from "../auth/client";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import {
@@ -52,7 +51,7 @@ const STEPS = [
 ];
 
 export function Onboarding() {
-  const { s, update, nav, toast } = useApp(),
+  const { s, update, api, refresh, nav, toast } = useApp(),
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
@@ -70,12 +69,15 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      await getApiClient().createAccount(input, sel);
+      await api.createAccount(input, sel);
+      if (input.avatar.type === "photo" && input.avatar.photo)
+        await api.uploadAvatar(input.avatar.photo);
       update((x) => {
         x.profile = input;
         x.self = sel;
         x.onboarded = true;
       });
+      await refresh();
       nav.reset();
       toast("デッキができた！");
     } catch (error) {

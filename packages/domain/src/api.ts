@@ -27,6 +27,7 @@ export const remotePlayerSchema = z.object({
   profile: profileSchema,
   self: z.array(strengthKeySchema),
   avatarAvailable: z.boolean(),
+  avatarVersion: z.string().nullable().optional(),
 });
 export type RemotePlayer = z.infer<typeof remotePlayerSchema>;
 export const inviteSchema = z.object({
@@ -129,6 +130,9 @@ const sentPieceSchema = z.object({
   createdAt: z.string(),
 });
 const requestSchema = z.object({
+  id: z.string().optional(),
+  status: z.enum(["pending", "reviewed", "removed", "rejected"]).optional(),
+  resolution: z.string().nullable().optional(),
   pieceId: z.string(),
   reason: z.string().optional(),
   at: z.string(),
@@ -140,24 +144,22 @@ export const appStateSchema: z.ZodType<State> = z.object({
   profile: profileSchema.extend({ name: z.string().max(16) }),
   self: z.array(strengthKeySchema).max(3),
   showcase: z.array(strengthKeySchema).max(3),
-  connections: z
-    .array(
-      z.object({
-        id: z.string(),
-        peerId: z.string(),
-        status: z.enum(["pending", "accepted", "cancelled"]),
-        myApproved: z.boolean(),
-        exchangedAt: z.string().optional(),
-        context: z.object({ place: z.string(), trigger: z.string() }),
-        vibe: z.string().nullable(),
-        later: z.boolean(),
-      }),
-    )
-    .max(1000),
-  vibes: z.array(pieceSchema).max(1000),
-  proofs: z.array(pieceSchema).max(1000),
-  sentVibes: z.array(sentPieceSchema).max(1000),
-  sentProofs: z.array(sentPieceSchema).max(1000),
+  connections: z.array(
+    z.object({
+      id: z.string(),
+      peerId: z.string(),
+      status: z.enum(["pending", "accepted", "cancelled"]),
+      myApproved: z.boolean(),
+      exchangedAt: z.string().optional(),
+      context: z.object({ place: z.string(), trigger: z.string() }),
+      vibe: z.string().nullable(),
+      later: z.boolean(),
+    }),
+  ),
+  vibes: z.array(pieceSchema),
+  proofs: z.array(pieceSchema),
+  sentVibes: z.array(sentPieceSchema),
+  sentProofs: z.array(sentPieceSchema),
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
   deco: z.record(
     strengthKeySchema,
@@ -179,10 +181,10 @@ export const appStateSchema: z.ZodType<State> = z.object({
     }),
   ),
   prDraft: z.string().max(20_000).nullable(),
-  blocked: z.array(z.string()).max(1000),
+  blocked: z.array(z.string()),
   settings: settingsSchema,
-  reports: z.array(requestSchema).max(1000),
-  deletions: z.array(requestSchema).max(1000),
+  reports: z.array(requestSchema),
+  deletions: z.array(requestSchema),
 });
 export const backupRequestSchema = z.object({
   revision: z.number().int().min(1).nullable(),

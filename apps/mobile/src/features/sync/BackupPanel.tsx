@@ -4,10 +4,9 @@ import type { State } from "@flocka/domain";
 import { Btn, C, Panel, S, T } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
-import { getApiClient } from "../auth/client";
 
 export function BackupPanel() {
-  const { s, demo, update, toast } = useApp(),
+  const { s, update, toast, api, refresh } = useApp(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
     [revision, setRevision] = useState<number | null>(null),
@@ -35,7 +34,7 @@ export function BackupPanel() {
       if (mounted.current) setBusy(false);
     }
   };
-  const client = getApiClient;
+  const client = () => api;
   const getRevision = async (api: FlockaApiClient) => {
     try {
       return (await api.getBackup()).revision;
@@ -78,7 +77,19 @@ export function BackupPanel() {
       if (snapshot.profile.avatar.type === "photo")
         snapshot.profile.avatar.photo = await api.getAvatar(true);
       if (!mounted.current) return;
-      update((state) => Object.assign(state, snapshot));
+      await api.updateProfile(snapshot.profile, snapshot.self);
+      if (
+        snapshot.profile.avatar.type === "photo" &&
+        snapshot.profile.avatar.photo
+      )
+        await api.uploadAvatar(snapshot.profile.avatar.photo);
+      update((state) => {
+        state.showcase = snapshot.showcase;
+        state.resp = snapshot.resp;
+        state.deco = snapshot.deco;
+        state.prDraft = snapshot.prDraft;
+      });
+      await refresh();
       if (mounted.current) setRevision(saved.revision);
       toast("バックアップを復元しました");
     });
@@ -91,55 +102,49 @@ export function BackupPanel() {
         <T color={C.muted} size={12}>
           プロフィールとデッキ、写真をサーバーに保存します。操作したときだけ送信します。
         </T>
-        {demo ? (
-          <T color={C.muted} size={13}>
-            サンプル体験中はバックアップを操作できません。
-          </T>
-        ) : (
-          <>
-            <Btn
-              small
-              label="接続を確認する"
-              disabled={busy}
-              onPress={() => void connect()}
-            />
-            {
-              <>
-                <Btn
-                  small
-                  label="バックアップを保存"
-                  disabled={busy}
-                  onPress={() =>
-                    ask(
-                      "サーバーに保存する？",
-                      "この端末のデッキと写真を、設定されたAPIに保存します。",
-                      () => {
-                        void upload();
-                      },
-                      "保存する",
-                    )
-                  }
-                />
-                <Btn
-                  small
-                  plain
-                  label="バックアップを復元"
-                  disabled={busy}
-                  onPress={() =>
-                    ask(
-                      "バックアップを復元する？",
-                      "この端末のデッキをサーバーの保存内容に置き換えます。",
-                      () => {
-                        void download();
-                      },
-                      "復元する",
-                    )
-                  }
-                />
-              </>
-            }
-          </>
-        )}
+        <>
+          <Btn
+            small
+            label="接続を確認する"
+            disabled={busy}
+            onPress={() => void connect()}
+          />
+          {
+            <>
+              <Btn
+                small
+                label="バックアップを保存"
+                disabled={busy}
+                onPress={() =>
+                  ask(
+                    "サーバーに保存する？",
+                    "この端末のデッキと写真を、設定されたAPIに保存します。",
+                    () => {
+                      void upload();
+                    },
+                    "保存する",
+                  )
+                }
+              />
+              <Btn
+                small
+                plain
+                label="バックアップを復元"
+                disabled={busy}
+                onPress={() =>
+                  ask(
+                    "バックアップを復元する？",
+                    "プロフィール・装飾・自己PR下書きを復元します。交換相手や届いた証言は現在のサーバー情報を維持します。",
+                    () => {
+                      void download();
+                    },
+                    "復元する",
+                  )
+                }
+              />
+            </>
+          }
+        </>{" "}
         {error && (
           <T color={C.danger} size={13}>
             {error}

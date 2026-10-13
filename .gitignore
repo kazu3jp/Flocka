@@ -47,3 +47,9 @@ yarn-error.*
 .env
 
 !.dev.vars.example
+
+/apps/mobile/ios/
+/apps/mobile/android/
+
+/apps/mobile/modules/*/android/build/
+/apps/mobile/modules/*/ios/build/

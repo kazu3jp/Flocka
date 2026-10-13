@@ -8,7 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "jp.kazu3.flocka"
+      "bundleIdentifier": "jp.kazu3.flocka",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "近くで交換画面を開いている人を見つけ、交換コードを共有するためにBluetoothを使います。"
+      }
     },
     "android": {
       "package": "jp.kazu3.flocka",

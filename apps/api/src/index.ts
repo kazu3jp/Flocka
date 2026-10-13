@@ -50,6 +50,7 @@ app.use(
       "Authorization",
       "expo-origin",
       "x-skip-oauth-proxy",
+      "X-Flocka-Account",
     ],
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   }),

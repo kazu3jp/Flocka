@@ -63,6 +63,9 @@ export type DecoData = {
 };
 
 export type RequestRecord = {
+  id?: string;
+  status?: "pending" | "reviewed" | "removed" | "rejected";
+  resolution?: string | null;
   pieceId: string;
   reason?: string;
   at: string;

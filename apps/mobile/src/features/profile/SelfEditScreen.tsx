@@ -1,12 +1,14 @@
+import { useAction } from "../sync/use-action";
 import { useState } from "react";
 import { CardPicker, InterestsPicker } from "../../components/pickers";
-import { Board, Btn, Field, Header } from "../../components/ui";
+import { Board, Btn, C, Field, Header, T } from "../../components/ui";
 import { useApp } from "../../store";
 
 export function SelfEdit() {
-  const { s, update, nav, toast } = useApp(),
+  const { s, saveProfile, nav, toast } = useApp(),
     [profile, setProfile] = useState(s.profile),
-    [sel, setSel] = useState(s.self);
+    [sel, setSel] = useState(s.self),
+    { busy, error, run } = useAction();
   return (
     <Board scroll>
       <Header title="プロフィール" onBack={nav.pop} />
@@ -22,6 +24,7 @@ export function SelfEdit() {
         value={profile.role}
         onChangeText={(role) => setProfile({ ...profile, role })}
       />
+      {error && <T color={C.yellow}>{error}</T>}
       <CardPicker selected={sel} onChange={setSel} />
       <InterestsPicker
         selected={profile.interests}
@@ -29,18 +32,22 @@ export function SelfEdit() {
       />
       <Btn
         label="保存"
-        disabled={!profile.name.trim() || sel.length < 2 || sel.length > 3}
+        disabled={
+          busy || !profile.name.trim() || sel.length < 2 || sel.length > 3
+        }
         onPress={() => {
-          update((x) => {
-            x.profile = {
-              ...profile,
-              name: profile.name.trim(),
-              role: profile.role.trim(),
-            };
-            x.self = sel;
+          void run(async () => {
+            await saveProfile(
+              {
+                ...profile,
+                name: profile.name.trim(),
+                role: profile.role.trim(),
+              },
+              sel,
+            );
+            toast("プロフィールを保存しました");
+            nav.pop();
           });
-          toast("プロフィールを保存しました");
-          nav.pop();
         }}
       />
     </Board>

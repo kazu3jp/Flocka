@@ -24,6 +24,7 @@ export class ApiClientError extends Error {
   }
 }
 export type SessionTransport = {
+  accountId?: string;
   cookie?: () => string | Promise<string>;
   credentials?: RequestCredentials;
 };
@@ -62,6 +63,9 @@ export class FlockaApiClient {
         signal: controller.signal,
         credentials: this.auth.credentials ?? "include",
         headers: {
+          ...(this.auth.accountId
+            ? { "X-Flocka-Account": this.auth.accountId }
+            : {}),
           ...(this.auth.cookie ? { Cookie: await this.auth.cookie() } : {}),
           ...(body !== undefined ? { "Content-Type": contentType } : {}),
         },
@@ -239,6 +243,17 @@ export class FlockaApiClient {
       revision,
       avatarKey,
     });
+  }
+  getInviteStatus(code: string) {
+    return this.json(
+      "/v1/invites/status",
+      z.object({
+        expiresAt: z.string(),
+        exchange: remoteExchangeSchema.nullable(),
+      }),
+      "POST",
+      { code },
+    );
   }
   createInvite() {
     return this.json("/v1/invites", inviteSchema, "POST");

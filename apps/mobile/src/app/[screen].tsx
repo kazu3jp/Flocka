@@ -45,6 +45,7 @@ export default function Screen() {
       id?: string;
     }>(),
     {
+      toast,
       ready,
       error,
       s,
@@ -52,15 +53,17 @@ export default function Screen() {
       nav,
       d,
       setOpening,
-      demo,
-      loadDemo,
-      exitDemo,
+      syncError,
+      syncing,
+      refresh,
+      preferenceConflict,
+      resolvePreferences,
       notification,
       dismissToast,
       saveError,
       retrySave,
-    } = useApp(),
-    [demoSheet, setDemoSheet] = useState(false);
+    } = useApp();
+  const [resolvingConflict, setResolvingConflict] = useState(false);
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const listener = (e: KeyboardEvent) => {
@@ -144,8 +147,8 @@ export default function Screen() {
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={demo ? "体験を終了" : "体験してみる"}
-            onPress={() => (demo ? exitDemo() : setDemoSheet(true))}
+            accessibilityLabel="サーバーと同期"
+            onPress={() => void refresh().catch(() => {})}
             style={{
               paddingHorizontal: 10,
               borderRadius: 99,
@@ -156,7 +159,7 @@ export default function Screen() {
             }}
           >
             <T size={10} color={C.pale}>
-              {demo ? "体験を終了" : "体験してみる"}
+              {syncing ? "同期中…" : "同期"}
             </T>
           </Pressable>
         </View>
@@ -210,7 +213,9 @@ export default function Screen() {
       {saveError && (
         <Pressable
           accessibilityRole="button"
-          onPress={retrySave}
+          onPress={() =>
+            preferenceConflict ? setResolvingConflict(true) : retrySave()
+          }
           style={{
             position: "absolute",
             top: 30,
@@ -265,19 +270,52 @@ export default function Screen() {
         </Pressable>
       )}
       <GuessOverlay />
-      {demoSheet && (
-        <Sheet title="サンプルで体験" onClose={() => setDemoSheet(false)}>
-          <T>
-            元のデザインと同じハルカのデッキで、開封・デコ・自己PRを体験できます。自分の保存データは維持され、体験中の変更は保存されません。
+      {resolvingConflict && preferenceConflict && (
+        <Sheet
+          title="別の端末で更新されています"
+          onClose={() => setResolvingConflict(false)}
+        >
+          <T size={13}>自己PR下書き（この端末）</T>
+          <T size={12}>{s.prDraft?.slice(0, 200) || "下書きなし"}</T>
+          <T size={13}>自己PR下書き（サーバー）</T>
+          <T size={12}>
+            {preferenceConflict.data.prDraft?.slice(0, 200) || "下書きなし"}
           </T>
+          <T size={12}>装飾と表示カードも、選んだ側の内容を採用します。</T>
           <Btn
-            label="体験をはじめる"
-            onPress={() => {
-              setDemoSheet(false);
-              loadDemo();
-            }}
+            label="サーバーの内容を取り込む"
+            onPress={() =>
+              void resolvePreferences("server")
+                .then(() => setResolvingConflict(false))
+                .catch((error) => toast(error.message))
+            }
+          />
+          <Btn
+            plain
+            label="この端末の編集を保存する"
+            onPress={() =>
+              void resolvePreferences("local")
+                .then(() => setResolvingConflict(false))
+                .catch((error) => toast(error.message))
+            }
           />
         </Sheet>
+      )}
+      {syncError && (
+        <Pressable
+          onPress={() => void refresh().catch(() => {})}
+          style={{
+            position: "absolute",
+            top: 30,
+            left: 14,
+            right: 14,
+            backgroundColor: C.danger,
+            padding: 12,
+            borderRadius: 10,
+          }}
+        >
+          <T size={12}>{syncError} · タップして再同期</T>
+        </Pressable>
       )}
     </View>
   );

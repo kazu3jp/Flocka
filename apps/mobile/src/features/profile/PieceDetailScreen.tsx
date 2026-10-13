@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import { View } from "react-native";
 import { useConfirmation } from "../../components/pickers";
 import {
@@ -11,11 +12,12 @@ import {
   StrengthCard,
   T,
 } from "../../components/ui";
-import { CARDS, PEOPLE, allPieces, now, wordsOf } from "@flocka/domain";
+import { CARDS, allPieces, wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PieceDetail({ id }: { id: string }) {
-  const { s, nav, update, toast, d } = useApp(),
+  const { s, nav, api, refresh, toast, d, peers } = useApp(),
+    { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
   if (!p)
@@ -26,25 +28,17 @@ export function PieceDetail({ id }: { id: string }) {
       </Board>
     );
   const changeVisibility = (visibility: "private" | "public" | "hidden") => {
-    const old = p.visibility;
     const apply = () => {
-      update((x) => {
-        const q = [...x.vibes, ...x.proofs].find((p) => p.id === id);
-        if (q) q.visibility = visibility;
-      });
-      toast("公開範囲を変更しました", {
-        label: "取り消す",
-        fn: () =>
-          update((x) => {
-            const q = [...x.vibes, ...x.proofs].find((p) => p.id === id);
-            if (q) q.visibility = old;
-          }),
+      void run(async () => {
+        await api.changeVisibility(id, visibility);
+        await refresh();
+        toast("公開範囲を変更しました");
       });
     };
     if (visibility === "public")
       ask(
         "個別公開する？",
-        "この証言を個別公開に設定します。現在は端末内のデモ設定で、他の人へ送信されません。",
+        "交換した相手が、この証言をプロフィールから閲覧できるようになります。",
         apply,
         "個別公開する",
       );
@@ -53,9 +47,10 @@ export function PieceDetail({ id }: { id: string }) {
   return (
     <Board scroll>
       <Header title="証言" onBack={nav.pop} />
+      {error && <T color={C.yellow}>{error}</T>}
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
-          {PEOPLE[p.fromId].name}より ·{" "}
+          {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
           {p.kind === "proof" ? "見た場面" : "会話の印象"}
         </T>
         <T display color={C.ink} size={20}>
@@ -103,19 +98,9 @@ export function PieceDetail({ id }: { id: string }) {
           onPress={() => changeVisibility(v)}
         />
       ))}
-      <Btn
-        plain
-        label="通報"
-        icon="flag"
-        onPress={() =>
-          ask(
-            "通報理由",
-            "理由を選んで、この端末の記録に残します。運営への送信はまだ接続されていません。",
-            () => {},
-            "閉じる",
-          )
-        }
-      />
+      <T display size={18}>
+        通報理由
+      </T>
       <View style={S.wrap}>
         {["不適切な内容", "嫌がらせ", "個人情報", "その他"].map((reason) => (
           <LinkButton
@@ -124,14 +109,15 @@ export function PieceDetail({ id }: { id: string }) {
             onPress={() =>
               ask(
                 "通報する？",
-                `「${reason}」として端末内に記録します。`,
+                `「${reason}」として運営に送信します。`,
                 () => {
-                  update((x) =>
-                    x.reports.push({ pieceId: id, reason, at: now() }),
-                  );
-                  toast("通報を端末内に記録しました");
+                  void run(async () => {
+                    await api.requestModeration(id, "report", reason);
+                    await refresh();
+                    toast("通報を受け付けました");
+                  });
                 },
-                "記録する",
+                "通報する",
               )
             }
           />
@@ -141,22 +127,18 @@ export function PieceDetail({ id }: { id: string }) {
         plain
         label="この人をブロック"
         icon="ban"
+        disabled={busy}
         onPress={() =>
           ask(
             "ブロックする？",
             "この人の証言をデッキ・自己PRから外し、交換一覧にも表示しません。",
             () => {
-              update((x) => {
-                if (!x.blocked.includes(p.fromId)) x.blocked.push(p.fromId);
+              void run(async () => {
+                await api.block(p.fromId);
+                await refresh();
+                toast("ブロックしました");
+                nav.pop();
               });
-              toast("ブロックしました", {
-                label: "取り消す",
-                fn: () =>
-                  update((x) => {
-                    x.blocked = x.blocked.filter((v) => v !== p.fromId);
-                  }),
-              });
-              nav.pop();
             },
             "ブロックする",
           )
@@ -166,23 +148,19 @@ export function PieceDetail({ id }: { id: string }) {
         plain
         label="削除依頼"
         icon="trash"
+        disabled={busy}
         onPress={() =>
           ask(
-            "削除依頼を記録する？",
-            "依頼をこの端末に記録します。運営への送信はまだ接続されていません。",
+            "削除を依頼する？",
+            "この証言の削除依頼を運営に送信します。",
             () => {
-              const at = now();
-              update((x) => x.deletions.push({ pieceId: id, at }));
-              toast("削除依頼を端末内に記録しました", {
-                label: "取り消す",
-                fn: () =>
-                  update((x) => {
-                    const r = x.deletions.find((r) => r.at === at);
-                    if (r) r.withdrawn = true;
-                  }),
+              void run(async () => {
+                await api.requestModeration(id, "deletion");
+                await refresh();
+                toast("削除依頼を受け付けました");
               });
             },
-            "依頼を記録する",
+            "依頼する",
           )
         }
       />

@@ -8,7 +8,6 @@ import {
   Icon,
   S,
   Sheet,
-  T,
 } from "../../components/ui";
 
 import { useApp } from "../../store";
@@ -64,9 +63,6 @@ export function Exchange() {
           onPress={() => nav.push("connections")}
         />
       )}
-      <T size={11} style={{ textAlign: "center" }}>
-        ローカルデモ · 相手への通信は未接続
-      </T>
       {pick && (
         <Sheet
           title="相手に見せる強み（3枚まで）"

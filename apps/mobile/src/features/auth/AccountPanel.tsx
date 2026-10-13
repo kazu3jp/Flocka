@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import { Btn, C, Icon, S, Sheet, T } from "../../components/ui";
-import { useApp } from "../../store";
 import { useAuth } from "./provider";
 import { assertAuthResult, getAuthClient } from "./client";
 export function AccountPanel() {
   const { data, refetch } = useAuth(),
-    { demo } = useApp(),
     [ask, setAsk] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
@@ -41,7 +39,7 @@ export function AccountPanel() {
         plain
         small
         label="ログアウト"
-        disabled={demo || busy}
+        disabled={busy}
         onPress={() => setAsk(true)}
       />
       {ask && (

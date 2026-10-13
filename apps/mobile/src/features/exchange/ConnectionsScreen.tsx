@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import React from "react";
 import { View } from "react-native";
 import {
@@ -11,12 +12,12 @@ import {
   T,
 } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
-import { PEOPLE } from "@flocka/domain";
 import { useApp } from "../../store";
 import { PeerAvatar } from "./player-card";
 
 export function Connections() {
-  const { s, nav, update, toast } = useApp(),
+  const { s, nav, api, refresh, toast, peers } = useApp(),
+    { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation(),
     connections = s.connections.filter(
       (c) => c.status !== "cancelled" && !s.blocked.includes(c.peerId),
@@ -24,6 +25,7 @@ export function Connections() {
   return (
     <Board scroll>
       <Header title="つながった人" onBack={nav.pop} />
+      {error && <T color={C.yellow}>{error}</T>}
       {!connections.length && (
         <Panel>
           <T color={C.ink}>
@@ -37,7 +39,7 @@ export function Connections() {
             <PeerAvatar id={c.peerId} />
             <View style={S.fill}>
               <T display color={C.ink} size={17}>
-                {PEOPLE[c.peerId].name}
+                {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
               </T>
               <T color={C.muted} size={12}>
                 {c.status === "pending"
@@ -55,6 +57,7 @@ export function Connections() {
             <Btn
               style={S.fill}
               small
+              disabled={busy}
               label={
                 c.status === "pending" ? "確認" : c.vibe ? "詳細" : "印象を贈る"
               }
@@ -73,11 +76,11 @@ export function Connections() {
                   "交換を解除する？",
                   "届いた証言は残ります。",
                   () => {
-                    update((x) => {
-                      const cc = x.connections.find((v) => v.id === c.id);
-                      if (cc) cc.status = "cancelled";
+                    void run(async () => {
+                      await api.cancelExchange(c.id);
+                      await refresh();
+                      toast("交換を解除しました");
                     });
-                    toast("交換を解除しました");
                   },
                   "解除する",
                 )

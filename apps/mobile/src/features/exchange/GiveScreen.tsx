@@ -1,3 +1,4 @@
+import { useAction } from "../sync/use-action";
 import React, { useState } from "react";
 import { View } from "react-native";
 import {
@@ -12,24 +13,18 @@ import {
   S,
   T,
 } from "../../components/ui";
-import {
-  CARDS,
-  PEOPLE,
-  VIBES,
-  VIBE_CARD,
-  now,
-  summarize,
-} from "@flocka/domain";
+import { CARDS, VIBES, VIBE_CARD, summarize } from "@flocka/domain";
 import { useApp } from "../../store";
 import { PeerAvatar } from "./player-card";
 
 export function Give({ cid }: { cid: string }) {
-  const { s, update, nav, toast } = useApp(),
+  const { s, update, api, refresh, nav, toast, peers } = useApp(),
     [mode, setMode] = useState<"pick" | "free">("pick"),
     [sel, setSel] = useState(""),
     [text, setText] = useState(""),
     [sum, setSum] = useState<{ card: string; label: string } | null>(null),
-    c = s.connections.find((c) => c.id === cid);
+    c = s.connections.find((c) => c.id === cid),
+    { busy, error, run } = useAction();
   if (!c)
     return (
       <Board>
@@ -45,29 +40,11 @@ export function Give({ cid }: { cid: string }) {
       mode === "pick"
         ? { card: VIBE_CARD[sel], label: sel }
         : sum || summarize(text);
-    const accepted = update((x) => {
-      const cc = x.connections.find((v) => v.id === cid);
-      if (
-        !cc ||
-        cc.vibe ||
-        cc.status !== "accepted" ||
-        x.blocked.includes(cc.peerId)
-      )
-        return false;
-      const id = "sv-" + Date.now();
-      x.sentVibes.push({
-        id,
-        toId: cc.peerId,
-        kind: "vibe",
-        ...content,
-        text: text.trim(),
-        context: { ...cc.context },
-        createdAt: now(),
-      });
-      cc.vibe = id;
-      return true;
+    void run(async () => {
+      await api.sendImpression(cid, content.card, content.label, text.trim());
+      await refresh();
+      toast(`${peers[c.peerId]?.profile.name ?? "相手"}に印象を贈りました`);
     });
-    if (accepted) toast(`${PEOPLE[c.peerId].name}に印象を贈りました（デモ）`);
   };
   if (c.vibe)
     return (
@@ -93,11 +70,10 @@ export function Give({ cid }: { cid: string }) {
           </T>
         </Panel>
         <T display size={24} style={{ textAlign: "center" }}>
-          {PEOPLE[c.peerId].name}に印象を贈りました
+          {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+          に印象を贈りました
         </T>
-        <T size={12}>
-          端末内に贈った記録を保存しました。相手への通信は未接続です。
-        </T>
+        <T size={12}>相手に印象を送りました。相手の受信箱に届きます。</T>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
       </Board>
     );
@@ -108,6 +84,7 @@ export function Give({ cid }: { cid: string }) {
         onBack={nav.pop}
         right={<PeerAvatar id={c.peerId} size={32} />}
       />
+      {error && <T color={C.yellow}>{error}</T>}
       <T display size={21}>
         相手のいいなと思ったところは？
       </T>
@@ -204,7 +181,7 @@ export function Give({ cid }: { cid: string }) {
       )}
       <Panel>
         <T color={C.muted} size={12}>
-          {PEOPLE[c.peerId].name}に贈る印象
+          {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}に贈る印象
         </T>
         <T color={C.ink}>
           {mode === "pick"
@@ -215,7 +192,10 @@ export function Give({ cid }: { cid: string }) {
       <Btn
         label="この印象を贈る"
         disabled={
-          !ready || c.status !== "accepted" || s.blocked.includes(c.peerId)
+          !ready ||
+          busy ||
+          c.status !== "accepted" ||
+          s.blocked.includes(c.peerId)
         }
         onPress={send}
       />

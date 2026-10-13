@@ -14,11 +14,11 @@ import {
   T,
 } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
-import { PEOPLE, buildPR } from "@flocka/domain";
+import { buildPR } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PR() {
-  const { s, d, nav, update, toast, setOpening } = useApp(),
+  const { s, d, nav, update, toast, setOpening, peers } = useApp(),
     pr = buildPR(s),
     draft = s.prDraft ?? pr?.text ?? "",
     [shown, setShown] = useState(0),
@@ -149,7 +149,7 @@ export function PR() {
           {pr.sources.map((id) => (
             <Avatar
               key={id}
-              name={PEOPLE[id].name}
+              name={peers[id]?.profile.name ?? "プロフィールを取得中"}
               avatar={{ type: "motif", motif: "cat", color: C.pink }}
               size={24}
             />

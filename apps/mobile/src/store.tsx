@@ -10,9 +10,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { BackHandler, Platform } from "react-native";
+import { AppState, BackHandler, Platform } from "react-native";
 import {
-  demoState,
+  applySnapshot,
+  preferencesOf,
   derive,
   fresh,
   initNav,
@@ -23,10 +24,11 @@ import {
   type ScreenId,
   type State,
   type Tab,
+  type Profile,
+  type Preferences,
+  type RemotePlayer,
 } from "@flocka/domain";
 
-const STATE_KEY = "flocka-expo-state-v1",
-  NAV_KEY = "flocka-expo-nav-v1";
 export const routeFor = (entry: Entry): Href => ({
   pathname: "/[screen]",
   params: { screen: entry.id, ...entry.params },
@@ -50,12 +52,18 @@ type ContextValue = {
   ready: boolean;
   error: string | null;
   saveError: string | null;
+  syncError: string | null;
+  syncing: boolean;
+  peers: Record<string, RemotePlayer>;
+  isAdmin: boolean;
+  preferenceConflict: { data: Preferences; revision: number } | null;
+  resolvePreferences: (choice: "server" | "local") => Promise<void>;
   reload: () => void;
   retrySave: () => void;
+  refresh: () => Promise<void>;
   update: <R>(recipe: (draft: State) => R) => R;
-  loadDemo: () => void;
-  exitDemo: () => void;
-  demo: boolean;
+  api: ReturnType<typeof getApiClient>;
+  saveProfile: (profile: Profile, self: string[]) => Promise<void>;
   opening: string | null;
   setOpening: (id: string | null) => void;
   toast: (text: string, action?: Toast["action"]) => void;
@@ -70,79 +78,205 @@ export function Provider({
   children: React.ReactNode;
   storageScope: string;
 }) {
-  const stateKey = `${STATE_KEY}:${storageScope}`,
-    navKey = `${NAV_KEY}:${storageScope}`;
   const router = useRouter(),
+    [api] = useState(() =>
+      getApiClient(storageScope === "signed-out" ? undefined : storageScope),
+    ),
+    stateKey = `flocka-expo-state-v1:${storageScope}`,
+    navKey = `flocka-expo-nav-v1:${storageScope}`,
     [s, setS] = useState(fresh),
     [n, setN] = useState(initNav),
     [ready, setReady] = useState(false),
     [error, setError] = useState<string | null>(null),
     [saveError, setSaveError] = useState<string | null>(null),
+    [syncError, setSyncError] = useState<string | null>(null),
+    [syncing, setSyncing] = useState(false),
+    [peers, setPeers] = useState<Record<string, RemotePlayer>>({}),
+    [isAdmin, setIsAdmin] = useState(false),
+    [preferenceConflict, setPreferenceConflict] = useState<{
+      data: Preferences;
+      revision: number;
+    } | null>(null),
     [opening, setOpening] = useState<string | null>(null),
     [notification, setNotification] = useState<Toast | null>(null),
     [reloadKey, setReloadKey] = useState(0);
   const stateRef = useRef(s),
     navRef = useRef(n),
+    mounted = useRef(true),
+    prefsRevision = useRef(1),
+    savedPreferences = useRef(JSON.stringify(preferencesOf(fresh()))),
+    syncQueue = useRef(Promise.resolve()),
     saveQueue = useRef(Promise.resolve()),
-    timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const demoRef = useRef(false);
-  const [demo, setDemo] = useState(false),
-    backup = useRef<{ s: State; n: NavState } | null>(null);
+    timer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    ownAvatar = useRef<{ version?: string | null; photo: string } | null>(null),
+    peerPhotos = useRef(
+      new Map<string, { version?: string | null; photo: string }>(),
+    );
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
   const toast = useCallback((text: string, action?: Toast["action"]) => {
     if (timer.current) clearTimeout(timer.current);
     setNotification({ text, action });
     timer.current = setTimeout(
       () => setNotification(null),
-      action ? 5000 : 2600,
+      action ? 5000 : 3000,
     );
   }, []);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+  const synchronize = useCallback(async () => {
+    const snapshot = await api.getSnapshot();
+    if (!mounted.current) return;
+    if (
+      snapshot.player.profile.avatar.type === "photo" &&
+      snapshot.player.avatarAvailable
+    ) {
+      if (
+        ownAvatar.current?.version !== snapshot.player.avatarVersion ||
+        !ownAvatar.current
+      )
+        ownAvatar.current = {
+          version: snapshot.player.avatarVersion,
+          photo: await api.getAvatar(),
+        };
+      snapshot.player.profile.avatar.photo = ownAvatar.current.photo;
+    }
+    for (const peer of snapshot.peers) {
+      if (
+        peer.profile.avatar.type !== "photo" ||
+        !peer.avatarAvailable ||
+        snapshot.blocked.includes(peer.id)
+      )
+        continue;
+      let photo = peerPhotos.current.get(peer.id);
+      if (!photo || photo.version !== peer.avatarVersion) {
+        try {
+          photo = {
+            version: peer.avatarVersion,
+            photo: await api.peerAvatar(peer.id),
+          };
+          peerPhotos.current.set(peer.id, photo);
+        } catch (error) {
+          if (!(error instanceof ApiClientError && error.status === 404))
+            throw error;
+        }
+      }
+      if (photo) peer.profile.avatar.photo = photo.photo;
+    }
+    if (!mounted.current) return;
+    const dirty =
+      JSON.stringify(preferencesOf(stateRef.current)) !==
+      savedPreferences.current;
+    const next = applySnapshot(snapshot, stateRef.current, dirty);
+    if (dirty && snapshot.preferences.revision !== prefsRevision.current) {
+      setPreferenceConflict(snapshot.preferences);
+      setSaveError(
+        "別の端末で更新されています。編集を比較して選択してください",
+      );
+    } else prefsRevision.current = snapshot.preferences.revision;
+    if (!dirty)
+      savedPreferences.current = JSON.stringify(snapshot.preferences.data);
+    stateRef.current = next;
+    setS(next);
+    setPeers(Object.fromEntries(snapshot.peers.map((peer) => [peer.id, peer])));
+    setIsAdmin(snapshot.isAdmin);
+  }, [api]);
+  const refresh = useCallback(() => {
+    const task = syncQueue.current
+      .catch(() => {})
+      .then(async () => {
+        if (!mounted.current || storageScope === "signed-out") return;
+        setSyncing(true);
+        try {
+          await synchronize();
+          if (mounted.current) setSyncError(null);
+        } catch (error) {
+          if (mounted.current)
+            setSyncError(
+              error instanceof Error ? error.message : "同期に失敗しました",
+            );
+          throw error;
+        } finally {
+          if (mounted.current) setSyncing(false);
+        }
+      });
+    syncQueue.current = task;
+    return task;
+  }, [storageScope, synchronize]);
   useEffect(() => {
     let active = true;
-    Promise.all([AsyncStorage.getItem(stateKey), AsyncStorage.getItem(navKey)])
-      .then(async ([raw, navRaw]) => {
+    void (async () => {
+      try {
+        const [raw, rawNav] = await Promise.all([
+          AsyncStorage.getItem(stateKey),
+          AsyncStorage.getItem(navKey),
+        ]);
         if (!active) return;
-        const state = restoreState(raw);
-        if (raw === null && storageScope !== "signed-out") {
+        // Cached remote evidence is never used as authoritative data after sign-in.
+        const cached = restoreState(raw),
+          navigation = rawNav ? JSON.parse(rawNav) : null;
+        stateRef.current = fresh();
+        navRef.current = validNav(navigation) ? navigation : initNav();
+        setN(navRef.current);
+        if (storageScope !== "signed-out") {
           try {
-            const player = await getApiClient().getMe();
-            state.profile = player.profile;
-            state.self = player.self;
-            state.onboarded = true;
-            if (player.profile.avatar.type === "photo")
-              state.profile.avatar.photo = await getApiClient().getAvatar();
+            await synchronize();
+            if (
+              cached.onboarded &&
+              prefsRevision.current === 1 &&
+              savedPreferences.current ===
+                JSON.stringify(preferencesOf(fresh())) &&
+              JSON.stringify(preferencesOf(cached)) !== savedPreferences.current
+            ) {
+              const saved = await api.savePreferences(preferencesOf(cached), 1);
+              prefsRevision.current = saved.revision;
+              savedPreferences.current = JSON.stringify(saved.data);
+              stateRef.current = { ...stateRef.current, ...saved.data };
+              setS(stateRef.current);
+            }
           } catch (error) {
             if (!(
               error instanceof ApiClientError &&
               error.code === "PLAYER_NOT_FOUND"
             ))
               throw error;
+            stateRef.current = {
+              ...fresh(),
+              profile: cached.profile,
+              self: cached.self,
+            };
+            setS(stateRef.current);
           }
         }
-        if (!active) return;
-        const savedNav = navRaw ? JSON.parse(navRaw) : null;
-        const navigation = validNav(savedNav) ? savedNav : initNav();
-        stateRef.current = state;
-        navRef.current = navigation;
-        setS(state);
-        setN(navigation);
-        setReady(true);
-      })
-      .catch((e) => {
+        if (active) setReady(true);
+      } catch (error) {
         if (active)
-          setError(`読み込みに失敗しました: ${String(e.message || e)}`);
-      });
+          setError(
+            error instanceof Error ? error.message : "読み込みに失敗しました",
+          );
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [reloadKey, stateKey, navKey, storageScope]);
+  }, [api, navKey, reloadKey, stateKey, storageScope, synchronize]);
+  useEffect(() => {
+    if (!ready || !s.onboarded || storageScope === "signed-out") return;
+    const interval = setInterval(() => {
+      if (AppState.currentState === "active") void refresh().catch(() => {});
+    }, 15_000);
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh().catch(() => {});
+    });
+    return () => {
+      clearInterval(interval);
+      listener.remove();
+    };
+  }, [ready, s.onboarded, storageScope, refresh]);
   const persist = useCallback(() => {
-    if (demoRef.current) return;
     const state = JSON.stringify(stateRef.current),
       navigation = JSON.stringify(navRef.current);
     saveQueue.current = saveQueue.current
@@ -152,20 +286,85 @@ export function Provider({
           [navKey, navigation],
         ]),
       )
-      .then(() => setSaveError(null))
-      .catch((e) => {
-        setSaveError(`保存できませんでした: ${String(e.message || e)}`);
+      .catch((error) => {
+        if (mounted.current)
+          setSaveError(
+            `端末へ保存できませんでした：${String(error.message || error)}`,
+          );
       });
-  }, [stateKey, navKey]);
+  }, [navKey, stateKey]);
   useEffect(() => {
-    if (ready && !demo) persist();
-  }, [s, n, ready, demo, persist]);
+    if (ready) persist();
+  }, [s, n, ready, persist]);
+  const flushPreferences = useCallback(() => {
+    const task = syncQueue.current
+      .catch(() => {})
+      .then(async () => {
+        const data = preferencesOf(stateRef.current),
+          json = JSON.stringify(data);
+        if (
+          !mounted.current ||
+          json === savedPreferences.current ||
+          !stateRef.current.onboarded
+        )
+          return;
+        try {
+          const saved = await api.savePreferences(data, prefsRevision.current);
+          if (!mounted.current) return;
+          prefsRevision.current = saved.revision;
+          savedPreferences.current = json;
+          setSaveError(null);
+        } catch (error) {
+          if (mounted.current)
+            setSaveError(
+              error instanceof Error
+                ? error.message
+                : "サーバーへ保存できませんでした",
+            );
+          throw error;
+        }
+      });
+    syncQueue.current = task;
+    return task;
+  }, [api]);
+  const resolvePreferences = async (choice: "server" | "local") => {
+    if (!preferenceConflict) return;
+    if (choice === "server") {
+      stateRef.current = { ...stateRef.current, ...preferenceConflict.data };
+      setS(stateRef.current);
+      prefsRevision.current = preferenceConflict.revision;
+      savedPreferences.current = JSON.stringify(preferenceConflict.data);
+    } else {
+      const data = preferencesOf(stateRef.current),
+        saved = await api.savePreferences(data, preferenceConflict.revision);
+      prefsRevision.current = saved.revision;
+      savedPreferences.current = JSON.stringify(data);
+    }
+    setPreferenceConflict(null);
+    setSaveError(null);
+  };
+  const preferencesJson = JSON.stringify(preferencesOf(s));
+  useEffect(() => {
+    if (!ready || !s.onboarded || preferencesJson === savedPreferences.current)
+      return;
+    const timer = setTimeout(
+      () => void flushPreferences().catch(() => {}),
+      700,
+    );
+    return () => clearTimeout(timer);
+  }, [ready, s.onboarded, preferencesJson, flushPreferences]);
   const update = <R,>(recipe: (draft: State) => R): R => {
     const next = JSON.parse(JSON.stringify(stateRef.current)) as State;
     const result = recipe(next);
     stateRef.current = next;
     setS(next);
     return result;
+  };
+  const saveProfile = async (profile: Profile, self: string[]) => {
+    if (profile.avatar.type === "photo" && profile.avatar.photo)
+      await api.uploadAvatar(profile.avatar.photo);
+    await api.updateProfile(profile, self);
+    await refresh();
   };
   const commitNav = (next: NavState) => {
     navRef.current = next;
@@ -219,34 +418,6 @@ export function Provider({
     // The listener reads the current navigation through its ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opening]);
-  const loadDemo = () => {
-    if (!demo) backup.current = { s: stateRef.current, n: navRef.current };
-    setDemo(true);
-    demoRef.current = true;
-    const next = demoState();
-    stateRef.current = next;
-    setS(next);
-    nav.reset();
-    toast("サンプルのデッキを開きました");
-  };
-  const exitDemo = () => {
-    if (!backup.current) return;
-    const original = backup.current;
-    backup.current = null;
-    stateRef.current = original.s;
-    navRef.current = original.n;
-    setS(original.s);
-    setN(original.n);
-    setDemo(false);
-    demoRef.current = false;
-    setOpening(null);
-    router.replace(
-      original.s.onboarded
-        ? routeFor(currentEntry(original.n))
-        : routeFor({ id: "onboarding" }),
-    );
-    toast("自分のデータに戻りました");
-  };
   return (
     <Context.Provider
       value={{
@@ -257,16 +428,25 @@ export function Provider({
         ready,
         error,
         saveError,
+        syncError,
+        syncing,
+        peers,
+        isAdmin,
+        preferenceConflict,
+        resolvePreferences,
+        api,
+        refresh,
+        saveProfile,
+        update,
         reload: () => {
           setReady(false);
           setError(null);
-          setReloadKey((k) => k + 1);
+          setReloadKey((key) => key + 1);
         },
-        retrySave: persist,
-        update,
-        loadDemo,
-        exitDemo,
-        demo,
+        retrySave: () => {
+          persist();
+          void flushPreferences().catch(() => {});
+        },
         opening,
         setOpening,
         toast,

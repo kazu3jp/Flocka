@@ -36,13 +36,14 @@ export function getAuthClient() {
   client ??= makeAuthClient(API_URL);
   return client;
 }
-export function getApiClient() {
+export function getApiClient(accountId?: string) {
   if (!API_URL) throw new Error("EXPO_PUBLIC_API_URLを設定してください");
   return new FlockaApiClient(
     API_URL,
     Platform.OS === "web"
-      ? { credentials: "include" }
+      ? { credentials: "include", accountId }
       : {
+          accountId,
           cookie: () => getAuthClient().getCookie() ?? "",
           credentials: "omit",
         },

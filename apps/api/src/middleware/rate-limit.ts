@@ -2,7 +2,9 @@ import { createMiddleware } from "hono/factory";
 import { ApiError, type ApiContext } from "../http";
 export const rateLimit = createMiddleware<ApiContext>(async (c, next) => {
   const window = Math.floor(Date.now() / 60_000),
-    writing = !["GET", "HEAD", "OPTIONS"].includes(c.req.method),
+    writing =
+      !["GET", "HEAD", "OPTIONS"].includes(c.req.method) &&
+      !["/v1/invites/preview", "/v1/invites/status"].includes(c.req.path),
     key = `${c.get("accountId")}:${writing ? "write" : "read"}`,
     max = writing ? 60 : 120;
   const row = await c.env.DB.prepare(
