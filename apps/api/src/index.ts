@@ -1,3 +1,5 @@
+import { applicationRoutes } from "./routes/application";
+import { rateLimit } from "./middleware/rate-limit";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
@@ -64,7 +66,9 @@ app.on(["GET", "POST"], "/api/auth/*", (c) =>
   createAuth(c.env, c.executionCtx).handler(c.req.raw),
 );
 app.use("/v1/*", requireSession);
+app.use("/v1/*", rateLimit);
 app.route("/v1", accountRoutes);
+app.route("/v1", applicationRoutes);
 app.route("/v1", avatarRoutes);
 app.route("/v1", exchangeRoutes);
 app.route("/v1", testimonyRoutes);

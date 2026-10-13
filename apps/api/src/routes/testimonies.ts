@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   createTestimonySchema,
   moderationSchema,
-  remoteTestimonySchema,
   settingsSchema,
   testimonyPatchSchema,
 } from "@flocka/domain";
@@ -11,36 +10,8 @@ import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
 
-type TestimonyRow = {
-  id: string;
-  exchange_id: string;
-  sender_id: string;
-  recipient_id: string;
-  kind: "vibe" | "proof";
-  card: string;
-  label: string | null;
-  text: string | null;
-  story: string | null;
-  opened: number;
-  guess: string | null;
-  visibility: "private" | "public" | "hidden";
-  created_at: string;
-};
-const toTestimony = (row: TestimonyRow) =>
-  remoteTestimonySchema.parse({
-    id: row.id,
-    fromId: row.sender_id,
-    exchangeId: row.exchange_id,
-    kind: row.kind,
-    card: row.card,
-    label: row.label,
-    text: row.text,
-    story: row.story,
-    opened: row.opened === 1,
-    guess: row.guess,
-    visibility: row.visibility,
-    createdAt: row.created_at,
-  });
+import { toTestimony, type TestimonyRow } from "../repositories/testimonies";
+import { enqueueNotification } from "../services/notifications";
 export const testimonyRoutes = new Hono<ApiContext>();
 testimonyRoutes.post("/testimonies", async (c) => {
   const input = await readJson(c, createTestimonySchema),
@@ -103,11 +74,12 @@ testimonyRoutes.post("/testimonies", async (c) => {
       "TESTIMONY_CONFLICT",
       "印象は1人に1つまでです。交換やブロックの状態も確認してください",
     );
+  await enqueueNotification(c.env.DB, recipient, "testimony", id);
   return c.json({ id }, 201);
 });
 testimonyRoutes.get("/testimonies", async (c) => {
   const rows = await c.env.DB.prepare(
-    `SELECT * FROM testimonies AS testimony WHERE recipient_id = ?
+    `SELECT * FROM testimonies AS testimony WHERE recipient_id = ? AND removed_at IS NULL
     AND NOT EXISTS(SELECT 1 FROM blocks WHERE account_id = testimony.recipient_id AND blocked_id = testimony.sender_id)
     ORDER BY created_at DESC, id DESC LIMIT 200`,
   )
@@ -120,7 +92,7 @@ testimonyRoutes.patch("/testimonies/:id", async (c) => {
     id = c.req.param("id"),
     accountId = c.get("accountId");
   const row = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ?",
+    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ? AND removed_at IS NULL",
   )
     .bind(id, accountId)
     .first<TestimonyRow>();
@@ -133,7 +105,7 @@ testimonyRoutes.patch("/testimonies/:id", async (c) => {
       "予想は開封と一緒に記録してください",
     );
   await c.env.DB.prepare(
-    `UPDATE testimonies SET opened = MAX(opened, ?), guess = CASE WHEN opened = 1 THEN guess ELSE ? END, visibility = ? WHERE id = ? AND recipient_id = ?`,
+    `UPDATE testimonies SET opened = MAX(opened, ?), guess = CASE WHEN opened = 1 THEN guess ELSE ? END, visibility = ? WHERE id = ? AND recipient_id = ? AND removed_at IS NULL`,
   )
     .bind(
       patch.opened ? 1 : row.opened,
@@ -144,7 +116,7 @@ testimonyRoutes.patch("/testimonies/:id", async (c) => {
     )
     .run();
   const updated = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ?",
+    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ? AND removed_at IS NULL",
   )
     .bind(id, accountId)
     .first<TestimonyRow>();
@@ -180,7 +152,7 @@ testimonyRoutes.post("/moderation", async (c) => {
   const input = await readJson(c, moderationSchema),
     accountId = c.get("accountId");
   const owns = await c.env.DB.prepare(
-    "SELECT id FROM testimonies WHERE id = ? AND recipient_id = ?",
+    "SELECT id FROM testimonies WHERE id = ? AND recipient_id = ? AND removed_at IS NULL",
   )
     .bind(input.pieceId, accountId)
     .first();
@@ -203,7 +175,7 @@ testimonyRoutes.post("/moderation", async (c) => {
 });
 testimonyRoutes.post("/moderation/:id/withdraw", async (c) => {
   const result = await c.env.DB.prepare(
-    "UPDATE moderation_requests SET withdrawn_at = ? WHERE id = ? AND account_id = ?",
+    "UPDATE moderation_requests SET withdrawn_at = ? WHERE id = ? AND account_id = ? AND status = 'pending'",
   )
     .bind(new Date().toISOString(), c.req.param("id"), c.get("accountId"))
     .run();

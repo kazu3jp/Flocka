@@ -83,6 +83,16 @@ export class ExchangesRepository {
       throw new ApiError(404, "EXCHANGE_NOT_FOUND", "交換が見つかりません");
     return this.toView(row);
   }
+  async listPage(accountId: string, offset: number): Promise<RemoteExchange[]> {
+    const rows = await this.db
+      .prepare(
+        viewQuery +
+          " ORDER BY exchange.created_at DESC, exchange.id DESC LIMIT 101 OFFSET ?",
+      )
+      .bind(accountId, offset)
+      .all<ExchangeViewRow>();
+    return rows.results.map((row) => this.toView(row));
+  }
   async list(accountId: string): Promise<RemoteExchange[]> {
     const rows = await this.db
       .prepare(

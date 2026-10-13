@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
   apiErrorSchema,
+  syncSchema,
+  preferencesRecordSchema,
+  settingsSchema,
+  type Preferences,
   backupRecordSchema,
   inviteSchema,
   remoteExchangeSchema,
@@ -97,6 +101,118 @@ export class FlockaApiClient {
     body?: unknown,
   ): Promise<T> {
     return schema.parse(await (await this.request(path, method, body)).json());
+  }
+  async getSnapshot() {
+    const snapshot = await this.json("/v1/sync?page=0", syncSchema);
+    let next = snapshot.nextPage;
+    while (next !== null) {
+      const page = await this.json(`/v1/sync?page=${next}`, syncSchema);
+      if (page.nextPage !== null && page.nextPage <= next)
+        throw new Error("同期ページが進みません");
+      snapshot.peers.push(...page.peers);
+      snapshot.exchanges.push(...page.exchanges);
+      snapshot.inbox.push(...page.inbox);
+      snapshot.sent.push(...page.sent);
+      snapshot.blocked.push(...page.blocked);
+      snapshot.requests.push(...page.requests);
+      next = page.nextPage;
+    }
+    // Inserts during pagination can repeat rows. Merge by stable identifiers.
+    snapshot.peers = [
+      ...new Map(snapshot.peers.map((item) => [item.id, item])).values(),
+    ];
+    snapshot.exchanges = [
+      ...new Map(snapshot.exchanges.map((item) => [item.id, item])).values(),
+    ];
+    snapshot.inbox = [
+      ...new Map(snapshot.inbox.map((item) => [item.id, item])).values(),
+    ];
+    snapshot.sent = [
+      ...new Map(snapshot.sent.map((item) => [item.id, item])).values(),
+    ];
+    snapshot.requests = [
+      ...new Map(snapshot.requests.map((item) => [item.id, item])).values(),
+    ];
+    snapshot.blocked = [...new Set(snapshot.blocked)];
+    snapshot.nextPage = null;
+    return snapshot;
+  }
+  savePreferences(data: Preferences, revision: number) {
+    return this.json("/v1/me/preferences", preferencesRecordSchema, "PUT", {
+      data,
+      revision,
+    });
+  }
+  saveSettings(settings: z.infer<typeof settingsSchema>) {
+    return this.json("/v1/me/settings", settingsSchema, "PUT", settings);
+  }
+  previewInvite(code: string) {
+    return this.json("/v1/invites/preview", remotePlayerSchema, "POST", {
+      code,
+    });
+  }
+  getExchange(id: string) {
+    return this.json(
+      `/v1/exchanges/${encodeURIComponent(id)}`,
+      remoteExchangeSchema,
+    );
+  }
+  cancelExchange(id: string) {
+    return this.json(
+      `/v1/exchanges/${encodeURIComponent(id)}/cancel`,
+      remoteExchangeSchema,
+      "POST",
+    );
+  }
+  changeVisibility(id: string, visibility: "private" | "public" | "hidden") {
+    return this.json(
+      `/v1/testimonies/${encodeURIComponent(id)}`,
+      remoteTestimonySchema,
+      "PATCH",
+      { visibility },
+    );
+  }
+  block(id: string) {
+    return this.json("/v1/blocks", z.object({ blocked: z.boolean() }), "POST", {
+      playerId: id,
+    });
+  }
+  unblock(id: string) {
+    return this.json(
+      `/v1/blocks/${encodeURIComponent(id)}`,
+      z.object({ blocked: z.boolean() }),
+      "DELETE",
+    );
+  }
+  requestModeration(
+    pieceId: string,
+    kind: "report" | "deletion",
+    reason?: string,
+  ) {
+    return this.json(
+      "/v1/moderation",
+      z.object({ id: z.string().uuid() }),
+      "POST",
+      { pieceId, kind, reason },
+    );
+  }
+  withdrawRequest(id: string) {
+    return this.json(
+      `/v1/moderation/${encodeURIComponent(id)}/withdraw`,
+      z.object({ withdrawn: z.boolean() }),
+      "POST",
+    );
+  }
+  publicTestimonies(id: string) {
+    return this.json(
+      `/v1/players/${encodeURIComponent(id)}/public`,
+      z.object({ items: z.array(remoteTestimonySchema) }),
+    );
+  }
+  async peerAvatar(id: string): Promise<string> {
+    return this.image(
+      await this.request(`/v1/players/${encodeURIComponent(id)}/avatar`),
+    );
   }
   createAccount(profile: Profile, self: string[]) {
     return this.json("/v1/accounts", remotePlayerSchema, "POST", {
@@ -197,9 +313,12 @@ export class FlockaApiClient {
   }
   async getAvatar(backup = false): Promise<string> {
     const response = await this.request(
-        backup ? "/v1/me/backup/avatar" : "/v1/me/avatar",
-      ),
-      bytes = new Uint8Array(await response.arrayBuffer());
+      backup ? "/v1/me/backup/avatar" : "/v1/me/avatar",
+    );
+    return this.image(response);
+  }
+  private async image(response: Response): Promise<string> {
+    const bytes = new Uint8Array(await response.arrayBuffer());
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += 8192)
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));

@@ -202,3 +202,78 @@ export const apiErrorSchema = z.object({
     requestId: z.string().optional(),
   }),
 });
+
+export const preferencesSchema = z.object({
+  showcase: z.array(strengthKeySchema).max(3),
+  resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
+  deco: z.record(
+    strengthKeySchema,
+    z.object({
+      pattern: z.string().max(40),
+      frame: z.string().max(40),
+      stickers: z.array(z.string().max(40)).max(4),
+      color: z.string().max(40),
+      layout: z
+        .record(
+          z.string().max(40),
+          z.object({
+            position: z.string().max(40),
+            size: z.number().min(5).max(80),
+            angle: z.number().min(-360).max(360),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  prDraft: z.string().max(20_000).nullable(),
+});
+export type Preferences = z.infer<typeof preferencesSchema>;
+export const preferencesRecordSchema = z.object({
+  data: preferencesSchema,
+  revision: z.number().int().min(1),
+});
+export const remoteRequestSchema = z.object({
+  id: z.string().uuid(),
+  pieceId: z.string().uuid(),
+  kind: z.enum(["report", "deletion"]),
+  reason: z.string().nullable(),
+  at: z.string(),
+  withdrawn: z.boolean(),
+  status: z.enum(["pending", "reviewed", "removed", "rejected"]),
+  resolution: z.string().nullable(),
+});
+export const remoteSentSchema = remoteTestimonySchema.extend({
+  toId: z.string().uuid(),
+});
+export const syncSchema = z.object({
+  nextPage: z.number().int().nullable(),
+  player: remotePlayerSchema,
+  peers: z.array(remotePlayerSchema),
+  settings: settingsSchema,
+  exchanges: z.array(remoteExchangeSchema),
+  inbox: z.array(remoteTestimonySchema),
+  sent: z.array(remoteSentSchema),
+  blocked: z.array(z.string().uuid()),
+  requests: z.array(remoteRequestSchema),
+  preferences: preferencesRecordSchema,
+  isAdmin: z.boolean(),
+});
+export type RemoteSnapshot = z.infer<typeof syncSchema>;
+export const inviteQR = (code: string) =>
+  `flocka://exchange?code=${encodeURIComponent(code)}`;
+export function parseInviteQR(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "flocka:" ||
+      url.hostname !== "exchange" ||
+      url.pathname !== "" ||
+      url.searchParams.size !== 1
+    )
+      return null;
+    const code = url.searchParams.get("code");
+    return code && /^[A-Za-z0-9_-]{43}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
