@@ -10,6 +10,10 @@ import { accountRoutes } from "./routes/accounts";
 import { avatarRoutes } from "./routes/avatars";
 import { exchangeRoutes } from "./routes/exchanges";
 import { testimonyRoutes } from "./routes/testimonies";
+import { adminRoutes } from "./routes/admin";
+import { deviceRoutes } from "./routes/devices";
+import { dispatchNotifications } from "./services/push";
+import { runMaintenance } from "./services/maintenance";
 
 const app = new Hono<ApiContext>();
 app.use("*", async (c, next) => {
@@ -69,7 +73,9 @@ app.on(["GET", "POST"], "/api/auth/*", (c) =>
 app.use("/v1/*", requireSession);
 app.use("/v1/*", rateLimit);
 app.route("/v1", accountRoutes);
+app.route("/v1", adminRoutes);
 app.route("/v1", applicationRoutes);
+app.route("/v1", deviceRoutes);
 app.route("/v1", avatarRoutes);
 app.route("/v1", exchangeRoutes);
 app.route("/v1", testimonyRoutes);
@@ -115,4 +121,15 @@ app.onError((error, c) => {
     500,
   );
 });
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(
+    _event: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ) {
+    ctx.waitUntil(
+      Promise.all([dispatchNotifications(env.DB), runMaintenance(env)]),
+    );
+  },
+} satisfies ExportedHandler<Env>;

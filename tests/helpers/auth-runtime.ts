@@ -22,7 +22,7 @@ export type TestEmail = z.infer<typeof emailSchema>;
 export async function createAuthRuntime() {
   const emails: TestEmail[] = [],
     mailStatus = { value: 200 };
-  const runtime = new Miniflare({
+  const options = {
     host: "127.0.0.1",
     port: 0,
     workers: [
@@ -90,7 +90,16 @@ export async function createAuthRuntime() {
         },
       },
     ],
-  });
+  };
+  const runtime = new Miniflare(options);
+  const setAdmins = (ids: string[]) => {
+    (options.workers[0].config.env as Record<string, unknown>).ADMIN_USER_IDS =
+      {
+        type: "json",
+        value: ids.join(","),
+      };
+    return runtime.setOptions(options);
+  };
   try {
     const db = await runtime.getD1Database("DB"),
       directory = new URL("../../apps/api/migrations/", import.meta.url);
@@ -190,6 +199,7 @@ export async function createAuthRuntime() {
       codeFor,
       cookieFor,
       register,
+      setAdmins,
     };
   } catch (error) {
     await runtime.dispose();

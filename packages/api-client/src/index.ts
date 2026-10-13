@@ -7,6 +7,7 @@ import {
   type Preferences,
   backupRecordSchema,
   inviteSchema,
+  pendingModerationPageSchema,
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
@@ -205,6 +206,40 @@ export class FlockaApiClient {
       `/v1/moderation/${encodeURIComponent(id)}/withdraw`,
       z.object({ withdrawn: z.boolean() }),
       "POST",
+    );
+  }
+  registerPushDevice(token: string, platform: "ios" | "android") {
+    return this.json(
+      "/v1/me/push-devices",
+      z.object({ registered: z.boolean() }),
+      "PUT",
+      { token, platform },
+    );
+  }
+  unregisterPushDevice(token: string) {
+    return this.json(
+      "/v1/me/push-devices",
+      z.object({ registered: z.boolean() }),
+      "DELETE",
+      { token },
+    );
+  }
+  pendingModeration(page = 0) {
+    return this.json(
+      `/v1/admin/moderation?page=${page}`,
+      pendingModerationPageSchema,
+    );
+  }
+  resolveModeration(
+    id: string,
+    status: "reviewed" | "removed" | "rejected",
+    note: string,
+  ) {
+    return this.json(
+      `/v1/admin/moderation/${encodeURIComponent(id)}/resolve`,
+      z.object({ id: z.string().uuid(), status: z.string() }),
+      "POST",
+      { status, note },
     );
   }
   publicTestimonies(id: string) {

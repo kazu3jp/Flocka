@@ -3,6 +3,7 @@ import { createExchangeSchema, meetingContextSchema } from "@flocka/domain";
 import { hashToken, randomToken } from "../auth";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { ExchangesRepository } from "../repositories/exchanges";
+import { enqueueNotification } from "../services/notifications";
 
 const INVITE_LIFETIME_MS = 10 * 60 * 1000;
 export const exchangeRoutes = new Hono<ApiContext>();
@@ -127,7 +128,15 @@ exchangeRoutes.post("/exchanges/:id/approve", async (c) => {
       AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
     ).bind(id, id),
   ]);
-  return c.json(await repository.get(id, accountId));
+  const updated = await repository.get(id, accountId);
+  if (exchange.status === "pending" && updated.status === "accepted")
+    await enqueueNotification(
+      c.env.DB,
+      exchange.player_a === accountId ? exchange.player_b : exchange.player_a,
+      "exchange",
+      id,
+    );
+  return c.json(updated);
 });
 exchangeRoutes.post("/exchanges/:id/cancel", async (c) => {
   const id = c.req.param("id"),

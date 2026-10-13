@@ -62,10 +62,26 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     assert.equal((await a.api.getSnapshot()).requests[0].id, request.id);
     await a.api.withdrawRequest(request.id);
     assert.equal((await a.api.getSnapshot()).requests[0].withdrawn, true);
+    await assert.rejects(
+      a.api.pendingModeration(),
+      (error) => error instanceof ApiClientError && error.status === 403,
+    );
+    await a.api.registerPushDevice("ExponentPushToken[abcdefghij]", "ios");
+    await a.api.unregisterPushDevice("ExponentPushToken[abcdefghij]");
+    await f.setAdmins([c.player.id]);
+    const second = await a.api.requestModeration(piece.id, "deletion");
+    assert.equal((await c.api.pendingModeration()).items[0].id, second.id);
+    await c.api.resolveModeration(second.id, "removed", "規約に違反しています");
+    assert.equal((await c.api.pendingModeration()).items.length, 0);
+    const after = await a.api.getSnapshot();
+    assert.equal(after.inbox.length, 0);
+    assert.equal(
+      after.requests.find((item) => item.id === second.id)?.status,
+      "removed",
+    );
     await a.api.block(b.player.id);
     assert.equal((await a.api.getSnapshot()).inbox.length, 0);
     await a.api.unblock(b.player.id);
-    assert.equal((await a.api.getSnapshot()).inbox.length, 1);
     await b.api.cancelExchange(exchange.id);
     assert.equal((await a.api.getSnapshot()).exchanges[0].status, "cancelled");
   } finally {

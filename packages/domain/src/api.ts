@@ -279,3 +279,26 @@ export function parseInviteQR(value: string): string | null {
     return null;
   }
 }
+
+export const pushDeviceSchema = z.object({
+  token: z.string().min(10).max(200),
+  platform: z.enum(["ios", "android"]),
+});
+export const resolveModerationSchema = z.object({
+  status: z.enum(["reviewed", "removed", "rejected"]),
+  note: z.string().trim().min(1).max(500),
+});
+export const pendingModerationSchema = z.object({
+  id: z.string().uuid(),
+  pieceId: z.string().uuid(),
+  kind: z.enum(["report", "deletion"]),
+  reason: z.string().nullable(),
+  at: z.string(),
+  pieceKind: z.enum(["vibe", "proof"]),
+  excerpt: z.string(),
+});
+export const pendingModerationPageSchema = z.object({
+  items: z.array(pendingModerationSchema),
+  nextPage: z.number().int().nullable(),
+});
+export type PendingModeration = z.infer<typeof pendingModerationSchema>;
