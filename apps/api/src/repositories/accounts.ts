@@ -45,9 +45,14 @@ export class AccountsRepository {
     const { photo: _photo, ...avatar } = profile.avatar;
     await this.db
       .prepare(
-        "UPDATE accounts SET profile_json = ?, self_json = ? WHERE id = ?",
+        "UPDATE accounts SET profile_json = ?, self_json = ?, avatar_key = CASE WHEN ? = 'photo' THEN avatar_key ELSE NULL END WHERE id = ?",
       )
-      .bind(JSON.stringify({ ...profile, avatar }), JSON.stringify(self), id)
+      .bind(
+        JSON.stringify({ ...profile, avatar }),
+        JSON.stringify(self),
+        avatar.type,
+        id,
+      )
       .run();
     return this.getPlayer(id);
   }

@@ -191,6 +191,23 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
       photo,
       "failed writes must preserve the photo of the last successful backup",
     );
+    const currentProfile = (await a.getMe()).profile;
+    await a.updateProfile(
+      {
+        ...currentProfile,
+        avatar: { ...currentProfile.avatar, type: "motif", photo: undefined },
+      },
+      ["impl", "focus"],
+    );
+    await assert.rejects(
+      a.getAvatar(),
+      (error) => error instanceof ApiClientError && error.status === 404,
+    );
+    assert.equal(
+      await a.getAvatar(true),
+      photo,
+      "Removing the current photo must preserve an explicit backup",
+    );
     const invalid = await fetch(base + "/v1/me/avatar", {
       method: "PUT",
       headers: {
