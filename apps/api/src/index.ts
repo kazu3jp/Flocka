@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
+import { createAuth, socialProviders } from "./auth/config";
 import { requireSession } from "./auth";
 import { ApiError, type ApiContext } from "./http";
 import { accountRoutes } from "./routes/accounts";
@@ -18,7 +20,16 @@ app.use("*", async (c, next) => {
 app.use("*", async (c, next) => {
   const origin = c.req.header("Origin"),
     allowed = c.env.ALLOWED_ORIGINS.split(",");
-  if (origin && !allowed.includes(origin))
+  const appleCallback =
+    c.req.path === "/api/auth/callback/apple" &&
+    origin === "https://appleid.apple.com" &&
+    socialProviders(c.env).apple;
+  if (
+    origin &&
+    !allowed.includes(origin) &&
+    !origin.startsWith("flocka://") &&
+    !appleCallback
+  )
     throw new ApiError(
       403,
       "ORIGIN_NOT_ALLOWED",
@@ -31,7 +42,13 @@ app.use(
   cors({
     origin: (origin, c) =>
       c.env.ALLOWED_ORIGINS.split(",").includes(origin) ? origin : undefined,
-    allowHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "expo-origin",
+      "x-skip-oauth-proxy",
+    ],
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   }),
 );
@@ -39,13 +56,14 @@ app.get("/health", async (c) => {
   await c.env.DB.prepare("SELECT 1").first();
   return c.json({ status: "ok", service: "flocka-api" });
 });
-app.use("/v1/*", async (c, next) => {
-  if (c.req.path === "/v1/accounts" && c.req.method === "POST") {
-    await next();
-    return;
-  }
-  await requireSession(c, next);
-});
+app.get("/auth/config", (c) =>
+  c.json({ providers: Object.keys(socialProviders(c.env)) }),
+);
+app.use("/api/auth/*", bodyLimit({ maxSize: 16 * 1024 }));
+app.on(["GET", "POST"], "/api/auth/*", (c) =>
+  createAuth(c.env, c.executionCtx).handler(c.req.raw),
+);
+app.use("/v1/*", requireSession);
 app.route("/v1", accountRoutes);
 app.route("/v1", avatarRoutes);
 app.route("/v1", exchangeRoutes);

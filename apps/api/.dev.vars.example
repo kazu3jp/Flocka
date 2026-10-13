@@ -1,0 +1,11 @@
+# Copy to .dev.vars (ignored by Git). Use a unique secret of at least 32 characters.
+BETTER_AUTH_SECRET=""
+RESEND_API_KEY=""
+# Set to the URL used by clients; use your LAN address for a physical device.
+BETTER_AUTH_URL="http://localhost:8787"
+RESEND_FROM="Flocka <no-reply@flocka.zofax.net>"
+# Optional: each provider is available only when BOTH fields are configured.
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+APPLE_CLIENT_ID=""
+APPLE_CLIENT_SECRET=""

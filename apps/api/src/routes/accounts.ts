@@ -5,37 +5,26 @@ import {
   createAccountSchema,
   settingsSchema,
 } from "@flocka/domain";
-import { hashToken, randomToken } from "../auth";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 
 export const accountRoutes = new Hono<ApiContext>();
 accountRoutes.post("/accounts", async (c) => {
   const input = await readJson(c, createAccountSchema),
-    id = crypto.randomUUID(),
-    token = randomToken(),
+    id = c.get("accountId"),
     at = new Date().toISOString();
-  const expiresAt = new Date(
-    Date.now() + 90 * 24 * 60 * 60 * 1000,
-  ).toISOString();
   const { photo: _photo, ...avatar } = input.profile.avatar;
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      "INSERT INTO accounts(id, profile_json, self_json, created_at) VALUES(?, ?, ?, ?)",
-    ).bind(
+  await c.env.DB.prepare(
+    "INSERT INTO accounts(id, profile_json, self_json, created_at) VALUES(?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
+  )
+    .bind(
       id,
       JSON.stringify({ ...input.profile, avatar }),
       JSON.stringify(input.self),
       at,
-    ),
-    c.env.DB.prepare(
-      "INSERT INTO sessions(token_hash, account_id, expires_at) VALUES(?, ?, ?)",
-    ).bind(await hashToken(token), id, expiresAt),
-  ]);
-  return c.json(
-    { token, player: await new AccountsRepository(c.env.DB).getPlayer(id) },
-    201,
-  );
+    )
+    .run();
+  return c.json(await new AccountsRepository(c.env.DB).getPlayer(id), 201);
 });
 accountRoutes.get("/me", async (c) =>
   c.json(await new AccountsRepository(c.env.DB).getPlayer(c.get("accountId"))),

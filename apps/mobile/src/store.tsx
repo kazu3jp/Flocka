@@ -1,3 +1,5 @@
+import { getApiClient } from "./features/auth/client";
+import { ApiClientError } from "@flocka/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, type Href } from "expo-router";
 import React, {
@@ -61,7 +63,15 @@ type ContextValue = {
   dismissToast: () => void;
 };
 const Context = createContext<ContextValue | null>(null);
-export function Provider({ children }: { children: React.ReactNode }) {
+export function Provider({
+  children,
+  storageScope,
+}: {
+  children: React.ReactNode;
+  storageScope: string;
+}) {
+  const stateKey = `${STATE_KEY}:${storageScope}`,
+    navKey = `${NAV_KEY}:${storageScope}`;
   const router = useRouter(),
     [s, setS] = useState(fresh),
     [n, setN] = useState(initNav),
@@ -94,13 +104,27 @@ export function Provider({ children }: { children: React.ReactNode }) {
   );
   useEffect(() => {
     let active = true;
-    Promise.all([
-      AsyncStorage.getItem(STATE_KEY),
-      AsyncStorage.getItem(NAV_KEY),
-    ])
-      .then(([raw, navRaw]) => {
+    Promise.all([AsyncStorage.getItem(stateKey), AsyncStorage.getItem(navKey)])
+      .then(async ([raw, navRaw]) => {
         if (!active) return;
         const state = restoreState(raw);
+        if (raw === null && storageScope !== "signed-out") {
+          try {
+            const player = await getApiClient().getMe();
+            state.profile = player.profile;
+            state.self = player.self;
+            state.onboarded = true;
+            if (player.profile.avatar.type === "photo")
+              state.profile.avatar.photo = await getApiClient().getAvatar();
+          } catch (error) {
+            if (!(
+              error instanceof ApiClientError &&
+              error.code === "PLAYER_NOT_FOUND"
+            ))
+              throw error;
+          }
+        }
+        if (!active) return;
         const savedNav = navRaw ? JSON.parse(navRaw) : null;
         const navigation = validNav(savedNav) ? savedNav : initNav();
         stateRef.current = state;
@@ -116,7 +140,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, stateKey, navKey, storageScope]);
   const persist = useCallback(() => {
     if (demoRef.current) return;
     const state = JSON.stringify(stateRef.current),
@@ -124,15 +148,15 @@ export function Provider({ children }: { children: React.ReactNode }) {
     saveQueue.current = saveQueue.current
       .then(() =>
         AsyncStorage.multiSet([
-          [STATE_KEY, state],
-          [NAV_KEY, navigation],
+          [stateKey, state],
+          [navKey, navigation],
         ]),
       )
       .then(() => setSaveError(null))
       .catch((e) => {
         setSaveError(`保存できませんでした: ${String(e.message || e)}`);
       });
-  }, []);
+  }, [stateKey, navKey]);
   useEffect(() => {
     if (ready && !demo) persist();
   }, [s, n, ready, demo, persist]);

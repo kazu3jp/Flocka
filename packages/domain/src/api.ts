@@ -29,11 +29,6 @@ export const remotePlayerSchema = z.object({
   avatarAvailable: z.boolean(),
 });
 export type RemotePlayer = z.infer<typeof remotePlayerSchema>;
-export const sessionSchema = z.object({
-  token: z.string(),
-  player: remotePlayerSchema,
-});
-export type Session = z.infer<typeof sessionSchema>;
 export const inviteSchema = z.object({
   code: z.string(),
   expiresAt: z.string(),

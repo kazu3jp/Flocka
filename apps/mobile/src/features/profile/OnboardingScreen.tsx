@@ -1,3 +1,4 @@
+import { getApiClient } from "../auth/client";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import {
@@ -54,24 +55,42 @@ export function Onboarding() {
   const { s, update, nav, toast } = useApp(),
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
-    [sel, setSel] = useState(s.self);
+    [sel, setSel] = useState(s.self),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState<string | null>(null);
   const can =
     step === 0 ? !!profile.name.trim() : step === 3 ? sel.length >= 2 : true;
-  const finish = () => {
-    update((x) => {
-      x.profile = {
+  const finish = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const input = {
         ...profile,
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      x.self = sel;
-      x.onboarded = true;
-    });
-    nav.reset();
-    toast("デッキができた！");
+      await getApiClient().createAccount(input, sel);
+      update((x) => {
+        x.profile = input;
+        x.self = sel;
+        x.onboarded = true;
+      });
+      nav.reset();
+      toast("デッキができた！");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "プロフィールを保存できませんでした",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <Board>
+      {error && <T color={C.yellow}>{error}</T>}
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
           <Pressable
@@ -208,8 +227,8 @@ export function Onboarding() {
               ? "内容を確認する"
               : "次へ"
         }
-        disabled={!can}
-        onPress={() => (step < 5 ? setStep(step + 1) : finish())}
+        disabled={!can || busy}
+        onPress={() => (step < 5 ? setStep(step + 1) : void finish())}
       />
     </Board>
   );

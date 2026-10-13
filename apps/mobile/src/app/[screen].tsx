@@ -1,3 +1,4 @@
+import { useAuth, SessionStatus } from "../features/auth/provider";
 import React, { useEffect, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
@@ -36,6 +37,7 @@ import { useApp } from "../store";
 
 const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
+  const auth = useAuth();
   const { screen, key, cid, id } = useLocalSearchParams<{
       screen: string;
       key?: string;
@@ -67,6 +69,8 @@ export default function Screen() {
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [setOpening]);
+  if (auth.isPending || auth.error) return <SessionStatus />;
+  if (!auth.data) return <Redirect href="/auth" />;
   if (!ready || error) return <Redirect href="/" />;
   if (!SCREENS.includes(screen as ScreenId))
     return (

@@ -24,7 +24,8 @@
     "export:native": "npm run export:native -w @flocka/mobile",
     "build:api": "npm run build -w @flocka/api",
     "import:design": "node tools/import-design.cjs",
-    "format": "prettier --write apps packages tests tools"
+    "format": "prettier --write apps packages tests tools",
+    "setup:local": "node tools/setup-local.mjs"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

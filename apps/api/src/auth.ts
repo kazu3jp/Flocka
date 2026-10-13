@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import { createAuth } from "./auth/config";
 import { ApiError, type ApiContext } from "./http";
 
 export function randomToken(): string {
@@ -18,20 +19,17 @@ export async function hashToken(token: string): Promise<string> {
   ).join("");
 }
 export const requireSession = createMiddleware<ApiContext>(async (c, next) => {
-  const header = c.req.header("Authorization"),
-    match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(header || "");
-  if (!match) throw new ApiError(401, "UNAUTHORIZED", "ログイン情報が必要です");
-  const row = await c.env.DB.prepare(
-    "SELECT account_id FROM sessions WHERE token_hash = ? AND expires_at > ?",
-  )
-    .bind(await hashToken(match[1]), new Date().toISOString())
-    .first<{ account_id: string }>();
-  if (!row)
+  const session = await createAuth(c.env, c.executionCtx).api.getSession({
+    headers: c.req.raw.headers,
+  });
+  if (!session)
+    throw new ApiError(401, "UNAUTHORIZED", "ログイン情報が必要です");
+  if (!session.user.emailVerified)
     throw new ApiError(
-      401,
-      "SESSION_EXPIRED",
-      "ログイン情報を確認できませんでした",
+      403,
+      "EMAIL_NOT_VERIFIED",
+      "メールアドレスを確認してください",
     );
-  c.set("accountId", row.account_id);
+  c.set("accountId", session.user.id);
   await next();
 });

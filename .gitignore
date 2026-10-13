@@ -45,3 +45,5 @@ yarn-error.*
 .wrangler/
 .dev.vars*
 .env
+
+!.dev.vars.example

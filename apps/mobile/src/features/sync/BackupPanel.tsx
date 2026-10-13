@@ -4,17 +4,10 @@ import type { State } from "@flocka/domain";
 import { Btn, C, Panel, S, T } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
-import { readSession, saveSession } from "./session-storage";
+import { getApiClient } from "../auth/client";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export function BackupPanel() {
-  return API_URL ? <ConnectedBackupPanel apiUrl={API_URL} /> : null;
-}
-function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
   const { s, demo, update, toast } = useApp(),
-    [token, setToken] = useState<string | null>(null),
-    [loading, setLoading] = useState(true),
-    [storageReady, setStorageReady] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
     [revision, setRevision] = useState<number | null>(null),
@@ -23,25 +16,10 @@ function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
     inFlight = useRef(false);
   useEffect(() => {
     mounted.current = true;
-    let active = true;
-    readSession(apiUrl)
-      .then((token) => {
-        if (active) {
-          setToken(token);
-          setStorageReady(true);
-        }
-      })
-      .catch((error) => {
-        if (active) setError(String(error.message || error));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
     return () => {
-      active = false;
       mounted.current = false;
     };
-  }, [apiUrl]);
+  }, []);
   const run = async (action: () => Promise<void>) => {
     if (inFlight.current || !mounted.current) return;
     inFlight.current = true;
@@ -57,7 +35,7 @@ function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
       if (mounted.current) setBusy(false);
     }
   };
-  const client = () => new FlockaApiClient(apiUrl, token || undefined, __DEV__);
+  const client = getApiClient;
   const getRevision = async (api: FlockaApiClient) => {
     try {
       return (await api.getBackup()).revision;
@@ -69,18 +47,10 @@ function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
   };
   const connect = () =>
     run(async () => {
-      if (token) {
-        await client().getMe();
-        await saveSession(apiUrl, token);
-        const revision = await getRevision(client());
-        if (mounted.current) setRevision(revision);
-        toast("APIへの接続を確認しました");
-        return;
-      }
-      const session = await client().createAccount(s.profile, s.self);
-      if (mounted.current) setToken(session.token);
-      await saveSession(apiUrl, session.token);
-      toast("端末のセッションを作成しました");
+      await client().getMe();
+      const revision = await getRevision(client());
+      if (mounted.current) setRevision(revision);
+      toast("APIへの接続を確認しました");
     });
   const upload = () =>
     run(async () => {
@@ -129,11 +99,11 @@ function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
           <>
             <Btn
               small
-              label={token ? "接続を確認する" : "APIに接続する"}
-              disabled={loading || busy || !storageReady}
+              label="接続を確認する"
+              disabled={busy}
               onPress={() => void connect()}
             />
-            {token && (
+            {
               <>
                 <Btn
                   small
@@ -167,7 +137,7 @@ function ConnectedBackupPanel({ apiUrl }: { apiUrl: string }) {
                   }
                 />
               </>
-            )}
+            }
           </>
         )}
         {error && (

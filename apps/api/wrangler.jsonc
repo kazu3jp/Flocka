@@ -4,8 +4,26 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-13",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true, "head_sampling_rate": 1 },
-  "vars": { "ALLOWED_ORIGINS": "http://localhost:8081,http://127.0.0.1:8081" },
-  "d1_databases": [{ "binding": "DB", "database_name": "flocka", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "AVATARS", "bucket_name": "flocka-avatars" }]
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:8081,http://127.0.0.1:8081",
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    "RESEND_FROM": "Flocka <no-reply@flocka.zofax.net>",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "flocka",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "AVATARS",
+      "bucket_name": "flocka-avatars",
+    },
+  ],
 }

@@ -158,12 +158,13 @@ export function Choice({
 
 export function Field({
   label,
+  hideLabel = false,
   style,
   ...props
-}: TextInputProps & { label: string }) {
+}: TextInputProps & { label: string; hideLabel?: boolean }) {
   return (
     <View style={{ gap: 6 }}>
-      <T size={13}>{label}</T>
+      {!hideLabel && <T size={13}>{label}</T>}
       <TextInput
         {...props}
         accessibilityLabel={label}

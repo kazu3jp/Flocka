@@ -1,3 +1,4 @@
+import { AuthProvider, useAuth } from "../features/auth/provider";
 import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -78,18 +79,30 @@ export default function RootLayout() {
               : "none",
           }}
         >
-          <Provider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: "fade",
-                gestureEnabled: false,
-                contentStyle: { backgroundColor: C.blue },
-              }}
-            />
-          </Provider>
+          <AuthProvider>
+            <AccountProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: "fade",
+                  gestureEnabled: false,
+                  contentStyle: { backgroundColor: C.blue },
+                }}
+              />
+            </AccountProvider>
+          </AuthProvider>
         </View>
       </View>
     </SafeAreaProvider>
+  );
+}
+
+function AccountProvider({ children }: { children: React.ReactNode }) {
+  const { data } = useAuth();
+  const scope = data?.user.id ?? "signed-out";
+  return (
+    <Provider key={scope} storageScope={scope}>
+      {children}
+    </Provider>
   );
 }

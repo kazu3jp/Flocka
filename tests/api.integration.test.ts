@@ -1,69 +1,22 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createAuthRuntime } from "./helpers/auth-runtime";
+import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Miniflare } from "miniflare";
 import { ApiClientError, FlockaApiClient } from "@flocka/api-client";
-import { demoState, fresh } from "@flocka/domain";
+import { demoState } from "@flocka/domain";
 
 test("Workers, D1, R2 and the typed client perform authenticated real operations", async () => {
-  const runtime = new Miniflare({
-    host: "127.0.0.1",
-    port: 0,
-    workers: [
-      {
-        config: {
-          name: "flocka-test",
-          compatibilityDate: "2026-10-13",
-          compatibilityFlags: ["nodejs_compat"],
-          manifest: {
-            mainModule: "index.js",
-            modules: {
-              "index.js": {
-                type: "esm",
-                contents: readFileSync(
-                  new URL("../apps/api/dist/index.js", import.meta.url),
-                  "utf8",
-                ),
-              },
-            },
-          },
-          env: {
-            DB: { type: "d1", id: "test-flocka" },
-            AVATARS: { type: "r2", name: "test-avatars" },
-            ALLOWED_ORIGINS: { type: "json", value: "http://localhost:8081" },
-          },
-        },
-      },
-    ],
-  });
+  const { runtime, base, register } = await createAuthRuntime();
   try {
-    const db = await runtime.getD1Database("DB");
-    for (const name of ["0001_initial.sql", "0002_backup_avatar.sql"]) {
-      const sql = readFileSync(
-        new URL("../apps/api/migrations/" + name, import.meta.url),
-        "utf8",
-      ).replace(/^--.*$/gm, "");
-      for (const statement of sql
-        .split(";")
-        .map((text) => text.trim())
-        .filter(Boolean))
-        await db.prepare(statement).run();
-    }
-    const base = (await runtime.ready).origin,
-      anonymous = new FlockaApiClient(base, undefined, true);
-    const register = async (name: string) => {
-      const profile = fresh().profile;
-      profile.name = name;
-      return anonymous.createAccount(profile, ["impl", "focus"]);
-    };
+    const anonymous = new FlockaApiClient(base, undefined, true);
     const [sessionA, sessionB, sessionC] = await Promise.all([
       register("プレイヤーA"),
       register("プレイヤーB"),
       register("プレイヤーC"),
     ]);
-    const a = new FlockaApiClient(base, sessionA.token, true),
-      b = new FlockaApiClient(base, sessionB.token, true),
-      c = new FlockaApiClient(base, sessionC.token, true);
+    const a = sessionA.api,
+      b = sessionB.api,
+      c = sessionC.api;
     assert.equal((await a.getMe()).id, sessionA.player.id);
     await assert.rejects(
       anonymous.getMe(),
@@ -143,7 +96,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
       "focus",
     );
     const request = async (
-      token: string,
+      cookie: string,
       path: string,
       method = "POST",
       value?: unknown,
@@ -151,14 +104,14 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
       fetch(base + path, {
         method,
         headers: {
-          Authorization: `Bearer ${token}`,
+          Cookie: cookie,
           ...(value ? { "Content-Type": "application/json" } : {}),
         },
         body: value ? JSON.stringify(value) : undefined,
       });
     assert.equal(
       (
-        await request(sessionA.token, "/v1/me/settings", "PUT", {
+        await request(sessionA.cookie, "/v1/me/settings", "PUT", {
           allowVibe: true,
           allowProof: false,
           onlyConnected: true,
@@ -172,7 +125,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     );
     assert.equal(
       (
-        await request(sessionA.token, "/v1/blocks", "POST", {
+        await request(sessionA.cookie, "/v1/blocks", "POST", {
           playerId: sessionB.player.id,
         })
       ).status,
@@ -180,7 +133,11 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     );
     assert.equal((await a.getTestimonies()).items.length, 0);
     assert.equal((await a.getExchanges()).items.length, 0);
-    await request(sessionA.token, "/v1/blocks/" + sessionB.player.id, "DELETE");
+    await request(
+      sessionA.cookie,
+      "/v1/blocks/" + sessionB.player.id,
+      "DELETE",
+    );
     assert.equal((await a.getTestimonies()).items.length, 1);
 
     const snapshot = demoState(),
@@ -237,7 +194,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     const invalid = await fetch(base + "/v1/me/avatar", {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${sessionA.token}`,
+        Cookie: sessionA.cookie,
         "Content-Type": "image/jpeg",
       },
       body: "not an image",
@@ -246,7 +203,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     const oversized = await fetch(base + "/v1/me/avatar", {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${sessionA.token}`,
+        Cookie: sessionA.cookie,
         "Content-Type": "image/jpeg",
       },
       body: new Uint8Array(1024 * 1024 + 1),
@@ -254,7 +211,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     assert.equal(oversized.status, 413);
     assert.equal(
       (
-        await request(sessionC.token, "/v1/moderation", "POST", {
+        await request(sessionC.cookie, "/v1/moderation", "POST", {
           pieceId: testimony.id,
           kind: "report",
           reason: "その他",
@@ -264,7 +221,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     );
     assert.equal(
       (
-        await request(sessionA.token, "/v1/moderation", "POST", {
+        await request(sessionA.cookie, "/v1/moderation", "POST", {
           pieceId: testimony.id,
           kind: "report",
           reason: "その他",

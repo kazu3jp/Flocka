@@ -10,12 +10,17 @@
     "build": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.7",
+    "@better-auth/expo": "1.7.7",
     "@flocka/domain": "*",
+    "better-auth": "1.7.7",
+    "drizzle-orm": "0.45.4",
     "hono": "^4.0.0",
+    "resend": "6.32.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "wrangler": "latest",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "latest"
   }
 }

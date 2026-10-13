@@ -6,7 +6,6 @@ import {
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
-  sessionSchema,
   type Profile,
   type State,
 } from "@flocka/domain";
@@ -20,11 +19,15 @@ export class ApiClientError extends Error {
     super(message);
   }
 }
+export type SessionTransport = {
+  cookie?: () => string | Promise<string>;
+  credentials?: RequestCredentials;
+};
 export class FlockaApiClient {
   private readonly baseUrl: string;
   constructor(
     baseUrl: string,
-    private readonly token?: string,
+    private readonly auth: SessionTransport = {},
     private readonly allowHttp = false,
   ) {
     const url = new URL(baseUrl);
@@ -53,8 +56,9 @@ export class FlockaApiClient {
       const response = await fetch(this.baseUrl + path, {
         method,
         signal: controller.signal,
+        credentials: this.auth.credentials ?? "include",
         headers: {
-          ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+          ...(this.auth.cookie ? { Cookie: await this.auth.cookie() } : {}),
           ...(body !== undefined ? { "Content-Type": contentType } : {}),
         },
         body: payload,
@@ -95,7 +99,10 @@ export class FlockaApiClient {
     return schema.parse(await (await this.request(path, method, body)).json());
   }
   createAccount(profile: Profile, self: string[]) {
-    return this.json("/v1/accounts", sessionSchema, "POST", { profile, self });
+    return this.json("/v1/accounts", remotePlayerSchema, "POST", {
+      profile,
+      self,
+    });
   }
   getMe() {
     return this.json("/v1/me", remotePlayerSchema);

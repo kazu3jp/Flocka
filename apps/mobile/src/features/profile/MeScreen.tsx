@@ -1,3 +1,4 @@
+import { AccountPanel } from "../auth/AccountPanel";
 import { BackupPanel } from "../sync/BackupPanel";
 import { View } from "react-native";
 
@@ -48,6 +49,7 @@ export function Me() {
         />
       ))}
       <BackupPanel />
+      <AccountPanel />
     </Board>
   );
 }
