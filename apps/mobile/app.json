@@ -46,7 +46,8 @@
       ],
       "expo-secure-store",
       "expo-notifications",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/with-utf8-pod-commands.cjs"
     ],
     "icon": "./assets/icon.png"
   }
