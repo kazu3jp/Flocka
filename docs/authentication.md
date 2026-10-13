@@ -45,7 +45,7 @@ Appleの `APPLE_CLIENT_SECRET` はApple Developerの鍵で署名したJWTです�
 
 ## 本番の秘密情報
 
-本番リソースとデプロイはまだ実行していません。実施する際は、本番のD1 ID、R2、HTTPS URL、許可オリジンを設定し、対話入力でSecretsを登録します。
+引き継ぎ時点で本番設定とデプロイのコミットが追加されています。今回の修正は未デプロイです。今後更新する際は、本番のD1 ID、R2、HTTPS URL、許可オリジンを設定し、対話入力でSecretsを登録します。
 
 ```sh
 cd apps/api
@@ -60,6 +60,8 @@ npx wrangler secret put APPLE_CLIENT_SECRET
 
 `RESEND_FROM` は公開設定、APIキーは秘密情報です。公開URLを `.dev.vars` だけに変更しても本番設定には反映されません。本番のWrangler設定も更新する必要があります。
 
-規約・プライバシーポリシーは参照デザインのプレースホルダーです。正式な本文は公開前に掲載してください。旧匿名セッションと未認証の端末デッキを、新規の認証済みアカウントへ自動で結び付けません。旧データは削除しませんが、この認証フローの復元対象にはなりません。
+規約・プライバシーポリシーの本文は `packages/domain/src/legal.ts` に集約し、登録時と設定画面に表示します。運営者から正式本文は提供されていないため、現在の本文は運営情報と実装を基に作成した内容です。運営者による文言確認は未実施です。旧匿名セッションと未認証の端末デッキを、新規の認証済みアカウントへ自動で結び付けません。旧データは削除しませんが、この認証フローの復元対象にはなりません。
 
 実装は [Better Auth Expo](https://better-auth.com/docs/integrations/expo)、[Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)、[Email OTP](https://better-auth.com/docs/plugins/email-otp)、[メール・パスワード](https://better-auth.com/docs/authentication/email-password)、[Apple](https://better-auth.com/docs/authentication/apple)、[Resend Workers](https://resend.com/docs/send-with-cloudflare-workers) の公式資料に基づきます。
+
+Apple/Googleなどで登録し規約への同意が未記録の場合は、初回プロフィール登録で本文を提示し同意を確認します。`POST /v1/me/terms` は現在の文書の版と明示的な同意だけを受け付け、D1に版・時刻を記録します。同意のないアカウントは `POST /v1/accounts` で拒否します。メール登録時の同意はBetter Authの追加フィールドで記録しています。

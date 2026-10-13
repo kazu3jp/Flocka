@@ -57,8 +57,12 @@ Cron（5分ごと）が、24時間以上前に保存された未参照の画像�
 
 確認メールの送信エラーは502を返します。Better Authがメールコールバックのエラーを捕捉するため、リクエスト単位のafterフックで明示的な再送処理にエラーを返しています。パスワード再設定はメールアドレスの存在を漏らさない共通応答を返し、送信をWorkersのwaitUntilで完了させます。配信失敗は個人情報を含まないイベント名だけで記録します。これはメールが受信箱へ届いた保証を返す処理ではありません。
 
-## 本番へ進める際の未実装事項
+## 外部サービスの設定と検証
 
-本番D1/R2の作成と設定、HTTPS URL・CORSの設定、`ADMIN_USER_IDS` の設定、EASプロジェクトID（プッシュ通知用）、本番マイグレーションとデプロイは実行していません。通知はExpo Pushへ送信した結果を記録するもので、端末への到達を保証しません。BLE探索と通知は実機で未検証です。
+引き継ぎ時点で本番D1/R2と `api.flocka.zofax.net` の設定が追加されています。0005・0006マイグレーションと今回の変更は本番へ未適用です。`ADMIN_USER_IDS` とEASプロジェクトID・通知資格情報の設定は別途必要です。BLE探索と通知は実機で未検証です。
+
+通知は端末ごとの送信結果を記録し、既に受付済みの端末を再試行対象から除外します。Expoのチケットを15分後から照会し、APNs/FCMの受付結果を記録します。`DeviceNotRegistered` は端末登録を削除し、その他の送信エラーは最大5回まで遅延再試行します。HTTPエラー、空・不完全なチケットを成功にしません。ネットワーク断で受付結果を受け取れなかった場合の重複配信と、端末への実際の表示は保証できません。Expoのアクセストークン保護を使用する場合は `EXPO_ACCESS_TOKEN` をSecretsへ設定してください。
+
+通報の解決・監査記録・通知登録は一つのD1トランザクションです。同じ依頼に二人が同時対応しても一度だけ確定します。画像の削除処理はR2のカーソルをD1に保存し、次のCronで続きから走査します。
 
 Wranglerローカル開発・D1・R2の扱いは [Cloudflareの開発ドキュメント](https://developers.cloudflare.com/workers/local-development/) と [D1のWorker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)、[R2のWorker API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/) に基づいています。
