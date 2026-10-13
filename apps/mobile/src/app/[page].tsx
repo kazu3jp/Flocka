@@ -39,8 +39,13 @@ import { useApp } from "../store";
 const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
   const auth = useAuth();
-  const { screen, key, cid, id } = useLocalSearchParams<{
-      screen: string;
+  const {
+      page: screen,
+      key,
+      cid,
+      id,
+    } = useLocalSearchParams<{
+      page: string;
       key?: string;
       cid?: string;
       id?: string;
@@ -86,7 +91,7 @@ export default function Screen() {
   if (!s.onboarded && screen !== "onboarding")
     return (
       <Redirect
-        href={{ pathname: "/[screen]", params: { screen: "onboarding" } }}
+        href={{ pathname: "/[page]", params: { page: "onboarding" } }}
       />
     );
   const render = () => {

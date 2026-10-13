@@ -35,8 +35,8 @@ import {
 } from "@flocka/domain";
 
 export const routeFor = (entry: Entry): Href => ({
-  pathname: "/[screen]",
-  params: { screen: entry.id, ...entry.params },
+  pathname: "/[page]",
+  params: { page: entry.id, ...entry.params },
 });
 export const currentEntry = (n: NavState) =>
   n.stacks[n.tab][n.stacks[n.tab].length - 1];
