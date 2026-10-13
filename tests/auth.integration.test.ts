@@ -204,3 +204,69 @@ test("Resend rejection is not reported as a delivered verification email; resend
     await f.runtime.dispose();
   }
 });
+
+test("verification values are hashed, expired codes and tampered cookies cannot authenticate", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const email = "expiry@example.test";
+    assert.equal(
+      (
+        await f.auth("/sign-up/email", {
+          name: "ミナト",
+          email,
+          password: "Test-password123",
+          termsAccepted: true,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await f.auth("/email-otp/send-verification-otp", {
+          email,
+          type: "email-verification",
+        })
+      ).status,
+      200,
+    );
+    const otp = f.codeFor(email);
+    const stored = await f.db
+      .prepare("SELECT value FROM auth_verifications")
+      .first<{ value: string }>();
+    assert.ok(stored);
+    assert.ok(
+      !stored.value.startsWith(otp + ":"),
+      "D1 does not store the code in plaintext",
+    );
+    await f.db
+      .prepare("UPDATE auth_verifications SET expires_at = ?")
+      .bind(Date.now() - 60_000)
+      .run();
+    assert.equal(
+      (await f.auth("/email-otp/verify-email", { email, otp })).status,
+      400,
+    );
+    const player = await f.register("Cookie test");
+    assert.equal(
+      await (
+        await f.auth("/get-session", undefined, player.cookie + "tampered")
+      ).json(),
+      null,
+    );
+    const unauthorized = await fetch(f.base + "/v1/me", {
+      headers: { Cookie: player.cookie + "tampered" },
+    });
+    assert.equal(unauthorized.status, 401);
+    const blocked = await fetch(f.base + "/api/auth/sign-in/email", {
+      method: "POST",
+      headers: {
+        Origin: "https://untrusted.example",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: player.email, password: player.password }),
+    });
+    assert.equal(blocked.status, 403);
+  } finally {
+    await f.runtime.dispose();
+  }
+});
