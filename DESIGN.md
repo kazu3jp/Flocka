@@ -1,0 +1,28 @@
+# デザイン引き継ぎ
+
+## 正式な参照元
+
+参照したOpenDesignプロジェクト:
+
+```text
+/Users/kazu3jp/Library/Application Support/Open Design/namespaces/release-stable/data/projects/be0aff6a-207a-4d39-a5b9-e877749d4534
+```
+
+現在の仕様書 `docs/flocka-v2-screen-spec.md` が対象として指定している `flocka-v2-blue-prototype.html` と `flocka-v2-game.css` を採用しました。OpenDesignフォルダにはREADME、ルートDESIGN.md、package.jsonはありませんでした。旧v4、Figma初期インポート、旧brand-specの淡い配色とは異なり、最新の画面は青い盤面・強みカードのゲームです。
+
+## 維持する要素
+
+- 青い方眼の盤面、紙色のカード、濃い輪郭線、右下にずれた影。
+- 黄色＝確認済み、ピンク＝新発見、ライム＝証言1、グレー＝自己申告。
+- Dela Gothic OneとZen Kaku Gothic New。フォントファイルはnpmパッケージに含まれ、起動時に外部フォント配信へ接続しません。
+- 元の21種類のオブジェクトイラスト、12種類のシール、6種類のアバター、Fのブランドアイコン。
+- 6ステップの登録、2列3段のデッキ、3つのタブ、プレイヤーカードの扇状配置、下から開くシート、開封前の3択、自己PRの入力・コピー。
+- タブごとに保持する画面スタック、同じタブを押した際のルート復帰、端末内の状態保存。
+
+`tools/import-design.cjs` は元HTMLのSVGを抽出し、OKLchの色をReact Nativeで扱えるsRGBへ変換します。`npm run import:design` でカタログ、SVG、アプリアイコンを再生成できます。カードの背景模様とフレームはReact Native/SVGの部品として記述しています。HTMLをWebViewへ埋め込む実装ではありません。
+
+## プラットフォームへの適応
+
+Safe Areaとキーボードを考慮し、狭い画面や文字拡大時はスクロールで操作を保ちます。確認済みカードの揺れ、開封、自己PRの書き出しはネイティブのアニメーションへ移しました。SVG内の特定パーツだけに適用される旧CSSアニメーションは静止図形として保持しています。完全な画素比較は未実施です。
+
+写真は端末の選択画面で選び、正方形・160×160・JPEGに整えます。QRは読み取れるコードを生成し、カメラ権限を得て読み取ります。元の飾りQRや時間経過による擬似読み取りは用いません。サンプル用QRと実プロフィール用QRを区別し、通信未接続のプロフィールQRを交換成立として扱いません。
