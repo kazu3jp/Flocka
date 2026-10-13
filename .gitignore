@@ -53,3 +53,9 @@ yarn-error.*
 
 /apps/mobile/modules/*/android/build/
 /apps/mobile/modules/*/ios/build/
+
+# Visual test output
+/apps/mobile/dist-vrt/
+/tools/vrt/.generated/
+/playwright-report/
+/test-results/

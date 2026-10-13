@@ -2,14 +2,14 @@
 
 OpenDesignの「強みカードを集めて、自己PRにする」を、Expo / React Nativeへ移植したnpm workspacesモノレポです。
 
-| ディレクトリ | 役割 |
-| --- | --- |
-| `apps/mobile` | Expo SDK 57 / React Native / Expo Router。認証・プロフィール・カード画面を機能別に分割 |
-| `apps/api` | Hono / Cloudflare Workers / Better Auth / Resend。D1と非公開R2 |
-| `packages/domain` | カードの集計・予想・自己PR、型、Zodによる入出力検証 |
-| `packages/api-client` | モバイルとテストで共用する型付きHTTPクライアント |
-| `design` | 更新済みの参照HTML・CSS・ブランドSVG |
-| `tests` | 元HTMLとのロジック比較と、Workers/D1/R2の実行テスト |
+| ディレクトリ          | 役割                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `apps/mobile`         | Expo SDK 57 / React Native / Expo Router。認証・プロフィール・カード画面を機能別に分割 |
+| `apps/api`            | Hono / Cloudflare Workers / Better Auth / Resend。D1と非公開R2                         |
+| `packages/domain`     | カードの集計・予想・自己PR、型、Zodによる入出力検証                                    |
+| `packages/api-client` | モバイルとテストで共用する型付きHTTPクライアント                                       |
+| `design`              | 更新済みの参照HTML・CSS・ブランドSVG                                                   |
+| `tests`               | 元HTMLとのロジック比較と、Workers/D1/R2の実行テスト                                    |
 
 ## 起動
 
@@ -49,6 +49,8 @@ Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/he
 
 ## 検証
 
+画面の回帰テストは `npm run test:vrt`、比較レポートの表示は `npm run test:vrt:report` です。初回は `npx playwright install chromium` を実行してください。対象画面と基準画像の更新方法は [画面テスト](docs/visual-testing.md) を参照してください。
+
 ```sh
 npm run validate
 npm run export:web
@@ -69,7 +71,6 @@ Better Authでメール・パスワード認証、6桁のメール確認、再�
 サーバーの証言と端末内バックアップは別テーブルで管理し、バックアップを書き換えて証言を作ることはできません。規約・プライバシーポリシーは `packages/domain/src/legal.ts` で版管理し、登録画面と設定画面から読めます。運営者名と窓口を反映しています。正式な文書を別途提示いただいていないため、掲載した本文の運営者による内容確認は必要です。
 
 デザインの出典・移植方針は [DESIGN.md](DESIGN.md)、APIと保存方針は [docs/architecture.md](docs/architecture.md)、検証結果と未確認事項は [docs/validation.md](docs/validation.md) を参照してください。
-
 
 通知は「公開範囲・安全」の設定から端末ごとに有効化・停止できます。ログアウト時は端末登録を解除します。Expoへの受付済みチケットとAPNs/FCMへの配信結果は別に保存し、エラーを成功として扱いません。通知を開くと、現在のアカウントで再同期して対応する画面を開きます。
 

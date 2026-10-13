@@ -19,7 +19,10 @@ const emailSchema = z.object({
   html: z.string(),
 });
 export type TestEmail = z.infer<typeof emailSchema>;
-export async function createAuthRuntime() {
+export async function createAuthRuntime(
+  input: { port?: number; webOrigin?: string; authURL?: string } = {},
+) {
+  const webOrigin = input.webOrigin ?? "http://localhost:8081";
   const emails: TestEmail[] = [],
     mailStatus = { value: 200 };
   const push = {
@@ -31,7 +34,7 @@ export async function createAuthRuntime() {
   const options = {
     host: "127.0.0.1",
     unsafeTriggerHandlers: true,
-    port: 0,
+    port: input.port ?? 0,
     workers: [
       {
         config: {
@@ -53,8 +56,15 @@ export async function createAuthRuntime() {
           env: {
             DB: { type: "d1", id: "test-flocka" },
             AVATARS: { type: "r2", name: "test-avatars" },
-            ALLOWED_ORIGINS: { type: "json", value: "http://localhost:8081" },
-            BETTER_AUTH_URL: { type: "json", value: "http://localhost:8787" },
+            ALLOWED_ORIGINS: { type: "json", value: webOrigin },
+            BETTER_AUTH_URL: {
+              type: "json",
+              value:
+                input.authURL ??
+                (input.port
+                  ? `http://127.0.0.1:${input.port}`
+                  : "http://localhost:8787"),
+            },
             BETTER_AUTH_SECRET: {
               type: "json",
               value: "test-only-secret-for-flocka-at-least-32-characters",
@@ -147,7 +157,7 @@ export async function createAuthRuntime() {
       fetch(base + "/api/auth" + path, {
         method: body === undefined ? "GET" : "POST",
         headers: {
-          Origin: "http://localhost:8081",
+          Origin: webOrigin,
           "cf-connecting-ip": ip,
           ...(cookie ? { Cookie: cookie } : {}),
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
@@ -168,13 +178,15 @@ export async function createAuthRuntime() {
       const cookie = response.headers
         .getSetCookie()
         .map((value) => value.split(";")[0])
-        .find((value) => value.startsWith("better-auth.session_token="));
+        .find((value) =>
+          /^(?:__Secure-)?better-auth\.session_token=/.test(value),
+        );
       assert.ok(cookie, "Better Auth must issue a signed session cookie");
       return cookie;
     };
-    const register = async (name: string) => {
+    const authenticate = async (name: string, emailOverride?: string) => {
       const number = ++serial,
-        email = `player${number}@example.test`,
+        email = emailOverride ?? `player${number}@example.test`,
         ip = `192.0.2.${number}`,
         password = "Test-password123";
       const signup = await auth(
@@ -203,11 +215,18 @@ export async function createAuthRuntime() {
           base,
           { cookie: () => cookie, credentials: "omit" },
           true,
-        ),
-        profile = fresh().profile;
+        );
+      return { cookie, email, password, api, ip };
+    };
+    const register = async (name: string, emailOverride?: string) => {
+      const session = await authenticate(name, emailOverride);
+      const profile = fresh().profile;
       profile.name = name;
-      const player = await api.createAccount(profile, ["impl", "focus"]);
-      return { cookie, player, email, password, api, ip };
+      const player = await session.api.createAccount(profile, [
+        "impl",
+        "focus",
+      ]);
+      return { ...session, player };
     };
     return {
       runtime,
@@ -220,6 +239,7 @@ export async function createAuthRuntime() {
       codeFor,
       cookieFor,
       register,
+      authenticate,
       setAdmins,
     };
   } catch (error) {

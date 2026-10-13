@@ -17,6 +17,10 @@
     "skipLibCheck": true
   },
   "include": [
-    "tests"
+    "tests",
+    "e2e",
+    "playwright.config.ts",
+    "tools/vrt/*.ts",
+    "tools/vrt/*.mts"
   ]
 }

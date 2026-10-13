@@ -1,0 +1,81 @@
+import { test, expect } from "@playwright/test";
+import { capture, referenceComparison } from "./helpers";
+
+test.beforeEach(async ({ page }) => {
+  page.on("console", (message) => {
+    if (message.type() === "error")
+      console.error("Browser error:", message.text());
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400)
+      console.error(
+        "HTTP error:",
+        response.status(),
+        new URL(response.url()).pathname,
+      );
+  });
+  page.on("pageerror", (error) =>
+    console.error("Application error:", error.message),
+  );
+  page.on("requestfailed", (request) =>
+    console.error(
+      "Request failed:",
+      new URL(request.url()).pathname,
+      request.failure()?.errorText,
+    ),
+  );
+});
+
+const scenes = [
+  "会った人と、カードを交換",
+  "届いた封筒の中身を予想",
+  "2人の証言で、確認済みに",
+];
+for (const [index, title] of scenes.entries()) {
+  test(`welcome scene ${index + 1}`, async ({ page, context }, testInfo) => {
+    await page.goto("/auth");
+    await page
+      .getByRole("button", { name: `${index + 1}枚目：${title}`, exact: true })
+      .click();
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await capture(page, `welcome-${index + 1}`);
+    const reference = await context.newPage();
+    await reference.goto("/reference/");
+    await reference
+      .getByRole("button", { name: `${index + 1}枚目：${title}`, exact: true })
+      .click();
+    await referenceComparison(
+      page,
+      reference,
+      `welcome-${index + 1}`,
+      testInfo,
+    );
+  });
+}
+for (const view of ["signup", "login", "reset"] as const) {
+  test(`${view} form`, async ({ page, context }, testInfo) => {
+    await page.goto("/auth");
+    const reference = await context.newPage();
+    await reference.goto("/reference/");
+    for (const target of [page, reference]) {
+      if (view === "signup")
+        await target
+          .getByRole("button", { name: "アカウントを作成", exact: true })
+          .click();
+      else {
+        await target
+          .getByRole("button", { name: /アカウントをお持ちの方は/ })
+          .click();
+        if (view === "reset")
+          await target
+            .getByRole("button", { name: /パスワードを忘れた/ })
+            .click();
+      }
+      await expect(
+        target.getByText("メールアドレス", { exact: true }),
+      ).toBeVisible();
+    }
+    await capture(page, view);
+    await referenceComparison(page, reference, view, testInfo);
+  });
+}
