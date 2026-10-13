@@ -292,7 +292,10 @@ export class FlockaApiClient {
   }
   updateProfile(profile: Profile, self: string[]) {
     const { photo: _photo, ...avatar } = profile.avatar;
-    return this.json("/v1/me", remotePlayerSchema, "PATCH", { profile, self });
+    return this.json("/v1/me", remotePlayerSchema, "PATCH", {
+      profile: { ...profile, avatar },
+      self,
+    });
   }
   getBackup() {
     return this.json("/v1/me/backup", backupRecordSchema);
