@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "flocka-api",
+  "name": "flocka-app-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-13",
   "compatibility_flags": ["nodejs_compat"],
@@ -9,10 +9,11 @@
     "head_sampling_rate": 1,
   },
   "vars": {
-    "ALLOWED_ORIGINS": "http://localhost:8081,http://127.0.0.1:8081",
-    "BETTER_AUTH_URL": "http://localhost:8787",
+    "ALLOWED_ORIGINS": "https://api.flocka.zofax.net",
+    "BETTER_AUTH_URL": "https://api.flocka.zofax.net",
     "RESEND_FROM": "Flocka <no-reply@flocka.zofax.net>",
   },
+  "routes": [{ "pattern": "api.flocka.zofax.net", "custom_domain": true }],
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [
     {
