@@ -33,7 +33,7 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 | `GET/PUT /v1/me/avatar` | 本人のR2写真を保存・取得 |
 | `GET /v1/me/backup/avatar` | 保存済みバックアップに対応する写真を取得 |
 
-一覧APIは最新200件までです。ページ送りは未実装です。通報の受付記録はD1に保存しますが、運営管理画面と対応処理はまだありません。
+`GET /v1/sync` は100件ずつページ送りします。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
 
 ## D1
 
@@ -49,7 +49,7 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 
 JPEG/PNGのみ、最大1 MiBを受け付け、Content-Typeとファイル先頭の形式を確認します。プロフィール写真は `avatars/<account-id>/<random-id>` の非公開オブジェクトに保存し、Workerで認証してストリームを返します。バックアップにはその画像キーを対応付け、後の写真更新や競合した保存で旧バックアップの写真が変わらないようにします。
 
-使われなくなった画像・期限切れセッション等の定期削除は今後追加する必要があります。画像の形式判定はデコードやマルウェア検査を行うものではありません。
+Cron（5分ごと）が、24時間以上前に保存された未参照の画像、期限切れセッション・確認コード・交換コードを削除します。画像の形式判定はデコードやマルウェア検査を行うものではありません。
 
 ## 認証とメール
 
@@ -59,6 +59,6 @@ JPEG/PNGのみ、最大1 MiBを受け付け、Content-Typeとファイル先頭�
 
 ## 本番へ進める際の未実装事項
 
-実際のプレイヤー交換・受信APIとモバイル画面の接続、業務APIのレート制限、運営対応、通知、BLE検出が残っています。本番D1/R2の作成と設定、HTTPS URL・CORSの設定、本番マイグレーションとデプロイも実行していません。
+本番D1/R2の作成と設定、HTTPS URL・CORSの設定、`ADMIN_USER_IDS` の設定、EASプロジェクトID（プッシュ通知用）、本番マイグレーションとデプロイは実行していません。通知はExpo Pushへ送信した結果を記録するもので、端末への到達を保証しません。BLE探索と通知は実機で未検証です。
 
 Wranglerローカル開発・D1・R2の扱いは [Cloudflareの開発ドキュメント](https://developers.cloudflare.com/workers/local-development/) と [D1のWorker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)、[R2のWorker API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/) に基づいています。
