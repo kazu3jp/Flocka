@@ -1,0 +1,4 @@
+# Keep Wrangler's generated runtime declarations unchanged and out of code review.
+apps/api/worker-configuration.d.ts linguist-generated=true -whitespace
+apps/mobile/src/vectors.json linguist-generated=true
+packages/domain/src/catalog.json linguist-generated=true
