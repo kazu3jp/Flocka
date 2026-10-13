@@ -71,7 +71,7 @@ const code =
   between("const IC =", "const Icon =");
 const js = transformSync(
   code +
-    "\nresult = {CARDS,SELF_OPTIONS,STRENGTH_GROUPS,PEOPLE,VIBES,VIBE_CARD,INTERESTS,DECO,DECO_COLORS,AV_COLORS,AV_COLOR_NAMES,AV_MOTIFS,PEER_PROFILE,PEER_REPLY,IC,Sticker,Illust,Motif};",
+    "\nresult = {CARDS,SELF_OPTIONS,STRENGTH_GROUPS,VIBES,VIBE_CARD,INTERESTS,DECO,DECO_COLORS,AV_COLORS,AV_COLOR_NAMES,AV_MOTIFS,PEER_PROFILE,IC,Sticker,Illust,Motif};",
   {
     plugins: ["@babel/plugin-transform-react-jsx"],
     configFile: false,

@@ -3,7 +3,7 @@ import { createAuthRuntime } from "./helpers/auth-runtime";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiClientError, FlockaApiClient } from "@flocka/api-client";
-import { demoState } from "@flocka/domain";
+import { sampleState } from "./helpers/sample-state";
 
 test("Workers, D1, R2 and the typed client perform authenticated real operations", async () => {
   const { runtime, base, register } = await createAuthRuntime();
@@ -140,7 +140,7 @@ test("Workers, D1, R2 and the typed client perform authenticated real operations
     );
     assert.equal((await a.getTestimonies()).items.length, 1);
 
-    const snapshot = demoState(),
+    const snapshot = sampleState(),
       first = await a.saveBackup(snapshot, null);
     assert.equal(first.revision, 1);
     await assert.rejects(

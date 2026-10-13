@@ -12,6 +12,7 @@ import {
   SelfEdit,
   Settings,
 } from "../features/profile";
+import { Moderation } from "../features/admin";
 import { CardDetail, Deck, Deco, GuessOverlay, PR } from "../features/game";
 import {
   Confirm,
@@ -110,6 +111,8 @@ export default function Screen() {
         return <PieceDetail id={id || ""} />;
       case "settings":
         return <Settings />;
+      case "moderation":
+        return <Moderation />;
       case "exchange":
         return <Exchange />;
       case "connections":

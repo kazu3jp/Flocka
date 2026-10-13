@@ -31,7 +31,6 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     assert.equal((await b.api.getSnapshot()).preferences.data.prDraft, null);
     const invite = await a.api.createInvite();
     assert.equal(parseInviteQR(inviteQR(invite.code)), invite.code);
-    assert.equal(parseInviteQR("flocka-demo://peer/mock-a"), null);
     assert.equal((await b.api.previewInvite(invite.code)).id, a.player.id);
     const exchange = await b.api.startExchange(invite.code);
     await a.api.approveExchange(exchange.id, "発表会", "同じチーム");

@@ -1,3 +1,4 @@
+import { usePushRegistration } from "./features/notifications/use-push-registration";
 import { getApiClient } from "./features/auth/client";
 import { ApiClientError } from "@flocka/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -276,6 +277,11 @@ export function Provider({
       listener.remove();
     };
   }, [ready, s.onboarded, storageScope, refresh]);
+  usePushRegistration(
+    api,
+    ready && s.onboarded && storageScope !== "signed-out",
+    toast,
+  );
   const persist = useCallback(() => {
     const state = JSON.stringify(stateRef.current),
       navigation = JSON.stringify(navRef.current);

@@ -6,21 +6,18 @@ import catalog from "../packages/domain/src/catalog.json";
 import vectors from "../apps/mobile/src/vectors.json";
 import {
   CARDS,
-  approveExchange,
   buildPR,
-  demoState,
   derive,
   fresh,
   initNav,
   openPiece,
   optionsFor,
-  parseDemoQR,
   restoreState,
-  startExchange,
   summarize,
   validNav,
   type Piece,
 } from "../packages/domain/src";
+import { sampleState } from "./helpers/sample-state";
 
 const makePiece = (fromId: string, opened = true, card = "bridge"): Piece => ({
   id: fromId + "-" + card,
@@ -62,7 +59,7 @@ test("a closed envelope cannot contribute to the deck or PR", () => {
   assert.equal(s.vibes[1].guess, "bridge");
 });
 test("hidden and blocked testimonies are excluded from card counts and PR", () => {
-  const s = demoState();
+  const s = sampleState();
   assert.ok(buildPR(s));
   s.vibes[1].visibility = "hidden";
   assert.equal(buildPR(s), null);
@@ -75,14 +72,14 @@ test("hidden and blocked testimonies are excluded from card counts and PR", () =
   );
 });
 test("disagreement prevents that confirmed card from generating PR", () => {
-  const s = demoState();
+  const s = sampleState();
   s.resp.bridge = "disagree";
   assert.equal(buildPR(s), null);
   s.resp.bridge = "hold";
   assert.ok(buildPR(s));
 });
 test("guess choices remain fixed, distinct, and include the actual card", () => {
-  const s = demoState();
+  const s = sampleState();
   for (const card of Object.keys(CARDS)) {
     const p = makePiece("mock-a", false, card);
     const a = optionsFor(p, s.self);
@@ -100,41 +97,8 @@ test("new discovery follows the original missed-guess rule", () => {
   s.vibes[0].guess = "bridge";
   assert.equal(derive(s).cards.bridge.discovered, false);
 });
-test("exchanges are idempotent and need both context fields", () => {
-  const s = fresh(),
-    id = startExchange(s, "mock-a")!;
-  assert.equal(startExchange(s, "mock-a"), id);
-  assert.equal(s.connections.length, 1);
-  assert.equal(approveExchange(s, id), false);
-  s.connections[0].context.place = "学内ハッカソン";
-  assert.equal(approveExchange(s, id), false);
-  s.connections[0].context.trigger = "同じチームでUIを担当";
-  assert.equal(approveExchange(s, id), true);
-  assert.equal(s.vibes.length, 1);
-  assert.equal(s.vibes[0].opened, false);
-  assert.equal(approveExchange(s, id), false);
-  assert.equal(s.vibes.length, 1);
-});
-test("receiving disabled does not fabricate a reply envelope", () => {
-  const s = fresh();
-  s.settings.allowVibe = false;
-  const id = startExchange(s, "mock-b")!;
-  s.connections[0].context = { place: "勉強会", trigger: "発表の準備" };
-  assert.equal(approveExchange(s, id), true);
-  assert.equal(s.vibes.length, 0);
-});
-test("blocked or unknown peers cannot start or finish an exchange", () => {
-  const s = fresh();
-  s.blocked = ["mock-a"];
-  assert.equal(startExchange(s, "mock-a"), null);
-  assert.equal(startExchange(s, "unknown"), null);
-  const id = startExchange(s, "mock-b")!;
-  s.connections[0].context = { place: "場所", trigger: "きっかけ" };
-  s.blocked.push("mock-b");
-  assert.equal(approveExchange(s, id), false);
-});
 test("PR uses actual quotations, omits sender names, and prefers scenes", () => {
-  const s = demoState();
+  const s = sampleState();
   s.proofs = [
     {
       ...makePiece("mock-c"),
@@ -173,7 +137,7 @@ test("native deck ranking and PR match the original HTML business logic", () => 
     buildPR: (s: unknown, d: unknown) => { text: string } | null;
   };
   for (const blocked of [[], ["mock-b"], ["mock-a"]]) {
-    const s = demoState();
+    const s = sampleState();
     s.blocked = blocked;
     const d = derive(s),
       old = original.derive(s);
@@ -194,7 +158,7 @@ test("native deck ranking and PR match the original HTML business logic", () => 
   }
 });
 test("storage round-trips every profile, card and testimony", () => {
-  const s = demoState();
+  const s = sampleState();
   s.prDraft = "手で編集した下書き";
   s.deco.impl = {
     pattern: "dots",
@@ -218,17 +182,6 @@ test("invalid restored routes are rejected, independent stacks are accepted", ()
   );
   assert.equal(validNav({}), false);
   assert.equal(validNav(null), false);
-});
-test("QR accepts only the explicitly supported local demo protocol", () => {
-  assert.equal(parseDemoQR("flocka-demo://peer/mock-a"), "mock-a");
-  for (const input of [
-    "https://example.com",
-    "flocka-demo://peer/mock-d",
-    "flocka-demo://peer/mock-a?redirect=evil",
-    "flocka-demo://peer/mock-a/path",
-    JSON.stringify({ name: "ハルカ" }),
-  ])
-    assert.equal(parseDemoQR(input), null);
 });
 test("keyword summary preserves the prototype phrases", () => {
   assert.deepEqual(
@@ -262,8 +215,8 @@ test("incomplete registration persists, while corrupted profile values are rejec
   const s = fresh();
   assert.deepEqual(restoreState(JSON.stringify(s)), s);
   const bad = {
-    ...demoState(),
-    profile: { ...demoState().profile, role: null },
+    ...sampleState(),
+    profile: { ...sampleState().profile, role: null },
   };
   assert.throws(() => restoreState(JSON.stringify(bad)));
 });

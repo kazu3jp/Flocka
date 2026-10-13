@@ -15,7 +15,7 @@ import {
 import { useApp } from "../../store";
 
 export function Settings() {
-  const { s, api, refresh, nav, toast, peers } = useApp(),
+  const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
     [settings, setSettings] = useState(s.settings),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
@@ -118,6 +118,13 @@ export function Settings() {
             )}
           </Panel>
         )),
+      )}
+      {isAdmin && (
+        <Btn
+          plain
+          label="通報の対応（運営）"
+          onPress={() => nav.push("moderation")}
+        />
       )}
       {dialog}
     </Board>

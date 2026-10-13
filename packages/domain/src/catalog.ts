@@ -16,15 +16,6 @@ const catalogSchema = z.object({
   STRENGTH_GROUPS: z.array(
     z.tuple([z.string(), z.string(), z.array(z.string())]),
   ),
-  PEOPLE: z.record(
-    z.string(),
-    z.object({
-      name: z.string(),
-      role: z.string(),
-      rel: z.string(),
-      prose: z.string(),
-    }),
-  ),
   VIBES: z.array(z.string()),
   VIBE_CARD: z.record(z.string(), z.string()),
   INTERESTS: z.array(z.string()),
@@ -47,10 +38,6 @@ const catalogSchema = z.object({
       interests: z.array(z.string()),
     }),
   ),
-  PEER_REPLY: z.record(
-    z.string(),
-    z.object({ card: z.string(), label: z.string(), text: z.string() }),
-  ),
   ART_COLORS: z.record(
     z.string(),
     z.object({
@@ -69,7 +56,6 @@ export const {
   CARDS,
   SELF_OPTIONS,
   STRENGTH_GROUPS,
-  PEOPLE,
   VIBES,
   VIBE_CARD,
   INTERESTS,
@@ -79,7 +65,6 @@ export const {
   AV_COLOR_NAMES,
   AV_MOTIFS,
   PEER_PROFILE,
-  PEER_REPLY,
   ART_COLORS,
   COLORS,
   IC,
