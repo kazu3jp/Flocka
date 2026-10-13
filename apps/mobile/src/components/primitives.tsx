@@ -221,12 +221,14 @@ export function Board({
   footer,
   safeTop,
   safeBottom,
+  contentStyle,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   footer?: React.ReactNode;
   safeTop?: boolean;
   safeBottom?: boolean;
+  contentStyle?: StyleProp<ViewStyle>;
 }) {
   const insets = useContext(BoardInsets);
   return (
@@ -239,7 +241,12 @@ export function Board({
         ...((safeBottom ?? insets.bottom) ? ["bottom" as const] : []),
       ]}
     >
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg
+        width="100%"
+        height="100%"
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+      >
         <Defs>
           <Pattern
             id="boardGrid"
@@ -264,7 +271,10 @@ export function Board({
         {scroll ? (
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ padding: 14, gap: 12, flexGrow: 1 }}
+            contentContainerStyle={[
+              { padding: 14, gap: 12, flexGrow: 1 },
+              contentStyle,
+            ]}
           >
             {children}
           </ScrollView>

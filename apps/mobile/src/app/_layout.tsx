@@ -49,7 +49,7 @@ export default function RootLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: C.dark,
+          backgroundColor: C.stage,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
@@ -58,11 +58,11 @@ export default function RootLayout() {
       >
         <StatusBar style="light" />
         {desktop && (
-          <View style={{ width: 250, gap: 12 }}>
-            <T display size={26}>
+          <View style={{ width: 250, gap: 10 }}>
+            <T display size={26} style={{ lineHeight: 36.4 }}>
               強みカードを集めて、{"\n"}自己PRにする。
             </T>
-            <T color={C.pale} size={13}>
+            <T color={C.pale} size={13} style={{ lineHeight: 21.45 }}>
               仲間から届いた封筒を開ける前に、どの強みの証言か予想するゲーム。2人以上の証言がそろったカードから、自己PRの下書きが書き上がります。
             </T>
           </View>

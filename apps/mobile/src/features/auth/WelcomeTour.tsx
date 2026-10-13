@@ -4,13 +4,14 @@ import { CARDS, PEER_PROFILE, bareCard } from "@flocka/domain";
 import {
   Avatar,
   C,
+  F,
   Icon,
   Panel,
   S,
   StrengthCard,
   T,
 } from "../../components/ui";
-import Svg, { Path, Rect } from "react-native-svg";
+import Svg, { Path, Rect, Circle, Defs, Pattern } from "react-native-svg";
 
 const TOUR = [
   {
@@ -48,7 +49,12 @@ function TourCard({
         confirmed,
         givers: confirmed ? ["a", "b"] : [],
       }}
-      style={{ flex: 1, width: "100%" }}
+      style={{
+        flex: 1,
+        width: "100%",
+        marginTop: 4,
+        boxShadow: `3px 3px 0 ${C.ink}`,
+      }}
     />
   );
 }
@@ -80,7 +86,7 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
     return (
       <Animated.View
         accessible={false}
-        style={[S.row, { flex: 1, padding: 18, gap: 16 }, enter]}
+        style={[{ position: "absolute", inset: 0 }, enter]}
       >
         {[
           ["ソラ", "impl", "mock-b"],
@@ -89,28 +95,37 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
           <Panel
             key={key}
             style={{
-              flex: 1,
-              height: "86%",
-              padding: 8,
+              position: "absolute",
+              top: "12%",
+              width: "40%",
+              height: "76%",
+              ...(i ? { right: "6%" } : { left: "6%" }),
+              padding: 0,
+              paddingHorizontal: 8,
+              paddingBottom: 10,
               gap: 6,
               alignItems: "center",
-              transform: [{ rotate: i ? "5deg" : "-5deg" }],
+              transform: [
+                { translateX: i ? "-6%" : "6%" },
+                { rotate: i ? "2deg" : "-2deg" },
+              ],
             }}
           >
             <View
               style={{
-                height: 14,
+                height: 18,
+                marginHorizontal: -8,
+                marginBottom: 4,
                 backgroundColor: C.ink,
                 alignSelf: "stretch",
-                borderRadius: 4,
               }}
             />
             <Avatar
               name={name}
               avatar={{ type: "motif", ...PEER_PROFILE[id].avatar }}
-              size={40}
+              size={44}
             />
-            <T display color={C.ink} size={15}>
+            <T display color={C.ink} size={15} style={{ lineHeight: 15 }}>
               {name}
             </T>
             <TourCard cardKey={key} />
@@ -120,15 +135,21 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
           style={{
             position: "absolute",
             left: "50%",
-            marginLeft: -25,
+            top: "50%",
+            marginLeft: -26,
+            marginTop: -26,
+            width: 52,
+            height: 52,
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: `3px 3px 0 ${C.ink}`,
             borderRadius: 26,
             backgroundColor: C.yellow,
             borderWidth: 2.5,
             borderColor: C.ink,
-            padding: 11,
           }}
         >
-          <Icon name="swap" color={C.ink} />
+          <Icon name="swap" color={C.ink} size={26} />
         </View>
       </Animated.View>
     );
@@ -136,12 +157,15 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
     return (
       <Animated.View
         accessible={false}
-        style={[{ flex: 1, padding: 20, gap: 14, alignItems: "center" }, enter]}
+        style={[{ position: "absolute", inset: 0 }, enter]}
       >
         <View
           style={{
+            position: "absolute",
             width: "46%",
-            height: 110,
+            left: "27%",
+            top: "10%",
+            aspectRatio: 44 / 32,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -182,7 +206,20 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
             </T>
           </View>
         </View>
-        <View style={[S.row, { flex: 1, alignItems: "stretch", gap: 8 }]}>
+        <View
+          style={[
+            S.row,
+            {
+              position: "absolute",
+              left: "5%",
+              right: "5%",
+              bottom: "8%",
+              height: "46%",
+              alignItems: "stretch",
+              gap: 8,
+            },
+          ]}
+        >
           {["bridge", "warm", "idea"].map((key) => (
             <View key={key} style={S.fill}>
               <TourCard cardKey={key} />
@@ -194,19 +231,30 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
   return (
     <Animated.View
       accessible={false}
-      style={[S.row, { flex: 1, padding: 20, gap: 16 }, enter]}
+      style={[{ position: "absolute", inset: 0 }, enter]}
     >
       <View
-        style={{ flex: 1.1, height: "78%", transform: [{ rotate: "-4deg" }] }}
+        style={{
+          position: "absolute",
+          left: "7%",
+          top: "14%",
+          width: "46%",
+          height: "72%",
+          transform: [{ rotate: "-4deg" }],
+        }}
       >
         <TourCard cardKey="bridge" confirmed />
       </View>
       <Panel
         style={{
-          flex: 1,
-          height: "60%",
-          padding: 12,
-          gap: 10,
+          position: "absolute",
+          right: "6%",
+          top: "22%",
+          width: "40%",
+          height: "58%",
+          paddingHorizontal: 12,
+          paddingVertical: 14,
+          gap: 9,
           transform: [{ rotate: "3deg" }],
         }}
       >
@@ -256,7 +304,9 @@ export function WelcomeTour() {
   }, [index, paused, reduced]);
   const item = TOUR[index];
   return (
-    <View style={{ flex: 1, gap: 14, minHeight: 430 }}>
+    <View
+      style={{ flex: 1, gap: 18, minHeight: 0, marginTop: 4, marginBottom: 16 }}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="次の説明を見る"
@@ -273,23 +323,50 @@ export function WelcomeTour() {
           overflow: "hidden",
         }}
       >
+        <Svg
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <Defs>
+            <Pattern
+              id="tourDots"
+              width={16}
+              height={16}
+              patternUnits="userSpaceOnUse"
+            >
+              <Circle cx={8} cy={8} r={1.2} fill="#ffffff" fillOpacity={0.08} />
+            </Pattern>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#tourDots)" />
+        </Svg>
         <Scene scene={item.key} reduced={reduced} />
       </Pressable>
       <View
         style={{ gap: 6 }}
         accessibilityLiveRegion={paused ? "polite" : "none"}
       >
-        <T size={12} color={C.pale}>
-          {String(index + 1).padStart(2, "0")} ／ {item.label}
+        <T
+          size={12}
+          color={C.yellow}
+          style={{ fontFamily: F.bold, lineHeight: 16.8, letterSpacing: 0.96 }}
+        >
+          {String(index + 1).padStart(2, "0")}
+          <T size={12} color={C.pale} style={{ fontFamily: F.bold }}>
+            {" "}
+            ／{" "}
+          </T>
+          {item.label}
         </T>
-        <T display size={22}>
+        <T display size={22} style={{ lineHeight: 30.8 }}>
           {item.title}
         </T>
-        <T size={13} color={C.pale}>
+        <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
           {item.lead}
         </T>
       </View>
-      <View style={S.row}>
+      <View style={[S.row, { gap: 8 }]}>
         {TOUR.map((item, i) => (
           <Pressable
             key={item.key}

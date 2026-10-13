@@ -539,6 +539,8 @@
     "lime": "#b3f268",
     "grey": "#d4d7de",
     "danger": "#d01d21",
-    "card-paper": "#fef3bd"
+    "card-paper": "#fef3bd",
+    "confirmed-paper": "#fef3bd",
+    "stage": "#13203e"
   }
 }

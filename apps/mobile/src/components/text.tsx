@@ -47,7 +47,20 @@ export function Icon({
 }
 
 export function Brand({ size = 40 }: { size?: number }) {
-  return <SvgXml xml={vectors.icon} width={size} height={size} />;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.224,
+        boxShadow: `0 0 0 2.5px ${C.ink}, 3px 3px 0 ${C.ink}`,
+      }}
+    >
+      <View style={{ borderRadius: size * 0.224, overflow: "hidden" }}>
+        <SvgXml xml={vectors.icon} width={size} height={size} />
+      </View>
+    </View>
+  );
 }
 
 export function Avatar({

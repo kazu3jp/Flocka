@@ -9,6 +9,7 @@ import {
   Btn,
   C,
   Field,
+  F,
   Header,
   Icon,
   LinkButton,
@@ -225,30 +226,65 @@ export function AuthScreen() {
   return (
     <Board
       scroll
+      contentStyle={
+        view === "welcome"
+          ? { paddingTop: 4, paddingBottom: 0, gap: 0 }
+          : undefined
+      }
       footer={
-        <View style={{ padding: 14, gap: 8 }}>
+        <View
+          style={{
+            paddingHorizontal: 14,
+            paddingTop: 12,
+            paddingBottom: 14,
+            gap: 6,
+          }}
+        >
           <Btn
             label={busy ? "処理中…" : button[0]}
             disabled={busy || button[2]}
             onPress={() => void button[1]()}
           />
           {view === "welcome" && (
-            <LinkButton
-              label="アカウントをお持ちの方はログイン"
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="アカウントをお持ちの方はログイン"
               onPress={() => go("login")}
-            />
+              style={{
+                minHeight: 44,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <T size={14} style={{ fontFamily: F.bold }}>
+                アカウントをお持ちの方は{" "}
+                <T
+                  size={14}
+                  style={{
+                    fontFamily: F.bold,
+                    textDecorationLine: "underline",
+                  }}
+                >
+                  ログイン
+                </T>
+              </T>
+            </Pressable>
           )}
         </View>
       }
     >
       {view === "welcome" ? (
         <>
-          <View style={[S.row, { minHeight: 56, flexWrap: "wrap" }]}>
+          <View style={[S.row, { minHeight: 56 }]}>
             <Brand size={40} />
             <T display size={22}>
               Flocka
             </T>
-            <T size={12} color={C.pale} style={{ marginLeft: "auto" }}>
+            <T
+              size={12}
+              color={C.pale}
+              style={{ marginLeft: "auto", fontFamily: F.bold, flexShrink: 1 }}
+            >
               仲間の言葉で、強みが見つかる
             </T>
           </View>

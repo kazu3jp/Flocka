@@ -1,5 +1,6 @@
+import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
-import React, { useId } from "react";
+import React, { useId, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -22,11 +23,27 @@ import vectors from "../vectors.json";
 import { C, F, S } from "./theme";
 import { T } from "./text";
 
-function CardPattern({ card }: { card: Card }) {
+function CardPattern({
+  card,
+  selfOnly,
+  width,
+  height,
+}: {
+  card: Card;
+  selfOnly: boolean;
+  width: number;
+  height: number;
+}) {
   const pattern = card.deco?.pattern || "burst",
     id = "pattern" + useId().replace(/:/g, "");
-  const { base, shade, shade2, light } =
+  const palette =
     ART_COLORS["deco-" + card.deco?.color] || ART_COLORS[card.key];
+  const { base, shade, shade2, light } = Object.fromEntries(
+    Object.entries(palette).map(([key, value]) => [
+      key,
+      selfOnly ? selfClaimColor(value) : value,
+    ]),
+  );
   const tile: Record<string, [number, number]> = {
     dots: [14, 14],
     grid: [12, 12],
@@ -90,13 +107,16 @@ function CardPattern({ card }: { card: Card }) {
     );
   else if (pattern === "cross")
     motif = <Path d="M0 0L18 18M18 0L0 18" stroke={shade2} strokeWidth={2} />;
+  const cx = width * 0.5,
+    cy = height * 0.62;
+  const radius = Math.hypot(width * 0.5, height * 0.62);
   const rays = Array.from({ length: 20 }, (_, i) => {
     const a = (i * 18 * Math.PI) / 180,
       b = ((i * 18 + 9) * Math.PI) / 180;
     return (
       <Path
         key={i}
-        d={`M50 62 L${50 + 130 * Math.cos(a)} ${62 + 130 * Math.sin(a)} L${50 + 130 * Math.cos(b)} ${62 + 130 * Math.sin(b)} Z`}
+        d={`M${cx} ${cy} L${cx + radius * 2 * Math.sin(a)} ${cy - radius * 2 * Math.cos(a)} L${cx + radius * 2 * Math.sin(b)} ${cy - radius * 2 * Math.cos(b)} Z`}
         fill={shade}
       />
     );
@@ -105,15 +125,15 @@ function CardPattern({ card }: { card: Card }) {
     <Svg
       width="100%"
       height="100%"
-      viewBox={pattern === "burst" ? "0 0 100 100" : undefined}
+      viewBox={pattern === "burst" ? `0 0 ${width} ${height}` : undefined}
       preserveAspectRatio="none"
       style={StyleSheet.absoluteFill}
     >
       <Rect width="100%" height="100%" fill={base} />
       {pattern === "burst" ? (
         <>
+          <Circle cx={cx} cy={cy} r={radius * 0.28} fill={light} />
           {rays}
-          <Circle cx={50} cy={62} r={28} fill={light} />
         </>
       ) : pattern !== "plain" ? (
         <>
@@ -166,7 +186,13 @@ export function StrengthCard({
       ? C.pink
       : C.ink;
   const frameId = "frame" + useId().replace(/:/g, "");
-  const selfOnly = !card.testimonies.length;
+  const selfOnly = status === "自己申告";
+  const [cardHeight, setCardHeight] = useState(0);
+  const [artSize, setArtSize] = useState({ width: 100, height: 100 });
+  const showFlavor = large || cardHeight >= 225;
+  const nameSize = large
+    ? 18
+    : Math.max(13, Math.min(18, (cardHeight - 5) * 0.09));
   const corners = [
     { bottom: 0, right: 0 },
     { bottom: 0, left: 0 },
@@ -175,6 +201,25 @@ export function StrengthCard({
   ];
   const inner = (
     <>
+      {selfOnly && (
+        <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <Pattern
+              id={frameId + "paper"}
+              width={12.7279}
+              height={12.7279}
+              patternUnits="userSpaceOnUse"
+            >
+              <Path
+                d="M-6.364 6.364L6.364-6.364 M0 12.7279L12.7279 0 M6.364 19.092L19.092 6.364"
+                stroke={C.paper2}
+                strokeWidth={1}
+              />
+            </Pattern>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${frameId}paper)`} />
+        </Svg>
+      )}
       {frame === "stars" && (
         <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
           <Defs>
@@ -198,20 +243,35 @@ export function StrengthCard({
           backgroundColor: color,
           paddingHorizontal: 8,
           minHeight: 26,
+          flexDirection: "row",
+          alignItems: "center",
           borderBottomWidth: 2.5,
           borderColor: C.ink,
-          justifyContent: "center",
+          justifyContent: "space-between",
         }}
       >
-        <T size={11} color={C.ink} style={{ fontFamily: F.bold }}>
+        <T size={11.5} color={C.ink} style={{ fontFamily: F.bold }}>
           {status}
-          {card.self && status !== "自己申告" ? " · 自分も選んだ" : ""}
         </T>
+        {card.self && !selfOnly && (
+          <T size={11.5} color={C.ink} style={{ fontFamily: F.bold }}>
+            自分も選んだ
+          </T>
+        )}
       </View>
       <View
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          const next = {
+            width: Math.max(1, width - 4),
+            height: Math.max(1, height - 4),
+          };
+          if (next.width !== artSize.width || next.height !== artSize.height)
+            setArtSize(next);
+        }}
         style={{
           flex: 1,
-          minHeight: 34,
+          minHeight: 0,
           margin: 6,
           marginBottom: 0,
           borderWidth: 2,
@@ -221,13 +281,30 @@ export function StrengthCard({
           overflow: "hidden",
         }}
       >
-        <CardPattern card={card} />
-        <View style={{ position: "absolute", left: 5, top: 2 }}>
-          <T color={C.ink} size={9}>
+        <CardPattern card={card} selfOnly={selfOnly} {...artSize} />
+        <View style={{ position: "absolute", left: 5, top: 4 }}>
+          <T
+            color={C.ink}
+            size={10}
+            style={{
+              fontFamily: F.bold,
+              lineHeight: 13,
+              backgroundColor: C.paper,
+              borderWidth: 1.5,
+              borderColor: C.ink,
+              borderRadius: 5,
+              paddingHorizontal: 5,
+              paddingVertical: 1,
+            }}
+          >
             No.{String(card.no).padStart(2, "0")}
           </T>
         </View>
-        <CardIllustration cardKey={card.key} confirmed={card.confirmed} />
+        <CardIllustration
+          cardKey={card.key}
+          confirmed={card.confirmed}
+          selfOnly={selfOnly}
+        />
         {frame === "tape" &&
           [0, 1].map((i) => (
             <View
@@ -294,21 +371,25 @@ export function StrengthCard({
       <T
         display
         color={C.ink}
-        size={large ? 19 : 13}
+        size={nameSize}
         style={{
           paddingHorizontal: 8,
-          paddingTop: 4,
-          backgroundColor: C.paper,
+          paddingTop: 5,
+          lineHeight: nameSize * 1.3,
+          backgroundColor: frame === "stars" ? C.paper : undefined,
         }}
-        numberOfLines={2}
       >
         {card.name}
       </T>
-      {large && (
+      {showFlavor && (
         <T
           color={C.muted}
           size={12}
-          style={{ paddingHorizontal: 8, backgroundColor: C.paper }}
+          style={{
+            paddingHorizontal: 8,
+            paddingTop: 2,
+            backgroundColor: frame === "stars" ? C.paper : undefined,
+          }}
         >
           {card.flavor}
         </T>
@@ -319,8 +400,9 @@ export function StrengthCard({
           gap: 4,
           alignItems: "center",
           paddingHorizontal: 8,
-          paddingBottom: 6,
-          backgroundColor: C.paper,
+          paddingBottom: 7,
+          paddingTop: 3,
+          backgroundColor: frame === "stars" ? C.paper : undefined,
         }}
       >
         {[0, 1].map((i) => (
@@ -336,7 +418,11 @@ export function StrengthCard({
             }}
           />
         ))}
-        <T color={C.muted} size={11} style={{ fontFamily: F.bold }}>
+        <T
+          color={C.muted}
+          size={11.5}
+          style={{ fontFamily: F.bold, lineHeight: 19 }}
+        >
           証言{card.givers.length}/2
         </T>
       </View>
@@ -380,7 +466,8 @@ export function StrengthCard({
     </>
   );
   const container: ViewStyle = {
-    backgroundColor: frame === "stars" ? C.ink : C.paper,
+    backgroundColor:
+      frame === "stars" ? C.ink : card.confirmed ? C.confirmedPaper : C.paper,
     borderWidth: ["ribbon", "mint", "pixel"].includes(frame)
       ? 5
       : ["tape", "ticket"].includes(frame)
@@ -410,6 +497,7 @@ export function StrengthCard({
       accessibilityRole="button"
       accessibilityLabel={`${card.name}・${status}`}
       onPress={onPress}
+      onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
       style={({ pressed }) => [
         container,
         pressed && { transform: [{ translateY: -2 }, { rotate: "-.6deg" }] },
@@ -419,7 +507,12 @@ export function StrengthCard({
       {inner}
     </Pressable>
   ) : (
-    <View style={[container, style]}>{inner}</View>
+    <View
+      onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
+      style={[container, style]}
+    >
+      {inner}
+    </View>
   );
 }
 

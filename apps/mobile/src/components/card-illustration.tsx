@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { C } from "./theme";
+import { selfClaimColor } from "./card-colors";
+import React, { useEffect, useState, useId, useMemo } from "react";
 import { AccessibilityInfo, Animated, Easing } from "react-native";
 import { SvgXml } from "react-native-svg";
 import vectors from "../vectors.json";
@@ -6,12 +8,26 @@ import vectors from "../vectors.json";
 export function CardIllustration({
   cardKey,
   confirmed,
+  selfOnly = false,
 }: {
   cardKey: string;
   confirmed: boolean;
+  selfOnly?: boolean;
 }) {
   const [progress] = useState(() => new Animated.Value(0)),
     [height, setHeight] = useState(100);
+  const filterId = "artShadow" + useId().replace(/:/g, "");
+  const xml = useMemo(() => {
+    let source = (vectors.cards as Record<string, string>)[cardKey];
+    if (selfOnly) source = source.replace(/#[0-9a-f]{6}/gi, selfClaimColor);
+    return source
+      .replace(
+        /<svg[^>]*>/,
+        (tag) =>
+          `${tag}<defs><filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="2" dy="3" stdDeviation="0" flood-color="${C.ink}" flood-opacity=".35" /></filter></defs><g filter="url(#${filterId})">`,
+      )
+      .replace("</svg>", "</g></svg>");
+  }, [cardKey, selfOnly, filterId]);
   useEffect(() => {
     let active = true,
       loop: Animated.CompositeAnimation | undefined;
@@ -47,8 +63,12 @@ export function CardIllustration({
     <Animated.View
       onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
       style={{
-        flex: 1,
-        padding: 10,
+        position: "absolute",
+        width: "74%",
+        height: "84%",
+        maxWidth: 150,
+        alignSelf: "center",
+        top: "8%",
         transform: confirmed
           ? [
               {
@@ -64,14 +84,10 @@ export function CardIllustration({
                 }),
               },
             ]
-          : [],
+          : [{ rotate: "-3deg" }],
       }}
     >
-      <SvgXml
-        xml={(vectors.cards as Record<string, string>)[cardKey]}
-        width="100%"
-        height="100%"
-      />
+      <SvgXml xml={xml} width="100%" height="100%" />
     </Animated.View>
   );
 }

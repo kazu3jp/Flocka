@@ -9,6 +9,8 @@ export const C = {
   ink: COLORS.ink,
   paper: COLORS.paper,
   paper2: COLORS["paper-2"],
+  confirmedPaper: COLORS["confirmed-paper"],
+  stage: COLORS.stage,
   muted: COLORS.muted,
   white: COLORS["on-blue"],
   pale: COLORS["on-blue-muted"],

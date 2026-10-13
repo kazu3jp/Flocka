@@ -123,6 +123,8 @@ for (const [key, , h] of catalog.DECO_COLORS)
       shade2: rgb(0.76, 0.13, h),
       light: rgb(0.95, 0.06, h),
     };
+colors["confirmed-paper"] = rgb(0.96, 0.07, 98);
+colors.stage = rgb(0.25, 0.06, 264);
 catalog.COLORS = colors;
 fs.writeFileSync(
   path.join(root, "packages/domain/src/catalog.json"),
