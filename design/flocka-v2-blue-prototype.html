@@ -89,7 +89,7 @@ const RESP = { agree: '納得', hold: '保留', disagree: '違うかも' };
 
 function fresh() {
   return {
-    schemaVersion: 1, onboarded: false,
+    schemaVersion: 1, account: null, onboarded: false,
     profile: { name: '', role: '', interests: [], links: { github: '' } }, self: [],
     connections: [], vibes: [], proofs: [], sentVibes: [], sentProofs: [],
     resp: {}, deco: {}, prDraft: null, blocked: [],
@@ -823,7 +823,8 @@ function Pieces() {
   </main>;
 }
 function Me() {
-  const { s, nav } = useApp();
+  const { s, nav, update } = useApp();
+  const [out, setOut] = useState(false);
   return <main className="view" data-od-id="me">
     <Header back title="自分" />
     <button className="panel row" style={{ padding: 14, gap: 12, textAlign: 'left' }} onClick={() => nav.push('avatar')} data-od-id="me-avatar"><Avatar me size={56} /><span style={{ minWidth: 0, flex: 1 }}><b className="h2" style={{ display: 'block' }}>{s.profile.name}</b><span className="small muted">アイコンを変える</span></span><Icon n="edit" s={20} /></button>
@@ -832,6 +833,11 @@ function Me() {
       <button className="list-row" onClick={() => nav.push('pieces')}><Icon n="list" s={20} /><span style={{ flex: 1 }}>届いた証言の一覧</span><Icon n="chev" s={18} /></button>
       <button className="list-row" onClick={() => nav.push('settings')}><Icon n="shield" s={20} /><span style={{ flex: 1 }}>公開範囲・安全</span><Icon n="chev" s={18} /></button>
     </div>
+    <div className="list" data-od-id="me-account">
+      <div className="list-row"><Icon n="lock" s={20} /><span style={{ flex: 1, minWidth: 0 }}><b className="small" style={{ display: 'block' }}>アカウント</b><span className="cap muted" style={{ overflowWrap: 'anywhere' }}>{s.account?.method === 'apple' ? 'Appleでログイン中' : s.account?.method === 'google' ? 'Googleでログイン中' : s.account?.email || ''}</span></span></div>
+      <button className="list-row" onClick={() => setOut(true)} data-od-id="me-logout"><Icon n="back" s={20} /><span style={{ flex: 1 }}>ログアウト</span></button>
+    </div>
+    {out && <Sheet title="ログアウトしますか？" onClose={() => setOut(false)}><p className="small muted">もう一度ログインすると、デッキや証言をそのまま使えます。</p><div className="btn-row" style={{ marginTop: 16 }}><button className="btn btn-plain" onClick={() => setOut(false)}>やめる</button><button className="btn btn-go" onClick={() => { setOut(false); update(x => { x.account = null; }); nav.reset(); }}>ログアウト</button></div></Sheet>}
   </main>;
 }
 function CardPicker({ sel, setSel, paged }) {
@@ -880,6 +886,148 @@ function Settings() {
     {ask && ask !== 'save' && <Sheet title={`${PEOPLE[ask].name}のブロックを解除？`} onClose={() => setAsk(null)}><div className="btn-row"><button className="btn btn-plain" onClick={() => setAsk(null)}>やめる</button><button className="btn btn-go" onClick={() => { const b = ask; update(x => { x.blocked = x.blocked.filter(y => y !== b); }); setAsk(null); toast('解除しました'); }}>解除</button></div></Sheet>}
   </main>;
 }
+/* ================= Account (sign up / log in) ================= */
+const BRAND_MARK = {
+  apple: 'M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701',
+  google: 'M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z',
+};
+const BrandMark = ({ k }) => <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ flex: 'none' }}><path d={BRAND_MARK[k]} fill="currentColor" /></svg>;
+const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const LEGAL = { terms: '利用規約', privacy: 'プライバシーポリシー' };
+function PasswordField({ value, onChange, label = 'パスワード', hint, autoComplete }) {
+  const [show, setShow] = useState(false);
+  return <label className="onb-section">
+    <span className="onb-label">{label}{hint && <em>{hint}</em>}</span>
+    <span className="pw-wrap"><input className="input" type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} autoComplete={autoComplete} />
+      <button type="button" className="pw-toggle" onClick={e => { e.preventDefault(); setShow(!show); }} aria-label={show ? 'パスワードを隠す' : 'パスワードを表示'} aria-pressed={show}>{show ? '隠す' : '表示'}</button></span>
+  </label>;
+}
+// Welcome tour: three auto-advancing scenes that explain the loop (exchange → guess → confirmed → PR).
+const TOUR = [
+  { k: 'exchange', label: '交換', title: '会った人と、カードを交換', lead: '近くの人やQRで、プレイヤーカードを見せ合います。' },
+  { k: 'guess', label: '予想', title: '届いた封筒の中身を予想', lead: '仲間の印象が、どの強みの証言か当ててから開けます。' },
+  { k: 'pr', label: '自己PR', title: '2人の証言で、確認済みに', lead: '確認済みカードから、自己PRの下書きができあがります。' },
+];
+function TourScene({ k }) {
+  const card = (key, extra) => ({ key, ...CARDS[key], self: false, testimonies: [], givers: [], confirmed: false, discovered: false, ...extra });
+  if (k === 'exchange') return <div className="tour-scene t-exchange" aria-hidden="true">
+    <div className="tour-pc left"><div className="tour-pc-top" /><Avatar id="mock-b" size={44} /><b>ソラ</b><GCard c={card('impl', { self: true })} /></div>
+    <span className="tour-swap"><Icon n="swap" s={26} w={2.6} /></span>
+    <div className="tour-pc right"><div className="tour-pc-top" /><Avatar id="mock-a" size={44} /><b>ミナト</b><GCard c={card('design', { self: true })} /></div>
+  </div>;
+  if (k === 'guess') return <div className="tour-scene t-guess" aria-hidden="true">
+    <div className="tour-env"><Env style={{ width: '100%', height: '100%' }} /><span className="tour-seal">?</span></div>
+    <div className="tour-opts">{['bridge', 'warm', 'idea'].map((key, i) => <div key={key} className={`tour-opt o${i}`}><GCard c={card(key)} /></div>)}</div>
+  </div>;
+  return <div className="tour-scene t-pr" aria-hidden="true">
+    <div className="tour-confirm"><GCard c={card('bridge', { testimonies: [1, 2], givers: [1, 2], confirmed: true })} /></div>
+    <div className="tour-doc"><b>自己PR</b><i /><i /><i /><i /></div>
+  </div>;
+}
+function WelcomeTour() {
+  const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(reduced());
+  useEffect(() => { if (paused) return; const t = setTimeout(() => setI(n => (n + 1) % TOUR.length), 3600); return () => clearTimeout(t); }, [i, paused]);
+  const cur = TOUR[i];
+  return <section className="tour" aria-roledescription="カルーセル" aria-label="Flockaでできること" data-od-id="welcome-tour">
+    <div className="tour-stage" key={i} onClick={() => setI((i + 1) % TOUR.length)}><TourScene k={cur.k} /></div>
+    <div className="tour-copy" key={'c' + i} aria-live={paused ? 'polite' : 'off'}>
+      <p className="onb-eyebrow">{String(i + 1).padStart(2, '0')}<span aria-hidden="true">／</span>{cur.label}</p>
+      <h2 className="tour-title">{cur.title}</h2>
+      <p className="small on-muted">{cur.lead}</p>
+    </div>
+    <div className="tour-dots" role="group" aria-label="説明の切り替え">
+      {TOUR.map((x, n) => <button key={x.k} className={n === i ? 'on' : ''} aria-label={`${n + 1}枚目：${x.title}`} aria-current={n === i ? 'true' : undefined} onClick={() => { setI(n); setPaused(true); }} data-od-id={`welcome-dot-${n + 1}`}><span style={n === i && !paused ? { animationDuration: '3.6s' } : undefined} /></button>)}
+    </div>
+  </section>;
+}
+function Auth() {
+  const { s, update, toast } = useApp();
+  const [view, setView] = useState('welcome');
+  const [email, setEmail] = useState(s.lastEmail || '');
+  const [pw, setPw] = useState('');
+  const [agree, setAgree] = useState(false);
+  const [code, setCode] = useState('');
+  const [wait, setWait] = useState(0);
+  const [sheet, setSheet] = useState(null);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => { if (!wait) return; const t = setTimeout(() => setWait(w => w - 1), 1000); return () => clearTimeout(t); }, [wait]);
+  const signIn = (method, mail) => update(x => { x.account = { method, email: mail || null, createdAt: x.account?.createdAt || now() }; if (mail) x.lastEmail = mail; });
+  const social = k => { signIn(k); toast(`${k === 'apple' ? 'Apple' : 'Google'}アカウントで続けます`); };
+  const emailOk = isEmail(email), pwOk = pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw);
+  const go = v => { setView(v); setTouched(false); };
+  const sendCode = () => { setCode(''); setWait(30); go('verify'); };
+  const SocialRow = () => <div className="auth-social">
+    <button className="btn btn-plain btn-block" onClick={() => social('apple')} data-od-id="auth-apple"><BrandMark k="apple" />Appleで続ける</button>
+    <button className="btn btn-plain btn-block" onClick={() => social('google')} data-od-id="auth-google"><BrandMark k="google" />Googleで続ける</button>
+    <div className="auth-or" aria-hidden="true"><span>または</span></div>
+  </div>;
+  const head = (back, title) => <header className="onb-head auth-head">{back ? <button className="iconbtn" onClick={() => go(back)} aria-label="戻る" data-od-id="auth-back"><Icon n="back" /></button> : <span />}<b className="auth-head-title">{title}</b><span /></header>;
+  const legal = <>
+    {sheet && <Sheet title={LEGAL[sheet]} onClose={() => setSheet(null)}><p className="small muted">{LEGAL[sheet]}の本文は、公開前にこちらへ掲載します。</p><button className="btn btn-plain btn-block" style={{ marginTop: 16 }} onClick={() => setSheet(null)}>閉じる</button></Sheet>}
+  </>;
+
+  if (view === 'welcome') return <main className="view onb auth" data-od-id="s00-welcome">
+    <header className="auth-brand" data-od-id="welcome-brand"><img src="flocka-app-icon-fsticker-1024.svg" width="40" height="40" alt="" /><b>Flocka</b><span>仲間の言葉で、強みが見つかる</span></header>
+    <div className="onb-body auth-welcome"><WelcomeTour /></div>
+    <footer className="onb-foot auth-foot">
+      <button className="btn btn-go btn-block" onClick={() => go('signup')} data-od-id="auth-to-signup">アカウントを作成</button>
+      <button className="link" onClick={() => go('login')} data-od-id="auth-to-login">アカウントをお持ちの方は<u>ログイン</u></button>
+    </footer>
+  </main>;
+
+  if (view === 'signup') return <main className="view onb auth" data-od-id="s00-signup">
+    {head('welcome', 'アカウントを作成')}
+    <div className="onb-body">
+      <SocialRow />
+      <label className="onb-section"><span className="onb-label">メールアドレス</span>
+        <input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => setTouched(true)} placeholder="例：haru@example.com" aria-invalid={touched && !!email && !emailOk} />
+        {touched && email && !emailOk && <small className="auth-err" role="alert">メールアドレスの形式を確認してください</small>}</label>
+      <PasswordField value={pw} onChange={setPw} hint="8文字以上・英字と数字" autoComplete="new-password" />
+      <div className="auth-check" data-od-id="auth-agree">
+        <button type="button" className="box" role="checkbox" aria-checked={agree} aria-labelledby="auth-agree-text" onClick={() => setAgree(!agree)}><span className="tick" aria-hidden="true">{agree && <Icon n="check" s={16} w={3} />}</span></button>
+        <span id="auth-agree-text" onClick={() => setAgree(!agree)}><button type="button" className="auth-legal" onClick={e => { e.stopPropagation(); setSheet('terms'); }}>利用規約</button>と<button type="button" className="auth-legal" onClick={e => { e.stopPropagation(); setSheet('privacy'); }}>プライバシーポリシー</button>に同意する</span>
+      </div>
+    </div>
+    <footer className="onb-foot"><button className="btn btn-go btn-block" disabled={!(emailOk && pwOk && agree)} onClick={sendCode} data-od-id="auth-signup-submit">メールで登録</button></footer>
+    {legal}
+  </main>;
+
+  if (view === 'verify') return <main className="view onb auth" data-od-id="s00-verify">
+    {head('signup', 'メールアドレスの確認')}
+    <div className="onb-body">
+      <div className="onb-intro"><h1 className="h1">確認コードを<br />入力してください。</h1><p className="small on-muted onb-lead"><b className="auth-mail">{email.trim()}</b> に6桁のコードを送りました。</p></div>
+      <label className="onb-section"><span className="onb-label">確認コード<em>6桁</em></span>
+        <input className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" autoFocus /></label>
+      <div className="auth-links">
+        <button className="link" disabled={wait > 0} onClick={() => { setWait(30); toast('コードを再送しました'); }} data-od-id="auth-resend">{wait > 0 ? `再送まで${wait}秒` : 'コードを再送'}</button>
+        <button className="link" onClick={() => go('signup')}>メールアドレスを変更</button>
+      </div>
+    </div>
+    <footer className="onb-foot"><button className="btn btn-go btn-block" disabled={code.length !== 6} onClick={() => { signIn('email', email.trim()); toast('登録が完了しました'); }} data-od-id="auth-verify-submit">確認して次へ</button></footer>
+  </main>;
+
+  if (view === 'reset') return <main className="view onb auth" data-od-id="s00-reset">
+    {head('login', 'パスワードの再設定')}
+    <div className="onb-body">
+      <div className="onb-intro"><h1 className="h1">再設定用のリンクを<br />メールで送ります。</h1><p className="small on-muted onb-lead">登録したメールアドレスを入力してください。</p></div>
+      <label className="onb-section"><span className="onb-label">メールアドレス</span><input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="例：haru@example.com" /></label>
+    </div>
+    <footer className="onb-foot"><button className="btn btn-go btn-block" disabled={!emailOk} onClick={() => { toast('再設定用のリンクを送りました'); go('login'); }} data-od-id="auth-reset-submit">リンクを送る</button></footer>
+  </main>;
+
+  return <main className="view onb auth" data-od-id="s00-login">
+    {head('welcome', 'ログイン')}
+    <div className="onb-body">
+      <SocialRow />
+      <label className="onb-section"><span className="onb-label">メールアドレス</span><input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="例：haru@example.com" /></label>
+      <PasswordField value={pw} onChange={setPw} autoComplete="current-password" />
+      <button className="link auth-forgot" onClick={() => go('reset')} data-od-id="auth-forgot">パスワードを忘れた方</button>
+    </div>
+    <footer className="onb-foot"><button className="btn btn-go btn-block" disabled={!(emailOk && pw)} onClick={() => { signIn('email', email.trim()); toast('ログインしました'); }} data-od-id="auth-login-submit">ログイン</button></footer>
+  </main>;
+}
+
 function Onboarding() {
   const { s, update, nav, toast } = useApp();
   const [step, setStep] = useState(EMBED === 'onboarding' ? 3 : 0);
@@ -993,6 +1141,7 @@ function demoState() {
   const x = fresh(), at = h => new Date(Date.now() - h * 3600e3).toISOString();
   x.profile = { name: 'ハルカ', role: 'ハッカソンでよく実装担当', interests: ['Web開発', 'チーム開発', 'AI・データ'], links: { github: '' }, avatar: { type: 'initial', color: 'oklch(0.9 0.17 98)' } };
   x.self = ['impl', 'focus'];
+  x.account = { method: 'email', email: 'haruka@example.com', createdAt: at(48) };
   if (EMBED === 'onboarding') return x;
   x.onboarded = true;
   const ctx = { 'mock-a': ['学内ハッカソン', '同じチームでUIを担当'], 'mock-b': ['学内ハッカソン', '発表資料を一緒に作った'], 'mock-c': ['開発勉強会', '懇親会で隣の席だった'] };
@@ -1043,10 +1192,10 @@ function App() {
   const top = stack[stack.length - 1];
   const Screen = SCREENS[top.id] || Deck;
   const params = (top.id === 'card' || top.id === 'deco') ? { cardKey: top.params?.key } : (top.params || {});
-  const showTabs = s.onboarded && !FOCUSED.includes(top.id);
+  const showTabs = s.account && s.onboarded && !FOCUSED.includes(top.id);
   const TABS = [['find', 'デッキ', 'deck'], ['exchange', '交換', 'swap'], ['pr', '自己PR', 'doc']];
   return <Ctx.Provider value={ctx}>
-    {!s.onboarded ? <Onboarding /> : <Screen key={navS.tab + stack.length + top.id + JSON.stringify(top.params || {})} {...params} />}
+    {!s.account ? <Auth /> : !s.onboarded ? <Onboarding /> : <Screen key={navS.tab + stack.length + top.id + JSON.stringify(top.params || {})} {...params} />}
     {showTabs && <nav className="tabbar" aria-label="メインナビゲーション">{TABS.map(([k, l, ic]) =>
       <button key={k} className="tab" aria-current={navS.tab === k ? 'page' : undefined} onClick={() => nav.tab(k)} data-od-id={`tab-${k}`} aria-label={k === 'find' && d.unopened.length ? `${l}（封筒${d.unopened.length}通）` : l}>
         <Icon n={ic} />{k === 'find' && d.unopened.length > 0 && <span className="tab-dot" aria-hidden="true">{d.unopened.length}</span>}{k === 'pr' && d.prCard && <span className="tab-dot" aria-hidden="true">!</span>}{l}
