@@ -11,7 +11,6 @@ import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
 
 import { toTestimony, type TestimonyRow } from "../repositories/testimonies";
-import { enqueueNotification } from "../services/notifications";
 export const testimonyRoutes = new Hono<ApiContext>();
 testimonyRoutes.post("/testimonies", async (c) => {
   const input = await readJson(c, createTestimonySchema),
@@ -45,36 +44,40 @@ testimonyRoutes.post("/testimonies", async (c) => {
     );
   const id = crypto.randomUUID(),
     at = new Date().toISOString();
-  const result = await c.env.DB.prepare(
+  const insert = c.env.DB.prepare(
     `INSERT OR IGNORE INTO testimonies(id, exchange_id, sender_id, recipient_id, kind, card, label, text, story, created_at)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM exchanges WHERE id = ? AND status = 'accepted'
     AND NOT EXISTS(SELECT 1 FROM blocks WHERE (account_id = ? AND blocked_id = ?) OR (account_id = ? AND blocked_id = ?))`,
-  )
-    .bind(
-      id,
-      input.exchangeId,
-      sender,
-      recipient,
-      input.kind,
-      input.card,
-      input.kind === "vibe" ? input.label : null,
-      input.kind === "vibe" ? input.text : null,
-      input.kind === "proof" ? input.story : null,
-      at,
-      input.exchangeId,
-      sender,
-      recipient,
-      recipient,
-      sender,
-    )
-    .run();
+  ).bind(
+    id,
+    input.exchangeId,
+    sender,
+    recipient,
+    input.kind,
+    input.card,
+    input.kind === "vibe" ? input.label : null,
+    input.kind === "vibe" ? input.text : null,
+    input.kind === "proof" ? input.story : null,
+    at,
+    input.exchangeId,
+    sender,
+    recipient,
+    recipient,
+    sender,
+  );
+  const [result] = await c.env.DB.batch([
+    insert,
+    c.env.DB.prepare(
+      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
+      SELECT ?, recipient_id, 'testimony', id, ?, ? FROM testimonies WHERE id = ?`,
+    ).bind(crypto.randomUUID(), at, at, id),
+  ]);
   if (!result.meta.changes)
     throw new ApiError(
       409,
       "TESTIMONY_CONFLICT",
       "印象は1人に1つまでです。交換やブロックの状態も確認してください",
     );
-  await enqueueNotification(c.env.DB, recipient, "testimony", id);
   return c.json({ id }, 201);
 });
 testimonyRoutes.get("/testimonies", async (c) => {

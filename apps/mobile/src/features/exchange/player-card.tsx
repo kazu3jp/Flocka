@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import {
   Avatar,
@@ -8,8 +8,9 @@ import {
   S,
   StrengthCard,
   T,
+  Sheet,
 } from "../../components/ui";
-import { bareCard, type Card } from "@flocka/domain";
+import { bareCard, type Card, type RemoteTestimony } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
@@ -30,13 +31,63 @@ export function Player({
   peerId?: string;
   onPick?: () => void;
 }) {
-  const { s, d, peers } = useApp(),
+  const { s, d, peers, api } = useApp(),
+    [publicData, setPublicData] = useState<{
+      id: string;
+      items: RemoteTestimony[];
+      error?: string;
+    } | null>(null),
+    [showPublic, setShowPublic] = useState(false),
     peer = peerId ? peers[peerId] : null;
+  const accepted =
+    !!peerId &&
+    s.connections.some(
+      (connection) =>
+        connection.peerId === peerId && connection.status === "accepted",
+    ) &&
+    !s.blocked.includes(peerId);
+  useEffect(() => {
+    if (!peerId || !accepted) return;
+    let active = true;
+    void api
+      .publicTestimonies(peerId)
+      .then(({ items }) => {
+        if (active) setPublicData({ id: peerId, items });
+      })
+      .catch(() => {
+        if (active)
+          setPublicData({
+            id: peerId,
+            items: [],
+            error: "公開された証言を取得できませんでした",
+          });
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, peerId, accepted]);
+  const published = publicData?.id === peerId ? publicData : null;
   const chosen = s.showcase
     .map((k) => d.deck.find((c) => c.key === k))
     .filter((c): c is Card => !!c);
   const cards = peer
-    ? peer.self.map((key) => bareCard(key))
+    ? peer.self.map((key) => {
+        const testimonies = (published?.items ?? [])
+          .filter((piece) => piece.card === key)
+          .map((piece) => ({
+            ...piece,
+            label: piece.label ?? undefined,
+            text: piece.text ?? undefined,
+            story: piece.story ?? undefined,
+          }));
+        const givers = [...new Set(testimonies.map((piece) => piece.fromId))];
+        return {
+          ...bareCard(key),
+          testimonies,
+          givers,
+          confirmed: givers.length >= 2,
+        };
+      })
     : chosen.length
       ? chosen
       : d.deck.slice(0, 3);
@@ -106,10 +157,37 @@ export function Player({
         <T color={C.muted} size={11}>
           関心
         </T>
+        {accepted && (
+          <LinkButton
+            color={C.ink}
+            label="公開された証言を見る"
+            onPress={() => setShowPublic(true)}
+          />
+        )}
         <T color={C.ink} size={12}>
           {interests.map((i) => "#" + i).join("　")}
         </T>
       </View>
+      {showPublic && (
+        <Sheet title="公開された証言" onClose={() => setShowPublic(false)}>
+          {!published ? (
+            <T>読み込み中…</T>
+          ) : published.error ? (
+            <T color={C.yellow}>{published.error}</T>
+          ) : !published.items.length ? (
+            <T>公開された証言はありません。</T>
+          ) : (
+            published.items.map((piece) => (
+              <View key={piece.id} style={S.gap}>
+                <T size={12}>
+                  {piece.kind === "proof" ? "場面のメモ" : "印象"}
+                </T>
+                <T selectable>{piece.story || piece.text || piece.label}</T>
+              </View>
+            ))
+          )}
+        </Sheet>
+      )}
     </Panel>
   );
 }

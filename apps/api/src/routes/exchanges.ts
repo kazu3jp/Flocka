@@ -3,7 +3,6 @@ import { createExchangeSchema, meetingContextSchema } from "@flocka/domain";
 import { hashToken, randomToken } from "../auth";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { ExchangesRepository } from "../repositories/exchanges";
-import { enqueueNotification } from "../services/notifications";
 
 const INVITE_LIFETIME_MS = 10 * 60 * 1000;
 export const exchangeRoutes = new Hono<ApiContext>();
@@ -111,6 +110,7 @@ exchangeRoutes.post("/exchanges/:id/approve", async (c) => {
       "EXCHANGE_BLOCKED",
       "このプレイヤーとは交換できません",
     );
+  const at = new Date().toISOString();
   await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE exchange_participants SET approved_at = COALESCE(approved_at, ?), place = ?, trigger = ?
@@ -124,18 +124,21 @@ exchangeRoutes.post("/exchanges/:id/approve", async (c) => {
       id,
     ),
     c.env.DB.prepare(
+      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
+      SELECT ?, player_a, 'exchange', id, ?, ? FROM exchanges WHERE id = ? AND status = 'pending'
+      AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
+    ).bind(crypto.randomUUID(), at, at, id, id),
+    c.env.DB.prepare(
+      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
+      SELECT ?, player_b, 'exchange', id, ?, ? FROM exchanges WHERE id = ? AND status = 'pending'
+      AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
+    ).bind(crypto.randomUUID(), at, at, id, id),
+    c.env.DB.prepare(
       `UPDATE exchanges SET status = 'accepted' WHERE id = ? AND status = 'pending'
       AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
     ).bind(id, id),
   ]);
   const updated = await repository.get(id, accountId);
-  if (exchange.status === "pending" && updated.status === "accepted")
-    await enqueueNotification(
-      c.env.DB,
-      exchange.player_a === accountId ? exchange.player_b : exchange.player_a,
-      "exchange",
-      id,
-    );
   return c.json(updated);
 });
 exchangeRoutes.post("/exchanges/:id/cancel", async (c) => {

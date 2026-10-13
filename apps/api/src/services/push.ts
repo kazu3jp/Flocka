@@ -81,7 +81,12 @@ async function deliverOne(
     const result = z.object({ data: z.array(ticketSchema) }).parse(
       await expoRequest(
         "send",
-        tokens.map((to) => ({ to, sound: "default", ...MESSAGES[row.kind] })),
+        tokens.map((to) => ({
+          to,
+          sound: "default",
+          ...MESSAGES[row.kind],
+          data: { accountId: row.account_id, kind: row.kind },
+        })),
         accessToken,
       ),
     );

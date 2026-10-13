@@ -39,7 +39,7 @@ applicationRoutes.get("/sync", async (c) => {
       new ExchangesRepository(db).listPage(accountId, offset),
       db
         .prepare(
-          "SELECT * FROM testimonies WHERE recipient_id = ? AND removed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
+          "SELECT * FROM testimonies AS testimony WHERE recipient_id = ? AND removed_at IS NULL AND NOT EXISTS(SELECT 1 FROM blocks WHERE (account_id = testimony.recipient_id AND blocked_id = testimony.sender_id) OR (account_id = testimony.sender_id AND blocked_id = testimony.recipient_id)) ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
         )
         .bind(accountId, offset)
         .all<TestimonyRow>(),
@@ -106,11 +106,7 @@ applicationRoutes.get("/sync", async (c) => {
       peers,
       exchanges,
       settings: settingsSchema.parse(JSON.parse(account.settings_json)),
-      inbox: inbox.results
-        .filter(
-          (p) => !blocks.results.some((b) => b.blocked_id === p.sender_id),
-        )
-        .map(toTestimony),
+      inbox: inbox.results.map(toTestimony),
       sent: sent.results.map((p) => ({
         ...toTestimony(p),
         toId: p.recipient_id,
@@ -228,12 +224,21 @@ applicationRoutes.get("/players/:id/public", async (c) => {
       "CONNECTION_REQUIRED",
       "交換した相手だけが閲覧できます",
     );
+  const page = z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(100000)
+    .parse(c.req.query("page") || "0");
   const rows = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE recipient_id = ? AND opened = 1 AND visibility = 'public' AND removed_at IS NULL AND NOT EXISTS(SELECT 1 FROM blocks WHERE account_id = ? AND blocked_id = sender_id) ORDER BY created_at DESC, id DESC",
+    "SELECT * FROM testimonies WHERE recipient_id = ? AND opened = 1 AND visibility = 'public' AND removed_at IS NULL AND NOT EXISTS(SELECT 1 FROM blocks WHERE account_id = ? AND blocked_id = sender_id) ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
   )
-    .bind(id, id)
+    .bind(id, id, page * 100)
     .all<TestimonyRow>();
-  return c.json({ items: rows.results.map(toTestimony) });
+  return c.json({
+    items: rows.results.slice(0, 100).map(toTestimony),
+    nextPage: rows.results.length > 100 ? page + 1 : null,
+  });
 });
 
 applicationRoutes.post("/invites/status", async (c) => {

@@ -35,10 +35,33 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     const exchange = await b.api.startExchange(invite.code);
     await a.api.approveExchange(exchange.id, "発表会", "同じチーム");
     await b.api.approveExchange(exchange.id, "発表会", "同じチーム");
+    await b.api.approveExchange(exchange.id, "発表会", "メモを更新");
+    assert.equal(
+      (
+        await f.db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM notification_outbox WHERE kind = 'exchange' AND resource_id = ?",
+          )
+          .bind(exchange.id)
+          .first()
+      )?.count,
+      2,
+    );
     const piece = await b.api.sendScene(
       exchange.id,
       "impl",
       "動くアプリを最後まで作ってくれた",
+    );
+    assert.equal(
+      (
+        await f.db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM notification_outbox WHERE kind = 'testimony' AND resource_id = ?",
+          )
+          .bind(piece.id)
+          .first()
+      )?.count,
+      1,
     );
     const received = await a.api.getSnapshot();
     assert.equal(received.inbox[0].id, piece.id);
@@ -47,6 +70,33 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     await a.api.openTestimony(piece.id, "impl");
     await a.api.changeVisibility(piece.id, "public");
     assert.equal((await b.api.publicTestimonies(a.player.id)).items.length, 1);
+    const additionalIds = Array.from({ length: 101 }, () =>
+      crypto.randomUUID(),
+    );
+    await f.db.batch(
+      additionalIds.map((id) =>
+        f.db
+          .prepare(
+            `INSERT INTO testimonies(id, exchange_id, sender_id, recipient_id, kind, card, story, opened, visibility, created_at)
+      SELECT ?, exchange_id, sender_id, recipient_id, kind, card, story, opened, visibility, created_at FROM testimonies WHERE id = ?`,
+          )
+          .bind(id, piece.id),
+      ),
+    );
+    assert.equal(
+      (await b.api.publicTestimonies(a.player.id)).items.length,
+      102,
+    );
+    assert.equal((await a.api.getSnapshot()).inbox.length, 102);
+    await b.api.block(a.player.id);
+    assert.equal((await a.api.getSnapshot()).inbox.length, 0);
+    await b.api.unblock(a.player.id);
+    await f.db.batch(
+      additionalIds.map((id) =>
+        f.db.prepare("DELETE FROM testimonies WHERE id = ?").bind(id),
+      ),
+    );
+
     await assert.rejects(
       c.api.publicTestimonies(a.player.id),
       (error) => error instanceof ApiClientError && error.status === 403,

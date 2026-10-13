@@ -14,19 +14,21 @@ export function applySnapshot(
   previous: State,
   keepLocalPreferences = false,
 ): State {
-  const pieces: Piece[] = snapshot.inbox.map((piece) => ({
-    id: piece.id,
-    fromId: piece.fromId,
-    card: piece.card,
-    kind: piece.kind,
-    label: piece.label ?? undefined,
-    text: piece.text ?? undefined,
-    story: piece.story ?? undefined,
-    opened: piece.opened,
-    guess: piece.guess,
-    visibility: piece.visibility,
-    createdAt: piece.createdAt,
-  }));
+  const pieces: Piece[] = snapshot.inbox
+    .filter((piece) => !snapshot.blocked.includes(piece.fromId))
+    .map((piece) => ({
+      id: piece.id,
+      fromId: piece.fromId,
+      card: piece.card,
+      kind: piece.kind,
+      label: piece.label ?? undefined,
+      text: piece.text ?? undefined,
+      story: piece.story ?? undefined,
+      opened: piece.opened,
+      guess: piece.guess,
+      visibility: piece.visibility,
+      createdAt: piece.createdAt,
+    }));
   const sent: SentPiece[] = snapshot.sent.map((piece) => ({
     id: piece.id,
     toId: piece.toId,

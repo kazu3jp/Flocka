@@ -242,11 +242,26 @@ export class FlockaApiClient {
       { status, note },
     );
   }
-  publicTestimonies(id: string) {
-    return this.json(
-      `/v1/players/${encodeURIComponent(id)}/public`,
-      z.object({ items: z.array(remoteTestimonySchema) }),
-    );
+  async publicTestimonies(id: string) {
+    const items: z.infer<typeof remoteTestimonySchema>[] = [];
+    let page: number | null = 0;
+    while (page !== null) {
+      const result: {
+        items: z.infer<typeof remoteTestimonySchema>[];
+        nextPage: number | null;
+      } = await this.json(
+        `/v1/players/${encodeURIComponent(id)}/public?page=${page}`,
+        z.object({
+          items: z.array(remoteTestimonySchema),
+          nextPage: z.number().int().nonnegative().nullable(),
+        }),
+      );
+      items.push(...result.items);
+      page = result.nextPage;
+    }
+    return {
+      items: [...new Map(items.map((item) => [item.id, item])).values()],
+    };
   }
   async peerAvatar(id: string): Promise<string> {
     return this.image(
@@ -254,8 +269,9 @@ export class FlockaApiClient {
     );
   }
   createAccount(profile: Profile, self: string[]) {
+    const { photo: _photo, ...avatar } = profile.avatar;
     return this.json("/v1/accounts", remotePlayerSchema, "POST", {
-      profile,
+      profile: { ...profile, avatar },
       self,
     });
   }
@@ -263,6 +279,7 @@ export class FlockaApiClient {
     return this.json("/v1/me", remotePlayerSchema);
   }
   updateProfile(profile: Profile, self: string[]) {
+    const { photo: _photo, ...avatar } = profile.avatar;
     return this.json("/v1/me", remotePlayerSchema, "PATCH", { profile, self });
   }
   getBackup() {

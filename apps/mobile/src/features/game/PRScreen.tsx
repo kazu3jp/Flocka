@@ -150,7 +150,7 @@ export function PR() {
             <Avatar
               key={id}
               name={peers[id]?.profile.name ?? "プロフィールを取得中"}
-              avatar={{ type: "motif", motif: "cat", color: C.pink }}
+              avatar={peers[id]?.profile.avatar}
               size={24}
             />
           ))}

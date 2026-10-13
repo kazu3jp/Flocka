@@ -69,9 +69,18 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      await api.createAccount(input, sel);
+      await api.createAccount(
+        input.avatar.type === "photo"
+          ? {
+              ...input,
+              avatar: { ...input.avatar, type: "initial", photo: undefined },
+            }
+          : input,
+        sel,
+      );
       if (input.avatar.type === "photo" && input.avatar.photo)
         await api.uploadAvatar(input.avatar.photo);
+      await api.updateProfile(input, sel);
       update((x) => {
         x.profile = input;
         x.self = sel;
