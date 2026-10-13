@@ -191,7 +191,7 @@ export default function Screen() {
               <Pressable
                 key={tab}
                 accessibilityRole="tab"
-                accessibilityState={{ selected: n.tab === tab }}
+                aria-selected={n.tab === tab}
                 accessibilityLabel={label}
                 onPress={() => nav.goTab(tab, undefined, n.tab === tab)}
                 style={{

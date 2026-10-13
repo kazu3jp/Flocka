@@ -8,9 +8,7 @@ import {
   Brand,
   Btn,
   C,
-  Field,
   F,
-  Header,
   Icon,
   LinkButton,
   S,
@@ -22,6 +20,8 @@ import { SessionStatus, useAuth } from "./provider";
 import { WelcomeTour } from "./WelcomeTour";
 import {
   PasswordField,
+  AuthField,
+  AuthHeader,
   SocialButtons,
   validEmail,
   validPassword,
@@ -189,7 +189,7 @@ export function AuthScreen() {
   if (session.data) return <Redirect href="/" />;
   const emailOk = validEmail(email);
   const mailField = (
-    <Field
+    <AuthField
       label="メールアドレス"
       value={email}
       onChangeText={setEmail}
@@ -226,11 +226,7 @@ export function AuthScreen() {
   return (
     <Board
       scroll
-      contentStyle={
-        view === "welcome"
-          ? { paddingTop: 4, paddingBottom: 0, gap: 0 }
-          : undefined
-      }
+      contentStyle={{ paddingTop: 4, paddingBottom: 0, gap: 0 }}
       footer={
         <View
           style={{
@@ -238,6 +234,12 @@ export function AuthScreen() {
             paddingTop: 12,
             paddingBottom: 14,
             gap: 6,
+            marginHorizontal: view === "welcome" ? 0 : 14,
+            ...(view !== "welcome" && {
+              paddingHorizontal: 0,
+              borderTopWidth: 2,
+              borderTopColor: C.dark,
+            }),
           }}
         >
           <Btn
@@ -292,7 +294,7 @@ export function AuthScreen() {
         </>
       ) : (
         <>
-          <Header
+          <AuthHeader
             title={titles[view]}
             onBack={() => {
               if (!busy)
@@ -305,132 +307,173 @@ export function AuthScreen() {
                 );
             }}
           />
-          {(view === "signup" || view === "login") && (
-            <SocialButtons available={providers} busy={busy} onPress={social} />
-          )}
-          {view === "verify" ? (
-            <>
-              <T display size={26}>
-                確認コードを{"\n"}入力してください。
-              </T>
-              <T size={13} color={C.pale}>
-                {email.trim()}{" "}
-                {deliverySent
-                  ? "に6桁のコードを送りました。届かない場合は再送してください。"
-                  : "宛ての確認コードを送信してください。"}
-              </T>
-              <Field
-                label="確認コード（6桁）"
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={otp}
-                onChangeText={(value) => setOtp(value.replace(/\D/g, ""))}
-                placeholder="000000"
-                editable={!busy}
-                style={{ fontSize: 28, letterSpacing: 10, textAlign: "center" }}
+          <View style={{ flex: 1, paddingTop: 10, paddingBottom: 16, gap: 20 }}>
+            {(view === "signup" || view === "login") && (
+              <SocialButtons
+                available={providers}
+                busy={busy}
+                onPress={social}
               />
-              <View
-                style={[
-                  S.row,
-                  { justifyContent: "space-between", flexWrap: "wrap" },
-                ]}
-              >
-                <Pressable
-                  disabled={wait > 0 || busy}
-                  onPress={() => void run(sendCode)}
-                  style={{ minHeight: 44, justifyContent: "center" }}
+            )}
+            {view === "verify" ? (
+              <>
+                <View style={{ gap: 8 }}>
+                  <T display size={26} style={{ lineHeight: 36.4 }}>
+                    確認コードを{"\n"}入力してください。
+                  </T>
+                  <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
+                    {email.trim()}{" "}
+                    {deliverySent
+                      ? "に6桁のコードを送りました。届かない場合は再送してください。"
+                      : "宛ての確認コードを送信してください。"}
+                  </T>
+                </View>
+                <AuthField
+                  label="確認コード（6桁）"
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={(value) => setOtp(value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  editable={!busy}
+                  style={{
+                    fontFamily: F.display,
+                    fontSize: 28,
+                    lineHeight: 28,
+                    letterSpacing: 11.2,
+                    textAlign: "center",
+                  }}
+                />
+                <View
+                  style={[
+                    S.row,
+                    { justifyContent: "space-between", flexWrap: "wrap" },
+                  ]}
                 >
-                  <T size={13} color={C.pale}>
-                    {wait ? `再送まで${wait}秒` : "コードを再送"}
-                  </T>
-                </Pressable>
-                <LinkButton
-                  label="メールアドレスを変更"
-                  onPress={() => {
-                    if (!busy) go("signup");
-                  }}
-                />
-              </View>
-            </>
-          ) : (
-            <>
-              {view === "reset" && (
-                <>
-                  <T display size={26}>
-                    再設定用のリンクを{"\n"}メールで送ります。
-                  </T>
-                  <T size={13} color={C.pale}>
-                    登録したメールアドレスを入力してください。
-                  </T>
-                </>
-              )}
-              {mailField}
-              {touched && !!email && !emailOk && (
-                <T size={12} color={C.yellow}>
-                  メールアドレスの形式を確認してください
-                </T>
-              )}
-              {(view === "signup" || view === "login") && (
-                <PasswordField
-                  value={password}
-                  onChange={setPassword}
-                  signup={view === "signup"}
-                />
-              )}
-              {view === "login" && (
-                <LinkButton
-                  label="パスワードを忘れた方"
-                  onPress={() => {
-                    if (!busy) go("reset");
-                  }}
-                />
-              )}
-              {view === "signup" && (
-                <View style={[S.row, { minHeight: 44 }]}>
                   <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel="利用規約とプライバシーポリシーに同意する"
-                    accessibilityState={{ checked: agree }}
-                    onPress={() => setAgree(!agree)}
-                    style={{
-                      width: 44,
-                      height: 44,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
+                    disabled={wait > 0 || busy}
+                    onPress={() => void run(sendCode)}
+                    style={{ minHeight: 44, justifyContent: "center" }}
                   >
-                    <View
+                    <T size={13} color={C.pale}>
+                      {wait ? `再送まで${wait}秒` : "コードを再送"}
+                    </T>
+                  </Pressable>
+                  <LinkButton
+                    label="メールアドレスを変更"
+                    onPress={() => {
+                      if (!busy) go("signup");
+                    }}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                {view === "reset" && (
+                  <View style={{ gap: 8 }}>
+                    <T display size={26} style={{ lineHeight: 36.4 }}>
+                      再設定用のリンクを{"\n"}メールで送ります。
+                    </T>
+                    <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
+                      登録したメールアドレスを入力してください。
+                    </T>
+                  </View>
+                )}
+                {mailField}
+                {touched && !!email && !emailOk && (
+                  <T size={12} color={C.yellow}>
+                    メールアドレスの形式を確認してください
+                  </T>
+                )}
+                {(view === "signup" || view === "login") && (
+                  <PasswordField
+                    value={password}
+                    onChange={setPassword}
+                    signup={view === "signup"}
+                  />
+                )}
+                {view === "login" && (
+                  <View style={{ alignSelf: "flex-start", marginLeft: -8 }}>
+                    <LinkButton
+                      label="パスワードを忘れた方"
+                      onPress={() => {
+                        if (!busy) go("reset");
+                      }}
+                    />
+                  </View>
+                )}
+                {view === "signup" && (
+                  <View style={[S.row, { minHeight: 44, gap: 12 }]}>
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="利用規約とプライバシーポリシーに同意する"
+                      aria-checked={agree}
+                      onPress={() => setAgree(!agree)}
                       style={{
-                        width: 26,
-                        height: 26,
-                        borderWidth: 2.5,
-                        borderColor: C.ink,
-                        borderRadius: 7,
-                        backgroundColor: agree ? C.yellow : C.paper,
+                        width: 44,
+                        height: 44,
+                        margin: -9,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      {agree && <Icon name="check" size={16} color={C.ink} />}
-                    </View>
-                  </Pressable>
-                  <View style={[S.row, { flex: 1, flexWrap: "wrap", gap: 0 }]}>
-                    <LinkButton
-                      label="利用規約"
-                      onPress={() => setLegal("利用規約")}
-                    />
-                    <T size={13}>と</T>
-                    <LinkButton
-                      label="プライバシーポリシー"
-                      onPress={() => setLegal("プライバシーポリシー")}
-                    />
-                    <T size={13}>に同意する</T>
+                      <View
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderWidth: 2.5,
+                          borderColor: C.ink,
+                          borderRadius: 7,
+                          backgroundColor: agree ? C.yellow : C.paper,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {agree && <Icon name="check" size={16} color={C.ink} />}
+                      </View>
+                    </Pressable>
+                    <T
+                      size={14}
+                      style={{ flex: 1, fontFamily: F.bold, lineHeight: 23.1 }}
+                      onPress={() => setAgree(!agree)}
+                    >
+                      <T
+                        size={14}
+                        accessibilityRole="link"
+                        style={{
+                          fontFamily: F.bold,
+                          textDecorationLine: "underline",
+                        }}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          setLegal("利用規約");
+                        }}
+                      >
+                        利用規約
+                      </T>
+                      と
+                      <T
+                        size={14}
+                        accessibilityRole="link"
+                        style={{
+                          fontFamily: F.bold,
+                          textDecorationLine: "underline",
+                        }}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          setLegal("プライバシーポリシー");
+                        }}
+                      >
+                        プライバシーポリシー
+                      </T>
+                      に同意する
+                    </T>
                   </View>
-                </View>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
+          </View>
         </>
       )}
       {error && (

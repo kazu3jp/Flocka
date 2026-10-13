@@ -221,6 +221,7 @@ export function AvatarPicker({
                 accessibilityLabel={`${AV_COLOR_NAMES[i]}にする`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: avatar.color === color }}
+                aria-pressed={avatar.color === color}
                 onPress={() => onChange({ ...avatar, color })}
                 style={{
                   backgroundColor: color,

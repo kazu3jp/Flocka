@@ -373,6 +373,7 @@ export function WelcomeTour() {
             accessibilityRole="button"
             accessibilityLabel={`${i + 1}枚目：${item.title}`}
             accessibilityState={{ selected: index === i }}
+            aria-current={index === i ? "true" : undefined}
             onPress={() => {
               setIndex(i);
               setPaused(true);

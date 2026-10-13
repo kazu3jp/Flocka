@@ -1,7 +1,68 @@
 import React, { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type TextInputProps } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { C, Field, S, T } from "../../components/ui";
+import { C, F, Field, Icon, S, T } from "../../components/ui";
+
+/** The shared form geometry from the original authentication screens. */
+export function AuthHeader({
+  title,
+  onBack,
+}: {
+  title: string;
+  onBack: () => void;
+}) {
+  return (
+    <View style={[S.row, { minHeight: 56, gap: 12 }]}>
+      <View style={{ width: 44 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="戻る"
+          onPress={onBack}
+          style={{
+            width: 44,
+            height: 44,
+            marginLeft: -6,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="back" />
+        </Pressable>
+      </View>
+      <T
+        display
+        size={18}
+        style={{ flex: 1, textAlign: "center", lineHeight: 23.4 }}
+      >
+        {title}
+      </T>
+      <View style={{ width: 44 }} />
+    </View>
+  );
+}
+
+export function AuthField({
+  label,
+  style,
+  ...props
+}: TextInputProps & { label: string }) {
+  return (
+    <View style={{ gap: 10 }}>
+      <T
+        size={13}
+        style={{ fontFamily: F.bold, lineHeight: 21.45, letterSpacing: 0.26 }}
+      >
+        {label}
+      </T>
+      <Field
+        {...props}
+        label={label}
+        hideLabel
+        style={[{ minHeight: 55.4, lineHeight: 26.4 }, style]}
+      />
+    </View>
+  );
+}
 const MARKS = {
   apple:
     "M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701",
@@ -26,13 +87,19 @@ export function PasswordField({
 }) {
   const [show, setShow] = useState(false);
   return (
-    <View style={{ gap: 6 }}>
+    <View style={{ gap: 10 }}>
       <View style={S.row}>
-        <T size={13} style={S.fill}>
+        <T
+          size={13}
+          style={[
+            S.fill,
+            { fontFamily: F.bold, lineHeight: 21.45, letterSpacing: 0.26 },
+          ]}
+        >
           パスワード
         </T>
         {signup && (
-          <T size={12} color={C.pale}>
+          <T size={12} color={C.pale} style={{ lineHeight: 19.8 }}>
             8文字以上・英字と数字
           </T>
         )}
@@ -48,23 +115,26 @@ export function PasswordField({
           autoCorrect={false}
           autoComplete={signup ? "new-password" : "current-password"}
           maxLength={128}
-          style={{ paddingRight: 64 }}
+          style={{ paddingRight: 72, minHeight: 55.4, lineHeight: 26.4 }}
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={show ? "パスワードを隠す" : "パスワードを表示"}
+          aria-pressed={show}
           accessibilityState={{ selected: show }}
           onPress={() => setShow(!show)}
           style={{
             position: "absolute",
             right: 6,
-            bottom: 4,
-            minHeight: 44,
-            padding: 8,
+            top: "50%",
+            transform: [{ translateY: "-50%" }],
+            minWidth: 56,
+            minHeight: 40,
             justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          <T color={C.blue} size={12}>
+          <T color={C.ink} size={13} style={{ fontFamily: F.bold }}>
             {show ? "隠す" : "表示"}
           </T>
         </Pressable>
@@ -90,19 +160,19 @@ export function SocialButtons({
             key={provider}
             accessibilityRole="button"
             accessibilityLabel={`${provider === "apple" ? "Apple" : "Google"}で続ける${enabled ? "" : "（未設定）"}`}
-            accessibilityState={{ disabled: !enabled }}
+            aria-disabled={!enabled}
             disabled={!enabled}
             onPress={() => onPress(provider)}
             style={[
               S.row,
               {
-                minHeight: 52,
+                minHeight: 54,
                 justifyContent: "center",
                 borderWidth: 2.5,
                 borderColor: C.ink,
                 borderRadius: 14,
                 backgroundColor: C.paper,
-                boxShadow: `2px 2px 0 ${C.ink}`,
+                boxShadow: `3px 3px 0 ${C.ink}`,
                 opacity: enabled ? 1 : 0.55,
               },
             ]}
@@ -110,15 +180,23 @@ export function SocialButtons({
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path d={MARKS[provider]} fill={C.ink} />
             </Svg>
-            <T color={C.ink} size={16}>
+            <T
+              color={C.ink}
+              size={16}
+              style={{ fontFamily: F.bold, lineHeight: 16 }}
+            >
               {provider === "apple" ? "Apple" : "Google"}で続ける
             </T>
           </Pressable>
         );
       })}
-      <View style={S.row}>
+      <View style={[S.row, { gap: 12, marginTop: 4 }]}>
         <View style={{ height: 2, backgroundColor: C.dark, flex: 1 }} />
-        <T size={12} color={C.pale}>
+        <T
+          size={12}
+          color={C.pale}
+          style={{ fontFamily: F.bold, lineHeight: 19.8 }}
+        >
           または
         </T>
         <View style={{ height: 2, backgroundColor: C.dark, flex: 1 }} />

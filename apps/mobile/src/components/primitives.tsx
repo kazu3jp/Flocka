@@ -46,7 +46,7 @@ export function Btn({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -136,7 +136,9 @@ export function Choice({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected: !!selected, disabled }}
+      accessibilityState={{ selected: !!selected }}
+      aria-pressed={!!selected}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
       style={[
