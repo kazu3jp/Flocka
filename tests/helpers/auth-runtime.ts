@@ -22,8 +22,15 @@ export type TestEmail = z.infer<typeof emailSchema>;
 export async function createAuthRuntime() {
   const emails: TestEmail[] = [],
     mailStatus = { value: 200 };
+  const push = {
+    calls: [] as { path: string; body: unknown }[],
+    status: 200,
+    tickets: [] as unknown[],
+    receipts: {} as Record<string, unknown>,
+  };
   const options = {
     host: "127.0.0.1",
+    unsafeTriggerHandlers: true,
     port: 0,
     workers: [
       {
@@ -64,6 +71,19 @@ export async function createAuthRuntime() {
           outboundService: {
             type: "fetcher",
             handler: async (request: TestRequest) => {
+              if (request.url.startsWith("https://exp.host/--/api/v2/push/")) {
+                const path = new URL(request.url).pathname.split("/").pop()!;
+                push.calls.push({ path, body: await request.json() });
+                return new TestResponse(
+                  JSON.stringify({
+                    data: path === "send" ? push.tickets : push.receipts,
+                  }),
+                  {
+                    status: push.status,
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+              }
               assert.equal(request.url, "https://api.resend.com/emails");
               assert.equal(
                 request.headers.get("authorization"),
@@ -195,6 +215,7 @@ export async function createAuthRuntime() {
       base,
       emails,
       mailStatus,
+      push,
       auth,
       codeFor,
       cookieFor,

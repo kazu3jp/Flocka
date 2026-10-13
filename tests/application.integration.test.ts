@@ -70,7 +70,27 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     await f.setAdmins([c.player.id]);
     const second = await a.api.requestModeration(piece.id, "deletion");
     assert.equal((await c.api.pendingModeration()).items[0].id, second.id);
-    await c.api.resolveModeration(second.id, "removed", "規約に違反しています");
+    const resolutions = await Promise.allSettled([
+      c.api.resolveModeration(second.id, "removed", "規約に違反しています"),
+      c.api.resolveModeration(second.id, "removed", "重複対応"),
+    ]);
+    assert.equal(
+      resolutions.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      (
+        await (
+          await f.runtime.getD1Database("DB")
+        )
+          .prepare(
+            "SELECT COUNT(*) AS count FROM moderation_audit WHERE request_id = ?",
+          )
+          .bind(second.id)
+          .first()
+      )?.count,
+      1,
+    );
     assert.equal((await c.api.pendingModeration()).items.length, 0);
     const after = await a.api.getSnapshot();
     assert.equal(after.inbox.length, 0);

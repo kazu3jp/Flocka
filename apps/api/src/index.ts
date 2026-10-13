@@ -12,7 +12,7 @@ import { exchangeRoutes } from "./routes/exchanges";
 import { testimonyRoutes } from "./routes/testimonies";
 import { adminRoutes } from "./routes/admin";
 import { deviceRoutes } from "./routes/devices";
-import { dispatchNotifications } from "./services/push";
+import { dispatchNotifications, checkPushReceipts } from "./services/push";
 import { runMaintenance } from "./services/maintenance";
 
 const app = new Hono<ApiContext>();
@@ -129,7 +129,11 @@ export default {
     ctx: ExecutionContext,
   ) {
     ctx.waitUntil(
-      Promise.all([dispatchNotifications(env.DB), runMaintenance(env)]),
+      Promise.all([
+        dispatchNotifications(env.DB, env.EXPO_ACCESS_TOKEN),
+        checkPushReceipts(env.DB, env.EXPO_ACCESS_TOKEN),
+        runMaintenance(env),
+      ]),
     );
   },
 } satisfies ExportedHandler<Env>;

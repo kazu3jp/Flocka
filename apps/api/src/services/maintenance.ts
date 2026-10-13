@@ -28,7 +28,11 @@ async function deleteExpiredRows(db: D1Database, now: Date): Promise<void> {
 
 /** Removes avatar objects that no account or backup references any more. */
 async function deleteOrphanAvatars(env: Env, now: Date): Promise<void> {
+  const checkpoint = await env.DB.prepare(
+    "SELECT cursor FROM maintenance_cursors WHERE name = 'avatars'",
+  ).first<{ cursor: string }>();
   const listing = await env.AVATARS.list({
+    ...(checkpoint ? { cursor: checkpoint.cursor } : {}),
     prefix: "avatars/",
     limit: AVATAR_SCAN_LIMIT,
   });
@@ -41,6 +45,17 @@ async function deleteOrphanAvatars(env: Env, now: Date): Promise<void> {
       .bind(object.key, object.key)
       .first();
     if (!used) await env.AVATARS.delete(object.key);
+  }
+  if (listing.truncated) {
+    await env.DB.prepare(
+      "INSERT INTO maintenance_cursors(name, cursor) VALUES('avatars', ?) ON CONFLICT(name) DO UPDATE SET cursor = excluded.cursor",
+    )
+      .bind(listing.cursor)
+      .run();
+  } else {
+    await env.DB.prepare(
+      "DELETE FROM maintenance_cursors WHERE name = 'avatars'",
+    ).run();
   }
 }
 
