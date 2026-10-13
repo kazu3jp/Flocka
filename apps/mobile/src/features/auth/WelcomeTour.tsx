@@ -152,15 +152,15 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
               y={1.5}
               width={41}
               height={29}
-              rx={3}
+              rx={4}
               fill={C.paper}
               stroke={C.ink}
               strokeWidth={2.5}
             />
             <Path
-              d="M2 3L22 19L42 3M2 30L16 16M42 30L28 16"
+              d="M3 4l19 13L41 4"
               stroke={C.ink}
-              strokeWidth={2}
+              strokeWidth={2.5}
               fill="none"
             />
           </Svg>
