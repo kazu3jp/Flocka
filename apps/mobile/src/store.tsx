@@ -1,3 +1,7 @@
+import {
+  useNotificationResponse,
+  type NoticeKind,
+} from "./features/notifications/use-notification-response";
 import { usePushRegistration } from "./features/notifications/use-push-registration";
 import { getApiClient } from "./features/auth/client";
 import { ApiClientError } from "@flocka/api-client";
@@ -279,6 +283,7 @@ export function Provider({
   }, [ready, s.onboarded, storageScope, refresh]);
   usePushRegistration(
     api,
+    storageScope,
     ready && s.onboarded && storageScope !== "signed-out",
     toast,
   );
@@ -372,6 +377,31 @@ export function Provider({
     await api.updateProfile(profile, self);
     await refresh();
   };
+  const openNotification = useCallback(
+    async (kind: NoticeKind) => {
+      await refresh();
+      if (!mounted.current) return;
+      const next = initNav();
+      if (kind === "exchange") {
+        next.tab = "exchange";
+        next.stacks.exchange.push({ id: "connections" });
+      } else {
+        next.stacks.find.push({
+          id: kind === "moderation" ? "settings" : "pieces",
+        });
+      }
+      navRef.current = next;
+      setN(next);
+      router.replace(routeFor(currentEntry(next)));
+    },
+    [refresh, router],
+  );
+  useNotificationResponse(
+    storageScope,
+    ready && s.onboarded,
+    openNotification,
+    toast,
+  );
   const commitNav = (next: NavState) => {
     navRef.current = next;
     setN(next);

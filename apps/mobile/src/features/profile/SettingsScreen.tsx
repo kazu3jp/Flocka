@@ -1,3 +1,6 @@
+import { NotificationPanel } from "../notifications/NotificationPanel";
+import { LegalDocument } from "../auth/LegalDocument";
+import type { LegalTitle } from "@flocka/domain";
 import { useAction } from "../sync/use-action";
 import { useState } from "react";
 import { Switch, View } from "react-native";
@@ -11,17 +14,32 @@ import {
   Panel,
   S,
   T,
+  Sheet,
 } from "../../components/ui";
 import { useApp } from "../../store";
 
 export function Settings() {
   const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
+    [legal, setLegal] = useState<LegalTitle | null>(null),
     [settings, setSettings] = useState(s.settings),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   return (
     <Board scroll>
       <Header title="公開範囲・安全" onBack={nav.pop} />
+      <View style={S.row}>
+        <LinkButton label="利用規約" onPress={() => setLegal("利用規約")} />
+        <LinkButton
+          label="プライバシーポリシー"
+          onPress={() => setLegal("プライバシーポリシー")}
+        />
+      </View>
+      {legal && (
+        <Sheet title={legal} onClose={() => setLegal(null)}>
+          <LegalDocument title={legal} />
+        </Sheet>
+      )}
+      <NotificationPanel />
       {error && <T color={C.yellow}>{error}</T>}
       <Panel style={S.gap}>
         {(
@@ -88,7 +106,7 @@ export function Settings() {
       </T>
       {(["reports", "deletions"] as const).map((k) =>
         s[k].map((r) => (
-          <Panel key={k + r.at}>
+          <Panel key={r.id ?? k + r.at}>
             <T color={C.ink} size={13}>
               {k === "reports" ? "通報" : "削除依頼"} · {r.reason || "削除依頼"}{" "}
               ·{" "}
@@ -102,7 +120,12 @@ export function Settings() {
                       ? "対応なし"
                       : "確認済み"}
             </T>
-            {!r.withdrawn && (
+            {r.resolution && (
+              <T color={C.muted} size={13}>
+                {r.resolution}
+              </T>
+            )}
+            {!r.withdrawn && r.status === "pending" && (
               <LinkButton
                 color={C.ink}
                 label="取り下げる"

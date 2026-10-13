@@ -1,9 +1,12 @@
+import { disablePush } from "../notifications/use-push-registration";
+import { useApp } from "../../store";
 import React, { useState } from "react";
 import { View } from "react-native";
 import { Btn, C, Icon, S, Sheet, T } from "../../components/ui";
 import { useAuth } from "./provider";
 import { assertAuthResult, getAuthClient } from "./client";
 export function AccountPanel() {
+  const { api } = useApp();
   const { data, refetch } = useAuth(),
     [ask, setAsk] = useState(false),
     [busy, setBusy] = useState(false),
@@ -13,6 +16,7 @@ export function AccountPanel() {
     setBusy(true);
     setError(null);
     try {
+      if (data?.user.id) await disablePush(api, data.user.id);
       assertAuthResult(await getAuthClient().signOut());
       await refetch();
       setAsk(false);
