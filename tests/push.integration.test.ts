@@ -86,6 +86,10 @@ test("push retries rejected destinations without resending accepted tickets, and
       .prepare("UPDATE push_receipts SET created_at = ?")
       .bind(new Date(Date.now() - 20 * 60_000).toISOString())
       .run();
+    await f.db
+      .prepare("UPDATE push_devices SET updated_at = ?")
+      .bind(new Date(Date.now() - 21 * 60_000).toISOString())
+      .run();
     f.push.receipts = {
       "ticket-a": { status: "ok" },
       "ticket-b": {
@@ -115,6 +119,39 @@ test("push retries rejected destinations without resending accepted tickets, and
           .first()
       )?.count,
       0,
+    );
+    await f.db
+      .prepare(
+        "INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at) VALUES('logout-test', ?, 'testimony', 'piece', ?, ?)",
+      )
+      .bind(player.player.id, now, now)
+      .run();
+    f.push.status = 503;
+    await cron();
+    const beforeLogout = f.push.calls.length;
+    await player.api.unregisterPushDevice(tokens[0]);
+    await f.db
+      .prepare(
+        "UPDATE notification_outbox SET next_attempt_at = ? WHERE id = 'logout-test'",
+      )
+      .bind(now)
+      .run();
+    f.push.status = 200;
+    await cron();
+    assert.equal(
+      f.push.calls.length,
+      beforeLogout,
+      "Unregistered devices must never receive a queued retry",
+    );
+    assert.equal(
+      (
+        await f.db
+          .prepare(
+            "SELECT error_code FROM push_deliveries WHERE outbox_id = 'logout-test'",
+          )
+          .first()
+      )?.error_code,
+      "Unregistered",
     );
   } finally {
     await f.runtime.dispose();

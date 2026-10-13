@@ -43,10 +43,10 @@ async function expoRequest(path: string, body: unknown, accessToken?: string) {
   return response.json();
 }
 
-async function removeDeadDevice(db: D1Database, token: string) {
+async function removeDeadDevice(db: D1Database, token: string, sentAt: string) {
   await db
-    .prepare("DELETE FROM push_devices WHERE token = ?")
-    .bind(token)
+    .prepare("DELETE FROM push_devices WHERE token = ? AND updated_at <= ?")
+    .bind(token, sentAt)
     .run();
 }
 
@@ -70,6 +70,14 @@ async function deliverOne(
       )
       .bind(at, row.id),
   ]);
+  await db
+    .prepare(
+      `UPDATE push_deliveries SET state = 'failed', error_code = 'Unregistered'
+    WHERE outbox_id = ? AND state = 'pending'
+    AND NOT EXISTS(SELECT 1 FROM push_devices WHERE push_devices.token = push_deliveries.token AND account_id = ?)`,
+    )
+    .bind(row.id, row.account_id)
+    .run();
   const destinations = await db
     .prepare(
       "SELECT token FROM push_deliveries WHERE outbox_id = ? AND state = 'pending' ORDER BY token LIMIT 100",
@@ -110,7 +118,7 @@ async function deliverOne(
       } else {
         const code = ticket.details?.error ?? "UnknownError";
         if (code === "DeviceNotRegistered") {
-          await removeDeadDevice(db, token);
+          await removeDeadDevice(db, token, at);
           await db
             .prepare(
               "UPDATE push_deliveries SET state = 'failed', error_code = ? WHERE outbox_id = ? AND token = ?",
@@ -174,7 +182,8 @@ export async function checkPushReceipts(
     const receipt = result.data[row.ticket_id];
     if (!receipt && now - Date.parse(row.created_at) < 24 * 3600_000) continue;
     const code = receipt?.details?.error ?? (receipt ? null : "ReceiptExpired");
-    if (code === "DeviceNotRegistered") await removeDeadDevice(db, row.token);
+    if (code === "DeviceNotRegistered")
+      await removeDeadDevice(db, row.token, row.created_at);
     await db.batch([
       db
         .prepare(
@@ -207,7 +216,7 @@ export async function dispatchNotifications(
     )
     .bind(MAX_ATTEMPTS, now, now, BATCH_SIZE)
     .all<{ id: string }>();
-  let accepted = 0;
+  let completed = 0;
   for (const candidate of due.results) {
     const row = await db
       .prepare(
@@ -225,7 +234,7 @@ export async function dispatchNotifications(
     if (!row) continue;
     try {
       await deliverOne(db, row, accessToken);
-      accepted += 1;
+      completed += 1;
     } catch {
       const next = new Date(
         Date.now() + Math.min(60, 2 ** (row.attempts + 1)) * 60_000,
@@ -241,5 +250,5 @@ export async function dispatchNotifications(
       );
     }
   }
-  return accepted;
+  return completed;
 }
