@@ -8,11 +8,11 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { transformSync } = require("@babel/core");
 const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(
-  path.join(root, "assets/source/flocka-v2-blue-prototype.html"),
+  path.join(root, "design/flocka-v2-blue-prototype.html"),
   "utf8",
 );
 const css = fs.readFileSync(
-  path.join(root, "assets/source/flocka-v2-game.css"),
+  path.join(root, "design/flocka-v2-game.css"),
   "utf8",
 );
 function rgb(l, c, h) {
@@ -87,7 +87,7 @@ const vectors = {
   motifs: {},
   icon: normalize(
     fs.readFileSync(
-      path.join(root, "assets/source/flocka-app-icon-fsticker-1024.svg"),
+      path.join(root, "design/flocka-app-icon-fsticker-1024.svg"),
       "utf8",
     ),
   ),
@@ -125,11 +125,11 @@ for (const [key, , h] of catalog.DECO_COLORS)
     };
 catalog.COLORS = colors;
 fs.writeFileSync(
-  path.join(root, "src/catalog.json"),
+  path.join(root, "packages/domain/src/catalog.json"),
   normalize(JSON.stringify(catalog, null, 2)) + "\n",
 );
 fs.writeFileSync(
-  path.join(root, "src/vectors.json"),
+  path.join(root, "apps/mobile/src/vectors.json"),
   JSON.stringify(vectors, null, 2) + "\n",
 );
 console.log(
@@ -141,7 +141,7 @@ for (const [name, width] of [
   ["favicon.png", 64],
 ])
   fs.writeFileSync(
-    path.join(root, "assets", name),
+    path.join(root, "apps/mobile/assets", name),
     new Resvg(vectors.icon, { fitTo: { mode: "width", value: width } })
       .render()
       .asPng(),

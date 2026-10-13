@@ -1,57 +1,39 @@
 {
   "name": "flocka",
   "version": "1.0.0",
-  "main": "expo-router/entry",
-  "dependencies": {
-    "@expo-google-fonts/dela-gothic-one": "^0.4.1",
-    "@expo-google-fonts/zen-kaku-gothic-new": "^0.4.2",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~57.0.28",
-    "expo-camera": "~57.0.6",
-    "expo-clipboard": "~57.0.2",
-    "expo-constants": "~57.0.21",
-    "expo-font": "~57.0.4",
-    "expo-image-manipulator": "~57.0.21",
-    "expo-image-picker": "~57.0.20",
-    "expo-linking": "~57.0.12",
-    "expo-router": "~57.0.26",
-    "expo-status-bar": "~57.0.1",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-qrcode-svg": "^6.3.26",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2",
-    "react-native-worklets": "0.10.1"
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev:mobile": "npm run start -w @flocka/mobile",
+    "dev:web": "npm run web -w @flocka/mobile",
+    "dev:api": "npm run dev -w @flocka/api",
+    "ios": "npm run ios -w @flocka/mobile",
+    "android": "npm run android -w @flocka/mobile",
+    "db:migrate": "npm run db:migrate -w @flocka/api",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint -w @flocka/mobile && eslint apps/api/src packages/*/src tests",
+    "test": "npm run build:api && tsx --test tests/*.test.ts",
+    "validate": "npm run typecheck && npm run lint && npm test",
+    "export:web": "npm run export:web -w @flocka/mobile",
+    "export:native": "npm run export:native -w @flocka/mobile",
+    "build:api": "npm run build -w @flocka/api",
+    "import:design": "node tools/import-design.cjs",
+    "format": "prettier --write apps packages tests tools"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "22",
-    "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
-    "eslint-config-expo": "~57.0.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "miniflare": "^5.20261006.2-beta",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
-  },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
-    "test": "tsx --test tests/*.test.ts",
-    "validate": "npm run typecheck && npm run lint && npm test",
-    "export:web": "expo export --platform web",
-    "export:native": "expo export --platform ios --platform android",
-    "import:design": "node tools/import-design.cjs"
-  },
-  "private": true,
-  "engines": {
-    "node": ">=22.13.0"
   }
 }

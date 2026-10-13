@@ -1,0 +1,212 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  AccessibilityInfo,
+  Animated,
+  Modal,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
+import {
+  Board,
+  Btn,
+  C,
+  Envelope,
+  Header,
+  Icon,
+  LinkButton,
+  Panel,
+  S,
+  StrengthCard,
+  T,
+} from "../../components/ui";
+import {
+  CARDS,
+  PEOPLE,
+  allPieces,
+  bareCard,
+  derive,
+  openPiece,
+  optionsFor,
+  wordsOf,
+  type State,
+} from "@flocka/domain";
+import { useApp } from "../../store";
+function GuessContent({ id }: { id: string }) {
+  const { s, d, nav, update, toast, setOpening } = useApp(),
+    p = allPieces(s).find((p) => p.id === id),
+    [guess, setGuess] = useState<string | null>(null),
+    [stage, setStage] = useState<"guess" | "opening" | "open">("guess"),
+    [reduced, setReduced] = useState(false),
+    [scale] = useState(() => new Animated.Value(1)),
+    timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => {
+      if (active) setReduced(v);
+    });
+    const listener = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduced,
+    );
+    return () => {
+      active = false;
+      listener.remove();
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+  if (!p) return null;
+  const opts = optionsFor(p, s.self),
+    preview = JSON.parse(JSON.stringify(s)) as State;
+  openPiece(preview, p.id, guess || "skip");
+  const after = derive(preview).cards[p.card],
+    became = after.confirmed && !d.cards[p.card].confirmed;
+  const choose = (k: string) => {
+    if (stage !== "guess") return;
+    setGuess(k);
+    if (reduced) {
+      setStage("open");
+      return;
+    }
+    setStage("opening");
+    Animated.timing(scale, {
+      toValue: 1.08,
+      duration: 450,
+      useNativeDriver: true,
+    }).start();
+    timer.current = setTimeout(() => setStage("open"), 450);
+  };
+  return (
+    <Board safeTop safeBottom>
+      <Header
+        title="予想チャレンジ"
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="あとで開ける"
+            onPress={() => setOpening(null)}
+            style={{ padding: 12 }}
+          >
+            <Icon name="x" />
+          </Pressable>
+        }
+      />
+      <ScrollView
+        contentContainerStyle={{ gap: 16, paddingBottom: 16 }}
+        style={S.fill}
+      >
+        {stage !== "open" ? (
+          <>
+            <Animated.View
+              style={{
+                alignItems: "center",
+                paddingTop: 12,
+                transform: [{ scale }],
+              }}
+            >
+              <Envelope size={250} />
+              <T
+                display
+                size={16}
+                color={C.ink}
+                style={{ marginTop: -48, marginBottom: 30 }}
+              >
+                {PEOPLE[p.fromId].name}より
+              </T>
+            </Animated.View>
+            <T display size={24} style={{ textAlign: "center" }}>
+              {PEOPLE[p.fromId].name}の{p.kind === "vibe" ? "印象" : "メモ"}は、
+              {"\n"}どのカードの証言？
+            </T>
+            <View style={[S.row, { gap: 8 }]}>
+              {opts.map((k) => (
+                <StrengthCard
+                  key={k}
+                  card={bareCard(k, s.self.includes(k))}
+                  style={{ flex: 1, height: 220 }}
+                  onPress={() => choose(k)}
+                />
+              ))}
+            </View>
+            <LinkButton
+              label="予想せずに開ける"
+              onPress={() => choose("skip")}
+            />
+          </>
+        ) : (
+          <>
+            <Panel>
+              <T size={12} color={C.muted}>
+                {PEOPLE[p.fromId].name}より ·{" "}
+                {p.kind === "vibe" ? "会話の印象" : "見た場面"}
+              </T>
+              <T display size={20} color={C.ink}>
+                「{wordsOf(p)}」
+              </T>
+              {p.label && (
+                <T color={C.muted} size={13}>
+                  要約：{p.label}
+                </T>
+              )}
+            </Panel>
+            <View style={[S.row, { justifyContent: "center" }]}>
+              <T
+                display
+                size={28}
+                color={C.yellow}
+                style={{ transform: [{ rotate: "-7deg" }] }}
+              >
+                {guess === p.card
+                  ? "的中！"
+                  : s.self.includes(p.card)
+                    ? "予想外！"
+                    : "新発見！"}
+              </T>
+              {guess && guess !== "skip" && guess !== p.card && (
+                <T size={13}>予想：{CARDS[guess].name}</T>
+              )}
+            </View>
+            <StrengthCard
+              large
+              card={after}
+              style={{ height: 300, width: 230, alignSelf: "center" }}
+            />
+            <T display size={18} style={{ textAlign: "center" }}>
+              {became
+                ? "2人目の証言で、確認済みに！"
+                : `「${CARDS[p.card].name}」に証言+1`}
+            </T>
+          </>
+        )}
+      </ScrollView>
+      {stage === "open" && (
+        <Btn
+          label="デッキに加える"
+          onPress={() => {
+            update((x) => openPiece(x, p.id, guess || "skip"));
+            setOpening(null);
+            nav.goTab("find", undefined, true);
+            if (became)
+              toast("確認済みカード誕生！自己PRが書けます", {
+                label: "見る",
+                fn: () => nav.goTab("pr"),
+              });
+          }}
+        />
+      )}
+    </Board>
+  );
+}
+
+export function GuessOverlay() {
+  const { opening, setOpening } = useApp();
+  return (
+    <Modal
+      visible={!!opening}
+      animationType="fade"
+      onRequestClose={() => setOpening(null)}
+    >
+      {opening && <GuessContent id={opening} key={opening} />}
+    </Modal>
+  );
+}

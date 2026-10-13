@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Workspace output and local Cloudflare state
+**/dist/
+.wrangler/
+.dev.vars*
+.env

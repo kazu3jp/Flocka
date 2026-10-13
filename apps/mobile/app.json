@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Flocka",
+    "slug": "flocka",
+    "version": "1.0.0",
+    "scheme": "flocka",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "jp.kazu3.flocka"
+    },
+    "android": {
+      "package": "jp.kazu3.flocka",
+      "predictiveBackGestureEnabled": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#f8f5e3"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "相手のQRを読み取るためにカメラを使います。",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "プロフィール写真を選ぶために写真を使います。",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "icon": "./assets/icon.png"
+  }
+}
