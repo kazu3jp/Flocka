@@ -108,7 +108,7 @@ private class NearbySession(private val context: Context, private val code: Stri
         seen[address] = System.currentTimeMillis(); signals[address] = result.rssi
         val gatt = result.device.connectGatt(context, false, clientCallback, BluetoothDevice.TRANSPORT_LE)
         connections[address] = gatt
-        handler.postDelayed({ synchronized(connections) { connections.remove(address)?.let { it.disconnect(); it.close() }; signals.remove(address) } }, 8_000)
+        handler.postDelayed({ synchronized(connections) { if (connections[address] === gatt) close(gatt) } }, 8_000)
       }
     }
     override fun onScanFailed(errorCode: Int) { fail("Bluetooth探索を開始できません（$errorCode）") }
@@ -131,13 +131,14 @@ private class NearbySession(private val context: Context, private val code: Stri
     override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) { received(gatt, characteristic, value, status) }
   }
   private fun received(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, bytes: ByteArray, status: Int) {
-    val value = bytes.toString(Charsets.UTF_8), address = gatt.device.address
+    val value = bytes.toString(Charsets.UTF_8)
+    val address = gatt.device.address
     if (active && status == BluetoothGatt.GATT_SUCCESS && characteristic.uuid == codeID && value != code && Regex("^[A-Za-z0-9_-]{43}$").matches(value))
       emit("onPeer", mapOf("deviceId" to address, "code" to value, "rssi" to (signals[address] ?: 0)))
     close(gatt)
   }
   private fun close(gatt: BluetoothGatt) {
-    synchronized(connections) { connections.remove(gatt.device.address); signals.remove(gatt.device.address) }
+    synchronized(connections) { if (connections.remove(gatt.device.address, gatt)) signals.remove(gatt.device.address) }
     gatt.disconnect(); gatt.close()
   }
 }
