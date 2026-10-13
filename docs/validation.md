@@ -9,10 +9,11 @@
 | Expo Doctor | 21/21通過 |
 | Android BLEモジュールのKotlinコンパイル | 通過 |
 | iOS prebuild・CocoaPods | 通過。121依存関係、120 Pods |
-| iOS Simulatorネイティブビルド | 実行中 |
+| iOS Simulatorネイティブビルド | 通過。arm64・x86_64、署名なしのDebugビルド |
 | ローカルD1マイグレーション | 0001〜0006適用成功 |
 | 本番 `/health` | HTTP 200、`status: ok` |
 | GitHubリポジトリ | PRIVATEを確認 |
+| GitHub Actions | [型検査・Lint・テスト・Web/native書き出しが通過](https://github.com/kazu3jp/Flocka/actions/runs/38440775625) |
 
 今回の追加検証では、公開証言と同期が102件を取得できること、双方いずれかによるブロックで受信を除外すること、同時の通報対応が一度だけ確定すること、双方への交換通知と証言通知がトランザクションで登録されることを確認しました。規約同意のない初回登録の拒否と、明示的な同意の版・時刻の記録も対象です。
 
@@ -22,6 +23,17 @@ AndroidではKotlin構文エラーを修正しました。古いGATTコールバ
 
 今回の変更を本番Workerへデプロイしていません。0005・0006を本番へ適用する作業も未実施です。稼働確認は既存デプロイの `/health` に限定します。
 
-画面のクリック操作・参照デザインとのスクリーンショット比較、BLEの2端末通信、プッシュ通知の実際の到着、Apple/GoogleのOAuth通信、Resendメールの受信箱への到着は今回未検証です。EASのプロジェクトID・通知資格情報、OAuth資格情報の設定が必要です。規約本文の運営者による最終確認も未実施です。
+画面のクリック操作・参照デザインとのスクリーンショット比較、BLEの2端末通信、プッシュ通知の実際の到着、Apple/GoogleのOAuth通信、Resendメールの受信箱への到着は今回未検証です。作業中に別の作業からEASプロジェクトIDと `eas.json` が追加されました。この二つの変更は上書きせず、今回のコミット対象にも含めていません。通知資格情報・OAuth資格情報と実機の到達確認は未検証です。規約本文の運営者による最終確認も未実施です。
 
 実行手順は [README](../README.md)、通知の開発者設定は [notifications.md](notifications.md) を参照してください。
+
+ネイティブの追加検証コマンド（Node 22をPATHに設定した状態）:
+
+```sh
+cd apps/mobile/android
+ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew :flocka-nearby:compileDebugKotlin --console=plain
+cd ../ios
+xcodebuild -workspace Flocka.xcworkspace -scheme Flocka -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/FlockaExpoDerivedData CODE_SIGNING_ALLOWED=NO build
+```
+
+このiOSビルドはシミュレーター用です。実機署名・ストア向けビルドや、端末間BLE通信の確認を済ませたという意味ではありません。
