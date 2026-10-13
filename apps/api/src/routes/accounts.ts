@@ -1,18 +1,48 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   backupRecordSchema,
   backupRequestSchema,
   createAccountSchema,
   settingsSchema,
+  LEGAL_VERSION,
 } from "@flocka/domain";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 
 export const accountRoutes = new Hono<ApiContext>();
+accountRoutes.post("/me/terms", async (c) => {
+  const input = await readJson(
+    c,
+    z.object({ version: z.literal(LEGAL_VERSION), accepted: z.literal(true) }),
+  );
+  const accountId = c.get("accountId");
+  const at = new Date().toISOString();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE auth_users SET terms_accepted = 1 WHERE id = ?",
+    ).bind(accountId),
+    c.env.DB.prepare(
+      "INSERT OR IGNORE INTO legal_acceptances(account_id, version, accepted_at) VALUES(?, ?, ?)",
+    ).bind(accountId, input.version, at),
+  ]);
+  return c.json({ accepted: true, version: input.version });
+});
 accountRoutes.post("/accounts", async (c) => {
   const input = await readJson(c, createAccountSchema),
     id = c.get("accountId"),
     at = new Date().toISOString();
+  const consent = await c.env.DB.prepare(
+    "SELECT terms_accepted FROM auth_users WHERE id = ?",
+  )
+    .bind(id)
+    .first<{ terms_accepted: number }>();
+  if (!consent?.terms_accepted)
+    throw new ApiError(
+      403,
+      "TERMS_REQUIRED",
+      "利用規約とプライバシーポリシーへの同意が必要です",
+    );
   const { photo: _photo, ...avatar } = input.profile.avatar;
   await c.env.DB.prepare(
     "INSERT INTO accounts(id, profile_json, self_json, created_at) VALUES(?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",

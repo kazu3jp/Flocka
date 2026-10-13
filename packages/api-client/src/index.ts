@@ -11,6 +11,7 @@ import {
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
+  LEGAL_VERSION,
   type Profile,
   type State,
 } from "@flocka/domain";
@@ -266,6 +267,17 @@ export class FlockaApiClient {
   async peerAvatar(id: string): Promise<string> {
     return this.image(
       await this.request(`/v1/players/${encodeURIComponent(id)}/avatar`),
+    );
+  }
+  acceptTerms() {
+    return this.json(
+      "/v1/me/terms",
+      z.object({
+        accepted: z.literal(true),
+        version: z.literal(LEGAL_VERSION),
+      }),
+      "POST",
+      { accepted: true, version: LEGAL_VERSION },
     );
   }
   createAccount(profile: Profile, self: string[]) {

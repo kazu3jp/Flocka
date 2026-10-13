@@ -10,6 +10,25 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     const a = await f.register("ハル"),
       b = await f.register("ソラ"),
       c = await f.register("ミナト");
+    await f.db
+      .prepare("UPDATE auth_users SET terms_accepted = 0 WHERE id = ?")
+      .bind(a.player.id)
+      .run();
+    await assert.rejects(
+      a.api.createAccount(a.player.profile, a.player.self),
+      (error) => error instanceof ApiClientError && error.status === 403,
+    );
+    await a.api.acceptTerms();
+    assert.ok(
+      (
+        await f.db
+          .prepare(
+            "SELECT accepted_at FROM legal_acceptances WHERE account_id = ?",
+          )
+          .bind(a.player.id)
+          .first()
+      )?.accepted_at,
+    );
     const first = await a.api.getSnapshot();
     assert.equal(first.player.id, a.player.id);
     assert.equal(first.inbox.length, 0);

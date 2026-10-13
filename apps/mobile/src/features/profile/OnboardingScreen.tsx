@@ -1,5 +1,8 @@
+import { LegalDocument } from "../auth/LegalDocument";
+import { useAuth } from "../auth/provider";
+import type { LegalTitle } from "@flocka/domain";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import {
   AvatarPicker,
   CardPicker,
@@ -18,6 +21,7 @@ import {
   S,
   StrengthCard,
   T,
+  Sheet,
 } from "../../components/ui";
 import { CARDS, bareCard } from "@flocka/domain";
 import { useApp } from "../../store";
@@ -51,7 +55,10 @@ const STEPS = [
 ];
 
 export function Onboarding() {
+  const { data } = useAuth();
   const { s, update, api, refresh, nav, toast } = useApp(),
+    [agree, setAgree] = useState(false),
+    [legal, setLegal] = useState<LegalTitle | null>(null),
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
@@ -61,6 +68,10 @@ export function Onboarding() {
     step === 0 ? !!profile.name.trim() : step === 3 ? sel.length >= 2 : true;
   const finish = async () => {
     if (busy) return;
+    if (!data?.user.termsAccepted && !agree) {
+      setError("利用規約とプライバシーポリシーへの同意が必要です");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -69,6 +80,7 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
+      if (!data?.user.termsAccepted) await api.acceptTerms();
       await api.createAccount(
         input.avatar.type === "photo"
           ? {
@@ -101,6 +113,33 @@ export function Onboarding() {
   };
   return (
     <Board>
+      {step === 5 && !data?.user.termsAccepted && (
+        <Panel style={S.gap}>
+          <LinkButton
+            color={C.ink}
+            label="利用規約"
+            onPress={() => setLegal("利用規約")}
+          />
+          <LinkButton
+            color={C.ink}
+            label="プライバシーポリシー"
+            onPress={() => setLegal("プライバシーポリシー")}
+          />
+          <View style={S.row}>
+            <Switch
+              accessibilityLabel="利用規約とプライバシーポリシーに同意する"
+              value={agree}
+              onValueChange={setAgree}
+            />
+            <T color={C.ink}>内容を確認し、同意する</T>
+          </View>
+        </Panel>
+      )}
+      {legal && (
+        <Sheet title={legal} onClose={() => setLegal(null)}>
+          <LegalDocument title={legal} />
+        </Sheet>
+      )}
       {error && <T color={C.yellow}>{error}</T>}
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
