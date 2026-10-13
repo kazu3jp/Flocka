@@ -1,7 +1,7 @@
 {
-  "name": "expo-app",
+  "name": "flocka",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/dela-gothic-one": "^0.4.1",
     "@expo-google-fonts/zen-kaku-gothic-new": "^0.4.2",
@@ -20,15 +20,20 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-qrcode-svg": "^6.3.26",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "22",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
@@ -36,7 +41,17 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint",
+    "test": "tsx --test tests/*.test.ts",
+    "validate": "npm run typecheck && npm run lint && npm test",
+    "export:web": "expo export --platform web",
+    "export:native": "expo export --platform ios --platform android",
+    "import:design": "node tools/import-design.cjs"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  }
 }

@@ -1,0 +1,581 @@
+{
+  "CARDS": {
+    "bridge": {
+      "no": 1,
+      "name": "人と情報をつなぐ力",
+      "g": "繋",
+      "h": 205,
+      "flavor": "意見や情報を整理して、伝わる形に変える"
+    },
+    "impl": {
+      "no": 2,
+      "name": "実装力",
+      "g": "創",
+      "h": 55,
+      "flavor": "アイデアを動くものにする"
+    },
+    "focus": {
+      "no": 3,
+      "name": "集中力",
+      "g": "集",
+      "h": 295,
+      "flavor": "ひとつのことに深く潜れる"
+    },
+    "curious": {
+      "no": 4,
+      "name": "探究心",
+      "g": "探",
+      "h": 150,
+      "flavor": "分からないことを掘り下げる"
+    },
+    "design": {
+      "no": 5,
+      "name": "設計力",
+      "g": "設",
+      "h": 185,
+      "flavor": "全体を見て、組み立てを考える"
+    },
+    "idea": {
+      "no": 6,
+      "name": "発想力",
+      "g": "閃",
+      "h": 95,
+      "flavor": "人と違う角度から考える"
+    },
+    "grit": {
+      "no": 7,
+      "name": "粘り強さ",
+      "g": "粘",
+      "h": 25,
+      "flavor": "詰まっても、最後までやり切る"
+    },
+    "warm": {
+      "no": 8,
+      "name": "話しやすさ",
+      "g": "和",
+      "h": 350,
+      "flavor": "初対面でも、相手が話しやすい空気をつくる"
+    },
+    "passion": {
+      "no": 9,
+      "name": "熱量",
+      "g": "熱",
+      "h": 40,
+      "flavor": "好きなことへの熱が周りに伝わる"
+    },
+    "listening": {
+      "no": 10,
+      "name": "傾聴力",
+      "g": "聴",
+      "h": 205,
+      "flavor": "相手の話を受け止め、意図をくみ取る"
+    },
+    "teamwork": {
+      "no": 11,
+      "name": "協調性",
+      "g": "協",
+      "h": 150,
+      "flavor": "役割や違いを尊重して、一緒に進める"
+    },
+    "leadership": {
+      "no": 12,
+      "name": "リーダーシップ",
+      "g": "導",
+      "h": 55,
+      "flavor": "目標を共有し、周りの一歩を後押しする"
+    },
+    "planning": {
+      "no": 13,
+      "name": "計画力",
+      "g": "計",
+      "h": 185,
+      "flavor": "手順と優先順位を決め、着実に進める"
+    },
+    "analysis": {
+      "no": 14,
+      "name": "分析力",
+      "g": "析",
+      "h": 205,
+      "flavor": "事実を比べて、原因や傾向を見つける"
+    },
+    "decision": {
+      "no": 15,
+      "name": "判断力",
+      "g": "判",
+      "h": 95,
+      "flavor": "選択肢を整理し、理由を持って決める"
+    },
+    "flexibility": {
+      "no": 16,
+      "name": "柔軟性",
+      "g": "柔",
+      "h": 350,
+      "flavor": "変化に合わせて、考え方や方法を変える"
+    },
+    "responsibility": {
+      "no": 17,
+      "name": "責任感",
+      "g": "責",
+      "h": 25,
+      "flavor": "引き受けた役割を、最後まで大切にする"
+    },
+    "expression": {
+      "no": 18,
+      "name": "表現力",
+      "g": "表",
+      "h": 295,
+      "flavor": "伝えたいことを、言葉や形で届ける"
+    },
+    "learning": {
+      "no": 19,
+      "name": "学習力",
+      "g": "学",
+      "h": 150,
+      "flavor": "新しい知識を吸収し、次の実践に生かす"
+    },
+    "observation": {
+      "no": 20,
+      "name": "観察力",
+      "g": "観",
+      "h": 185,
+      "flavor": "小さな変化や、見落とされがちな点に気づく"
+    },
+    "action": {
+      "no": 21,
+      "name": "行動力",
+      "g": "動",
+      "h": 40,
+      "flavor": "まず一歩を踏み出し、試しながら進める"
+    }
+  },
+  "SELF_OPTIONS": [
+    "impl",
+    "focus",
+    "curious",
+    "design",
+    "idea",
+    "grit",
+    "bridge",
+    "warm",
+    "passion",
+    "listening",
+    "teamwork",
+    "leadership",
+    "planning",
+    "analysis",
+    "decision",
+    "flexibility",
+    "responsibility",
+    "expression",
+    "learning",
+    "observation",
+    "action"
+  ],
+  "STRENGTH_GROUPS": [
+    [
+      "think",
+      "考える",
+      ["curious", "design", "idea", "analysis", "decision", "observation"]
+    ],
+    [
+      "do",
+      "動かす",
+      ["impl", "grit", "passion", "planning", "responsibility", "action"]
+    ],
+    [
+      "connect",
+      "人と関わる",
+      ["bridge", "warm", "listening", "teamwork", "leadership", "expression"]
+    ],
+    ["grow", "自分を育てる", ["focus", "flexibility", "learning"]]
+  ],
+  "PEOPLE": {
+    "mock-a": {
+      "name": "ミナト",
+      "role": "UIデザインを勉強中",
+      "rel": "近くで交換",
+      "prose": "ミナト"
+    },
+    "mock-b": {
+      "name": "ソラ",
+      "role": "Webアプリを個人開発中",
+      "rel": "近くで交換",
+      "prose": "ソラ"
+    },
+    "mock-c": {
+      "name": "カエデ",
+      "role": "学園祭の企画チーム",
+      "rel": "近くで交換",
+      "prose": "カエデ"
+    }
+  },
+  "VIBES": [
+    "話しやすい",
+    "熱量が伝わる",
+    "着眼点が面白い",
+    "また話したい",
+    "好奇心を感じる",
+    "落ち着いて話せる"
+  ],
+  "VIBE_CARD": {
+    "話しやすい": "warm",
+    "熱量が伝わる": "passion",
+    "着眼点が面白い": "idea",
+    "また話したい": "warm",
+    "好奇心を感じる": "curious",
+    "落ち着いて話せる": "warm"
+  },
+  "INTERESTS": [
+    "Web開発",
+    "UI/UX",
+    "チーム開発",
+    "モバイル",
+    "AI・データ",
+    "ゲーム",
+    "ハードウェア",
+    "映像・モーション",
+    "プログラミング",
+    "セキュリティ",
+    "クラウド",
+    "ロボット",
+    "プロダクト企画",
+    "起業",
+    "マーケティング",
+    "コミュニティ",
+    "グラフィック",
+    "イラスト",
+    "写真",
+    "音楽",
+    "アニメ",
+    "映画",
+    "文章・読書",
+    "語学",
+    "教育",
+    "科学",
+    "スポーツ",
+    "旅行",
+    "料理",
+    "ファッション",
+    "自然・アウトドア",
+    "ボランティア"
+  ],
+  "DECO": {
+    "pattern": [
+      ["burst", "集中線"],
+      ["dots", "水玉"],
+      ["stripes", "ストライプ"],
+      ["grid", "方眼"],
+      ["plain", "なし"],
+      ["check", "チェック"],
+      ["diamonds", "ダイヤ"],
+      ["rings", "リング"],
+      ["zigzag", "ジグザグ"],
+      ["confetti", "紙吹雪"],
+      ["lines", "横しま"],
+      ["cross", "クロス"]
+    ],
+    "frame": [
+      ["none", "なし"],
+      ["tape", "マステ"],
+      ["stars", "星"],
+      ["dash", "ステッチ"],
+      ["double", "二重線"],
+      ["ticket", "チケット"],
+      ["ribbon", "リボン"],
+      ["mint", "ミント"],
+      ["pixel", "ピクセル"],
+      ["notebook", "ノート"]
+    ],
+    "stickers": [
+      ["star", "星"],
+      ["heart", "ハート"],
+      ["bolt", "イナズマ"],
+      ["flower", "花"],
+      ["note", "音符"],
+      ["sparkle", "キラキラ"],
+      ["moon", "月"],
+      ["cloud", "雲"],
+      ["cherry", "さくらんぼ"],
+      ["smile", "スマイル"],
+      ["diamond", "宝石"],
+      ["flag", "旗"]
+    ]
+  },
+  "DECO_COLORS": [
+    ["original", "元の色", null],
+    ["sky", "空色", 205],
+    ["rose", "ピンク", 8],
+    ["lemon", "レモン", 98],
+    ["mint", "ミント", 150],
+    ["lilac", "ライラック", 295]
+  ],
+  "AV_COLORS": [
+    "#fcde3d",
+    "#ff819e",
+    "#b3f268",
+    "#44d4e2",
+    "#bea4ff",
+    "#fbfaf6"
+  ],
+  "AV_COLOR_NAMES": ["黄色", "ピンク", "緑", "水色", "ラベンダー", "白"],
+  "AV_MOTIFS": [
+    ["rocket", "ロケット"],
+    ["planet", "惑星"],
+    ["cat", "ねこ"],
+    ["bolt", "イナズマ"],
+    ["leaf", "葉っぱ"],
+    ["note", "音符"]
+  ],
+  "PEER_PROFILE": {
+    "mock-a": {
+      "avatar": {
+        "motif": "cat",
+        "color": "#ff819e"
+      },
+      "cards": [
+        ["design", 0],
+        ["idea", 0]
+      ],
+      "interests": ["UI/UX", "写真"]
+    },
+    "mock-b": {
+      "avatar": {
+        "motif": "rocket",
+        "color": "#44d4e2"
+      },
+      "cards": [
+        ["impl", 0],
+        ["focus", 0]
+      ],
+      "interests": ["Web開発", "ゲーム"]
+    },
+    "mock-c": {
+      "avatar": {
+        "motif": "leaf",
+        "color": "#b3f268"
+      },
+      "cards": [
+        ["bridge", 0],
+        ["planning", 0]
+      ],
+      "interests": ["プロダクト企画", "旅行"]
+    }
+  },
+  "PEER_REPLY": {
+    "mock-a": {
+      "card": "warm",
+      "label": "話しやすい",
+      "text": "初対面でも、こちらの話を最後まで聞いてくれた"
+    },
+    "mock-b": {
+      "card": "impl",
+      "label": "手を動かすのが速い",
+      "text": "その場で出たアイデアを、すぐに試作してくれた"
+    },
+    "mock-c": {
+      "card": "bridge",
+      "label": "分かりやすく伝えてくれる",
+      "text": "自分の取り組みを、短く分かりやすく説明してくれた"
+    }
+  },
+  "IC": {
+    "deck": "<rect x=\"3\" y=\"6\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M8 3h11a2 2 0 0 1 2 2v13\"/>",
+    "swap": "<path d=\"M4 8h14l-3.5-3.5M20 16H6l3.5 3.5\"/>",
+    "doc": "<path d=\"M6 3h9l4 4v14H6z\"/><path d=\"M14 3v5h5M9 12h7M9 16h7\"/>",
+    "back": "<path d=\"M15 5l-7 7 7 7\"/>",
+    "chev": "<path d=\"M9 5l7 7-7 7\"/>",
+    "x": "<path d=\"M6 6l12 12M18 6L6 18\"/>",
+    "check": "<path d=\"M5 12.5l4.5 4.5L19 7\"/>",
+    "lock": "<rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/>",
+    "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18\"/>",
+    "eyeoff": "<path d=\"M3 3l18 18M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a15 15 0 0 1-2.6 3.2M6.5 6.6C4.3 8 3 12 3 12s4 6 9 6c1.6 0 3-.4 4.3-1.1\"/>",
+    "flag": "<path d=\"M5 21V4M5 4h11l-2 4 2 4H5\"/>",
+    "ban": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M5.6 5.6l12.8 12.8\"/>",
+    "trash": "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13\"/>",
+    "users": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.3 3.6 5\"/>",
+    "edit": "<path d=\"M4 20h4L19 9l-4-4L4 16z\"/>",
+    "shield": "<path d=\"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z\"/>",
+    "list": "<path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"/>",
+    "copy": "<rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3\"/>",
+    "redo": "<path d=\"M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4\"/>",
+    "qr": "<path d=\"M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2\"/>",
+    "radar": "<circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14\"/>",
+    "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>"
+  },
+  "ART_COLORS": {
+    "bridge": {
+      "base": "#6ce6f3",
+      "shade": "#23d2e2",
+      "shade2": "#00c8d8",
+      "light": "#c0fbff"
+    },
+    "impl": {
+      "base": "#ffbe8a",
+      "shade": "#faa365",
+      "shade2": "#f0995b",
+      "light": "#ffe5c9"
+    },
+    "focus": {
+      "base": "#d6c3ff",
+      "shade": "#c1a9ff",
+      "shade2": "#b7a0fb",
+      "light": "#f1e7ff"
+    },
+    "curious": {
+      "base": "#9ce6ab",
+      "shade": "#79d28d",
+      "shade2": "#6fc884",
+      "light": "#d3fbda"
+    },
+    "design": {
+      "base": "#72e9da",
+      "shade": "#31d5c5",
+      "shade2": "#1dcbbc",
+      "light": "#c2fcf4"
+    },
+    "idea": {
+      "base": "#e7d17a",
+      "shade": "#d5b94d",
+      "shade2": "#cbb042",
+      "light": "#fbefc2"
+    },
+    "grit": {
+      "base": "#ffb5ad",
+      "shade": "#ff9890",
+      "shade2": "#f98f87",
+      "light": "#ffe0da"
+    },
+    "warm": {
+      "base": "#ffb3db",
+      "shade": "#f997c6",
+      "shade2": "#ee8dbd",
+      "light": "#ffdff4"
+    },
+    "passion": {
+      "base": "#ffb89a",
+      "shade": "#ff9c79",
+      "shade2": "#f69370",
+      "light": "#ffe2d1"
+    },
+    "listening": {
+      "base": "#6ce6f3",
+      "shade": "#23d2e2",
+      "shade2": "#00c8d8",
+      "light": "#c0fbff"
+    },
+    "teamwork": {
+      "base": "#9ce6ab",
+      "shade": "#79d28d",
+      "shade2": "#6fc884",
+      "light": "#d3fbda"
+    },
+    "leadership": {
+      "base": "#ffbe8a",
+      "shade": "#faa365",
+      "shade2": "#f0995b",
+      "light": "#ffe5c9"
+    },
+    "planning": {
+      "base": "#72e9da",
+      "shade": "#31d5c5",
+      "shade2": "#1dcbbc",
+      "light": "#c2fcf4"
+    },
+    "analysis": {
+      "base": "#6ce6f3",
+      "shade": "#23d2e2",
+      "shade2": "#00c8d8",
+      "light": "#c0fbff"
+    },
+    "decision": {
+      "base": "#e7d17a",
+      "shade": "#d5b94d",
+      "shade2": "#cbb042",
+      "light": "#fbefc2"
+    },
+    "flexibility": {
+      "base": "#ffb3db",
+      "shade": "#f997c6",
+      "shade2": "#ee8dbd",
+      "light": "#ffdff4"
+    },
+    "responsibility": {
+      "base": "#ffb5ad",
+      "shade": "#ff9890",
+      "shade2": "#f98f87",
+      "light": "#ffe0da"
+    },
+    "expression": {
+      "base": "#d6c3ff",
+      "shade": "#c1a9ff",
+      "shade2": "#b7a0fb",
+      "light": "#f1e7ff"
+    },
+    "learning": {
+      "base": "#9ce6ab",
+      "shade": "#79d28d",
+      "shade2": "#6fc884",
+      "light": "#d3fbda"
+    },
+    "observation": {
+      "base": "#72e9da",
+      "shade": "#31d5c5",
+      "shade2": "#1dcbbc",
+      "light": "#c2fcf4"
+    },
+    "action": {
+      "base": "#ffb89a",
+      "shade": "#ff9c79",
+      "shade2": "#f69370",
+      "light": "#ffe2d1"
+    },
+    "deco-sky": {
+      "base": "#6ce6f3",
+      "shade": "#23d2e2",
+      "shade2": "#00c8d8",
+      "light": "#c0fbff"
+    },
+    "deco-rose": {
+      "base": "#ffb3c3",
+      "shade": "#ff96ab",
+      "shade2": "#f68ca1",
+      "light": "#ffdfe7"
+    },
+    "deco-lemon": {
+      "base": "#e4d27b",
+      "shade": "#d1bb4e",
+      "shade2": "#c7b144",
+      "light": "#f9f0c2"
+    },
+    "deco-mint": {
+      "base": "#9ce6ab",
+      "shade": "#79d28d",
+      "shade2": "#6fc884",
+      "light": "#d3fbda"
+    },
+    "deco-lilac": {
+      "base": "#d6c3ff",
+      "shade": "#c1a9ff",
+      "shade2": "#b7a0fb",
+      "light": "#f1e7ff"
+    }
+  },
+  "COLORS": {
+    "blue": "#1a48bc",
+    "blue-d": "#0f3087",
+    "blue-l": "#4a6ebd",
+    "ink": "#0f1624",
+    "paper": "#fbfaf6",
+    "paper-2": "#edebe2",
+    "muted": "#535b6c",
+    "on-blue": "#fafcff",
+    "on-blue-muted": "#e1ecff",
+    "yellow": "#fcde3d",
+    "yellow-d": "#efbd00",
+    "pink": "#ff819e",
+    "lime": "#b3f268",
+    "grey": "#d4d7de",
+    "danger": "#d01d21",
+    "card-paper": "#fef3bd"
+  }
+}
