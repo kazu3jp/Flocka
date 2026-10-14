@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { capture, referenceComparison } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -37,6 +37,12 @@ for (const [index, title] of scenes.entries()) {
     await page
       .getByRole("button", { name: `${index + 1}枚目：${title}`, exact: true })
       .click();
+    await expect(
+      page.getByRole("button", {
+        name: `${index + 1}枚目：${title}`,
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-current", "true");
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await capture(page, `welcome-${index + 1}`);
     const reference = await context.newPage();

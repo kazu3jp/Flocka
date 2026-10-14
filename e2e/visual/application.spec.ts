@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { capture, signInFixture } from "./helpers";
+import { test, expect } from "./test";
+import { capture, referenceComparison, signInFixture } from "./helpers";
 
 test("first profile registration", async ({ page, context }) => {
   await signInFixture(context, "onboarding");
@@ -25,7 +25,7 @@ test("empty deck", async ({ page, context }) => {
 test("real collected cards, profile, settings and exchange", async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   await signInFixture(context, "collected");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -34,6 +34,9 @@ test("real collected cards, profile, settings and exchange", async ({
     page.getByRole("button", { name: /人と情報をつなぐ力・確認済み/ }),
   ).toBeVisible();
   await capture(page, "collected-deck");
+  const reference = await context.newPage();
+  await reference.goto("/reference/?embed=deck");
+  await referenceComparison(page, reference, "collected-deck", testInfo);
   await page
     .getByRole("button", { name: /人と情報をつなぐ力・確認済み/ })
     .click();
@@ -41,10 +44,14 @@ test("real collected cards, profile, settings and exchange", async ({
     page.getByText("このカードをデコる", { exact: true }),
   ).toBeVisible();
   await capture(page, "confirmed-card");
+  await reference.goto("/reference/?embed=card");
+  await referenceComparison(page, reference, "confirmed-card", testInfo);
   await page
     .getByRole("button", { name: "このカードをデコる", exact: true })
     .click();
   await capture(page, "decoration");
+  await reference.locator('[data-od-id="card-deco"]').click();
+  await referenceComparison(page, reference, "decoration", testInfo);
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await page.getByRole("button", { name: "自分のページ", exact: true }).click();
@@ -60,13 +67,21 @@ test("real collected cards, profile, settings and exchange", async ({
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await page.getByRole("tab", { name: "交換", exact: true }).click();
   await expect(
+    page.getByRole("tab", { name: "交換", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
     page.getByRole("button", { name: "近くの人と交換", exact: true }),
   ).toBeVisible();
   await capture(page, "exchange");
+  await reference.goto("/reference/?embed=exchange");
+  await referenceComparison(page, reference, "exchange", testInfo);
   await page.getByRole("button", { name: "つながった人", exact: true }).click();
   await capture(page, "connections");
   await page.getByRole("tab", { name: "自己PR", exact: true }).click();
   await expect(page.getByText(/私の強みは/)).toBeVisible();
   await capture(page, "self-pr");
+  await reference.goto("/reference/?embed=pr");
+  await reference.locator(".prdoc-body").click();
+  await referenceComparison(page, reference, "self-pr", testInfo);
   expect(errors).toEqual([]);
 });

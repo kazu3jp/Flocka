@@ -83,6 +83,16 @@ const server = createServer(tls, async (request, response) => {
       response.end("ready");
       return;
     }
+    if (url.pathname === "/__vrt/mailbox" && request.method === "GET") {
+      const recipient = z.string().email().parse(url.searchParams.get("to"));
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify(
+          runtime.emails.filter((email) => email.to.includes(recipient)),
+        ),
+      );
+      return;
+    }
     if (url.pathname === "/__vrt/fixture" && request.method === "POST") {
       const scenario = z
         .enum(["onboarding", "empty", "collected"])

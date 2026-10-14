@@ -1,4 +1,5 @@
 import type { createAuthRuntime } from "../../tests/helpers/auth-runtime";
+import { AV_COLORS } from "@flocka/domain";
 
 type Runtime = Awaited<ReturnType<typeof createAuthRuntime>>;
 export type Scenario = "onboarding" | "empty" | "collected";
@@ -29,6 +30,41 @@ export async function seedScenario(runtime: Runtime, scenario: Scenario) {
     runtime.register("ソラ", "vrt.sora@example.test"),
     runtime.register("カエデ", "vrt.kaede@example.test"),
   ]);
+  const peerProfiles = [
+    {
+      role: "UIデザインを勉強中",
+      motif: "cat",
+      color: AV_COLORS[1],
+      interests: ["UI/UX", "写真"],
+      self: ["design", "idea"],
+    },
+    {
+      role: "Webアプリを個人開発中",
+      motif: "rocket",
+      color: AV_COLORS[3],
+      interests: ["Web開発", "ゲーム"],
+      self: ["impl", "focus"],
+    },
+    {
+      role: "学園祭の企画チーム",
+      motif: "leaf",
+      color: AV_COLORS[2],
+      interests: ["プロダクト企画", "旅行"],
+      self: ["bridge", "planning"],
+    },
+  ];
+  for (const [index, peer] of peers.entries()) {
+    const profile = peerProfiles[index];
+    await peer.api.updateProfile(
+      {
+        ...peer.player.profile,
+        role: profile.role,
+        interests: profile.interests,
+        avatar: { type: "motif", motif: profile.motif, color: profile.color },
+      },
+      profile.self,
+    );
+  }
   const contexts = [
     ["学内ハッカソン", "同じチームでUIを担当"],
     ["学内ハッカソン", "発表資料を一緒に作った"],
