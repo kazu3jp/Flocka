@@ -46,6 +46,21 @@ test("real collected cards, profile, settings and exchange", async ({
   await capture(page, "confirmed-card");
   await reference.goto("/reference/?embed=card");
   await referenceComparison(page, reference, "confirmed-card", testInfo);
+  const actualCard = await page
+    .getByTestId("strength-card-bridge")
+    .boundingBox();
+  const sourceCard = await reference
+    .locator('[data-od-id="card-bridge"]')
+    .boundingBox();
+  expect(actualCard).not.toBeNull();
+  expect(sourceCard).not.toBeNull();
+  // This fidelity gate stays tied to the source even when baselines are updated.
+  expect(Math.abs(actualCard!.width - sourceCard!.width)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(Math.abs(actualCard!.height - sourceCard!.height)).toBeLessThanOrEqual(
+    1,
+  );
   await page
     .getByRole("button", { name: "このカードをデコる", exact: true })
     .click();

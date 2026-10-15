@@ -125,12 +125,14 @@ export function Choice({
   onPress,
   disabled = false,
   children,
+  style,
 }: {
   label: string;
   selected?: boolean;
   onPress: () => void;
   disabled?: boolean;
   children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Pressable
@@ -147,6 +149,7 @@ export function Choice({
           backgroundColor: selected ? C.yellow : C.paper,
           opacity: disabled ? 0.4 : 1,
         },
+        style,
       ]}
     >
       {children || (
@@ -190,8 +193,20 @@ export function Header({
   onBack?: () => void;
   right?: React.ReactNode;
 }) {
+  const scroll = useContext(BoardScroll);
   return (
-    <View style={[S.row, { minHeight: 48 }]}>
+    <View
+      style={[
+        S.row,
+        { minHeight: 48, gap: 8 },
+        scroll && {
+          marginTop: -4,
+          marginHorizontal: -14,
+          paddingHorizontal: 14,
+          backgroundColor: C.blue,
+        },
+      ]}
+    >
       {onBack && (
         <Pressable
           accessibilityLabel="戻る"
@@ -200,6 +215,7 @@ export function Header({
           style={{
             width: 44,
             height: 44,
+            marginLeft: -10,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -207,7 +223,7 @@ export function Header({
           <Icon name="back" />
         </Pressable>
       )}
-      <T display size={20} style={{ flex: 1 }}>
+      <T display size={20} style={{ flex: 1, lineHeight: 26 }}>
         {title}
       </T>
       {right}
@@ -216,6 +232,7 @@ export function Header({
 }
 
 export const BoardInsets = createContext({ top: true, bottom: true });
+const BoardScroll = createContext(false);
 
 export function Board({
   children,
@@ -233,6 +250,9 @@ export function Board({
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const insets = useContext(BoardInsets);
+  const firstChild = React.Children.toArray(children)[0];
+  const stickyHeader =
+    React.isValidElement(firstChild) && firstChild.type === Header;
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: C.blue }}
@@ -256,45 +276,50 @@ export function Board({
             height={22}
             patternUnits="userSpaceOnUse"
           >
-            <Path
-              d="M22 0 H0 V22"
-              stroke="#ffffff"
-              strokeOpacity={0.05}
-              fill="none"
-            />
+            <Rect width={22} height={1} fill="#ffffff" fillOpacity={0.05} />
+            <Rect width={1} height={22} fill="#ffffff" fillOpacity={0.05} />
           </Pattern>
         </Defs>
         <Rect width="100%" height="100%" fill="url(#boardGrid)" />
       </Svg>
-      <KeyboardAvoidingView
-        style={S.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {scroll ? (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[
-              { padding: 14, gap: 12, flexGrow: 1 },
-              contentStyle,
-            ]}
-          >
-            {children}
-          </ScrollView>
-        ) : (
-          <View
-            style={{
-              flex: 1,
-              paddingHorizontal: 14,
-              paddingTop: 4,
-              paddingBottom: 12,
-              gap: 10,
-            }}
-          >
-            {children}
-          </View>
-        )}
-        {footer}
-      </KeyboardAvoidingView>
+      <BoardScroll.Provider value={scroll}>
+        <KeyboardAvoidingView
+          style={S.fill}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          {scroll ? (
+            <ScrollView
+              stickyHeaderIndices={stickyHeader ? [0] : undefined}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={[
+                {
+                  paddingHorizontal: 14,
+                  paddingTop: 4,
+                  paddingBottom: 24,
+                  gap: 12,
+                  flexGrow: 1,
+                },
+                contentStyle,
+              ]}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                paddingHorizontal: 14,
+                paddingTop: 4,
+                paddingBottom: 12,
+                gap: 10,
+              }}
+            >
+              {children}
+            </View>
+          )}
+          {footer}
+        </KeyboardAvoidingView>
+      </BoardScroll.Provider>
     </SafeAreaView>
   );
 }

@@ -2,7 +2,10 @@ import { useAuth, SessionStatus } from "../features/auth/provider";
 import React, { useEffect, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import {
   AvatarEdit,
   Me,
@@ -28,6 +31,7 @@ import {
   BoardInsets,
   Btn,
   C,
+  F,
   Icon,
   S,
   Sheet,
@@ -38,6 +42,7 @@ import { useApp } from "../store";
 
 const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
+  const safeInsets = useSafeAreaInsets();
   const auth = useAuth();
   const {
       page: screen,
@@ -60,7 +65,6 @@ export default function Screen() {
       d,
       setOpening,
       syncError,
-      syncing,
       refresh,
       preferenceConflict,
       resolvePreferences,
@@ -144,34 +148,7 @@ export default function Screen() {
   const focused = FOCUSED.includes(screen);
   return (
     <View style={{ flex: 1, backgroundColor: C.blue }}>
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }}>
-        <View
-          style={{
-            height: 24,
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            paddingHorizontal: 20,
-          }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="サーバーと同期"
-            onPress={() => void refresh().catch(() => {})}
-            style={{
-              paddingHorizontal: 10,
-              borderRadius: 99,
-              borderWidth: 1,
-              borderStyle: "dashed",
-              borderColor: C.pale,
-              justifyContent: "center",
-            }}
-          >
-            <T size={10} color={C.pale}>
-              {syncing ? "同期中…" : "同期"}
-            </T>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
       <BoardInsets.Provider value={{ top: false, bottom: focused }}>
         <View key={screen + (key || cid || id || "")} style={S.fill}>
           {render()}
@@ -182,9 +159,9 @@ export default function Screen() {
           <View
             style={{
               flexDirection: "row",
-              minHeight: 64,
-              paddingHorizontal: 12,
-              gap: 8,
+              paddingHorizontal: 10,
+              paddingTop: 4,
+              paddingBottom: Math.max(0, 10 - safeInsets.bottom),
             }}
           >
             {tabs.map(([tab, label, icon]) => (
@@ -198,21 +175,52 @@ export default function Screen() {
                   flex: 1,
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 3,
+                  gap: 2,
+                  minHeight: 52,
                   borderRadius: 12,
-                  marginVertical: 7,
                   backgroundColor: n.tab === tab ? C.yellow : "transparent",
                 }}
               >
-                <Icon name={icon} color={n.tab === tab ? C.ink : C.pale} />
-                <T size={11} color={n.tab === tab ? C.ink : C.pale}>
+                <Icon
+                  name={icon}
+                  color={n.tab === tab ? C.ink : C.tabInactive}
+                />
+                <T
+                  size={12}
+                  color={n.tab === tab ? C.ink : C.tabInactive}
+                  style={{ fontFamily: F.bold, lineHeight: 19.8 }}
+                >
                   {label}
-                  {tab === "find" && d.unopened.length
-                    ? ` ${d.unopened.length}`
-                    : tab === "pr" && d.prCard
-                      ? " !"
-                      : ""}
                 </T>
+                {((tab === "find" && d.unopened.length > 0) ||
+                  (tab === "pr" && d.prCard)) && (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      left: "50%",
+                      marginLeft: 8,
+                      minWidth: 18,
+                      height: 18,
+                      paddingHorizontal: 5,
+                      borderRadius: 9,
+                      backgroundColor: C.pink,
+                      borderWidth: 2,
+                      borderColor: C.ink,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <T
+                      size={10.5}
+                      color={C.ink}
+                      style={{ fontFamily: F.bold, lineHeight: 14 }}
+                    >
+                      {tab === "find" ? d.unopened.length : "!"}
+                    </T>
+                  </View>
+                )}
               </Pressable>
             ))}
           </View>

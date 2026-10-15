@@ -52,6 +52,7 @@ yarn-error.*
 /apps/mobile/android/
 
 /apps/mobile/modules/*/android/build/
+/apps/mobile/modules/*/android/.gradle/
 /apps/mobile/modules/*/ios/build/
 
 # Visual test output

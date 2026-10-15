@@ -125,6 +125,11 @@ for (const [key, , h] of catalog.DECO_COLORS)
     };
 colors["confirmed-paper"] = rgb(0.96, 0.07, 98);
 colors.stage = rgb(0.25, 0.06, 264);
+colors["tab-inactive"] = rgb(0.75, 0.03, 265);
+colors["stamp-ink"] = rgb(0.5, 0.2, 20);
+colors["stamp-border"] = rgb(0.55, 0.2, 20);
+colors["locked-stripe"] = rgb(0.4, 0.17, 264);
+colors["locked-center"] = rgb(0.3, 0.13, 264);
 catalog.COLORS = colors;
 fs.writeFileSync(
   path.join(root, "packages/domain/src/catalog.json"),

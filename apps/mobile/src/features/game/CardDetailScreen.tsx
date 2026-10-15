@@ -5,6 +5,7 @@ import {
   Btn,
   C,
   Choice,
+  F,
   Header,
   Panel,
   S,
@@ -15,91 +16,171 @@ import { wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function CardDetail({ cardKey }: { cardKey: string }) {
-  const { s, d, nav, update, peers } = useApp(),
-    c = d.cards[cardKey];
-  if (!c)
+  const { s, d, nav, update, peers } = useApp();
+  const card = d.cards[cardKey];
+  if (!card)
     return (
       <Board>
         <Header title="カード" onBack={nav.pop} />
         <T>カードが見つかりませんでした。</T>
       </Board>
     );
+  const explanation = card.confirmed
+    ? "2人以上が別々に同じ強みを挙げています。自己PRに使えます。"
+    : card.discovered
+      ? "自分では選ばなかった強みです。あと1人の証言で確認済みになります。"
+      : card.testimonies.length
+        ? "あと1人の証言で確認済みになります。"
+        : "あなたが選んだ強みです。仲間の証言が届くのを待とう。";
   return (
     <Board scroll>
-      <Header title="カード詳細" onBack={nav.pop} />
+      <Header title={card.name} onBack={nav.pop} />
       <StrengthCard
-        card={c}
-        large
-        style={{ height: 340, width: 265, alignSelf: "center" }}
+        card={card}
+        style={{ height: 230, width: "62%", alignSelf: "center" }}
       />
       <Btn
         plain
+        icon="spark"
         label="このカードをデコる"
         onPress={() => nav.push("deco", { key: cardKey })}
       />
-      <Panel>
-        <T color={C.ink}>
-          {c.confirmed
-            ? "異なる2人以上の証言で確認済みになりました。"
-            : c.discovered
-              ? "仲間の証言から見つかった、あなたの新しい一面です。"
-              : c.testimonies.length
-                ? "あと1人の証言で確認済みに。"
-                : "自分が選んだ「自己申告」のカードです。"}
-        </T>
-      </Panel>
-      {c.discovered && (
-        <>
-          <T display size={18}>
-            この強み、どう感じる？
+      <T size={14} style={{ textAlign: "center", lineHeight: 22.4 }}>
+        {explanation}
+      </T>
+      {card.discovered && (
+        <Panel style={{ padding: 14, gap: 8 }}>
+          <T
+            size={16}
+            color={C.ink}
+            style={{ fontFamily: F.bold, lineHeight: 24 }}
+          >
+            この新発見、どう思う？
           </T>
-          <View style={S.row}>
+          <View style={[S.row, { gap: 8 }]}>
             {(
               [
                 ["agree", "納得"],
                 ["hold", "保留"],
                 ["disagree", "違うかも"],
               ] as const
-            ).map(([r, l]) => (
+            ).map(([response, label]) => (
               <Choice
-                key={r}
-                selected={s.resp[cardKey] === r}
-                label={l}
+                key={response}
+                selected={s.resp[cardKey] === response}
+                label={label}
+                style={{
+                  flex: 1,
+                  minHeight: 48,
+                  borderWidth: 2.5,
+                  backgroundColor:
+                    s.resp[cardKey] === response ? C.pink : C.paper,
+                }}
                 onPress={() =>
-                  update((x) => {
-                    x.resp[cardKey] = r;
+                  update((state) => {
+                    state.resp[cardKey] = response;
                   })
                 }
-              />
+              >
+                <T size={14} color={C.ink} style={{ fontFamily: F.bold }}>
+                  {label}
+                </T>
+              </Choice>
             ))}
           </View>
-          <T size={12}>「違うかも」を選んだカードは自己PRに使いません。</T>
-        </>
+          {s.resp[cardKey] === "disagree" && (
+            <T
+              size={12.5}
+              color={C.muted}
+              style={{ fontFamily: F.bold, lineHeight: 19.375 }}
+            >
+              このカードは自己PRに使いません。証言はそのまま残ります。
+            </T>
+          )}
+        </Panel>
       )}
-      <T display size={18}>
-        仲間の証言 · {c.givers.length}人
+      <T size={16} style={{ fontFamily: F.bold, lineHeight: 24 }}>
+        証言（{card.testimonies.length}件）
       </T>
-      {c.testimonies.map((p) => (
-        <Pressable
-          accessibilityRole="button"
-          key={p.id}
-          onPress={() => nav.push("piece", { id: p.id })}
-        >
-          <Panel>
-            <T color={C.ink}>
-              {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"} ·{" "}
-              {p.guess === "skip"
-                ? "予想なし"
-                : p.guess === p.card
-                  ? "的中"
-                  : "予想外"}
-            </T>
-            <T color={C.muted} size={13}>
-              「{wordsOf(p)}」
-            </T>
-          </Panel>
-        </Pressable>
-      ))}
+      {!card.testimonies.length && (
+        <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
+          まだ届いていません
+        </T>
+      )}
+      {card.testimonies.map((piece) => {
+        const connection = s.connections.find(
+          (item) => item.peerId === piece.fromId && item.status === "accepted",
+        );
+        const name =
+          peers[piece.fromId]?.profile.name ?? "プロフィールを取得中";
+        const guess =
+          piece.guess === "skip"
+            ? "なし"
+            : piece.guess === piece.card
+              ? "的中"
+              : "外れ";
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${name}の証言を開く`}
+            key={piece.id}
+            onPress={() => nav.push("piece", { id: piece.id })}
+          >
+            <Panel style={{ padding: 14, borderRadius: 14 }}>
+              <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+                {name}
+                {connection?.context.place
+                  ? `・${connection.context.place}`
+                  : ""}
+                　予想：{guess}
+              </T>
+              <T
+                color={C.ink}
+                size={16}
+                style={{ fontFamily: F.bold, lineHeight: 27.2 }}
+              >
+                {piece.kind === "proof" && piece.title
+                  ? `${piece.title}\n`
+                  : ""}
+                「{wordsOf(piece)}」
+              </T>
+              {piece.kind === "vibe" && piece.text && (
+                <View
+                  style={[
+                    S.row,
+                    { alignItems: "baseline", gap: 8, marginTop: 10 },
+                  ]}
+                >
+                  <View
+                    style={{
+                      backgroundColor: C.ink,
+                      paddingVertical: 4,
+                      paddingHorizontal: 7,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <T
+                      color={C.yellow}
+                      size={11}
+                      style={{ fontFamily: F.bold, lineHeight: 11 }}
+                    >
+                      要約
+                    </T>
+                  </View>
+                  <T
+                    display
+                    color={C.ink}
+                    size={18}
+                    style={{ flex: 1, lineHeight: 25.2 }}
+                  >
+                    {piece.label}
+                  </T>
+                </View>
+              )}
+            </Panel>
+          </Pressable>
+        );
+      })}
     </Board>
   );
 }

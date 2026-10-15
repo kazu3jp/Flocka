@@ -16,6 +16,8 @@ import Svg, {
   Path,
   Pattern,
   Rect,
+  RadialGradient,
+  Stop,
   SvgXml,
 } from "react-native-svg";
 import { ART_COLORS, type Card } from "@flocka/domain";
@@ -324,18 +326,20 @@ export function StrengthCard({
         {card.confirmed && card.discovered && (
           <T
             display
-            color={C.danger}
-            size={10}
+            color={C.stampInk}
+            size={11}
             style={{
               position: "absolute",
-              right: 4,
-              top: 25,
+              right: 6,
+              top: 6,
               transform: [{ rotate: "10deg" }],
-              backgroundColor: C.paper,
+              backgroundColor: "rgba(255,255,255,0.7)",
               borderWidth: 2,
-              borderColor: C.danger,
-              borderRadius: 4,
-              padding: 2,
+              borderColor: C.stampBorder,
+              borderRadius: 6,
+              paddingVertical: 3,
+              paddingHorizontal: 6,
+              lineHeight: 13.2,
             }}
           >
             新発見
@@ -494,6 +498,7 @@ export function StrengthCard({
   };
   return onPress ? (
     <Pressable
+      testID={`strength-card-${card.key}`}
       accessibilityRole="button"
       accessibilityLabel={`${card.name}・${status}`}
       onPress={onPress}
@@ -508,6 +513,7 @@ export function StrengthCard({
     </Pressable>
   ) : (
     <View
+      testID={`strength-card-${card.key}`}
       onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
       style={[container, style]}
     >
@@ -517,9 +523,22 @@ export function StrengthCard({
 }
 
 export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
+  const [size, setSize] = useState({ width: 100, height: 100 });
+  const gradientId = "lockedCenter" + useId().replace(/:/g, "");
+  const diagonal = Math.hypot(size.width, size.height) / 2;
+  const stripeCount = Math.ceil((size.width + size.height) / Math.SQRT2 / 20);
   return (
     <View
       accessibilityLabel="未発見のカード"
+      onLayout={({ nativeEvent: { layout } }) => {
+        const width = Math.max(1, layout.width - 5);
+        const height = Math.max(1, layout.height - 5);
+        setSize((previous) =>
+          previous.width === width && previous.height === height
+            ? previous
+            : { width, height },
+        );
+      }}
       style={[
         {
           borderWidth: 2.5,
@@ -534,35 +553,62 @@ export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
         style,
       ]}
     >
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${size.width} ${size.height}`}
+        preserveAspectRatio="none"
+        style={StyleSheet.absoluteFill}
+      >
         <Defs>
-          <Pattern
-            id="locked"
-            width={20}
-            height={20}
-            patternUnits="userSpaceOnUse"
+          <RadialGradient
+            id={gradientId}
+            gradientUnits="userSpaceOnUse"
+            cx={size.width / 2}
+            cy={size.height / 2}
+            r={diagonal}
           >
-            <Path
-              d="M-5 5L5-5M0 20L20 0M15 25L25 15"
-              stroke={C.blue}
-              strokeWidth={8}
-            />
-          </Pattern>
+            <Stop offset="38%" stopColor={C.lockedCenter} />
+            <Stop offset="39%" stopColor={C.lockedCenter} stopOpacity={0} />
+          </RadialGradient>
         </Defs>
-        <Rect width="100%" height="100%" fill="url(#locked)" />
+        <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+        {Array.from({ length: stripeCount }, (_, index) => {
+          // CSS repeating-linear-gradient(45deg, color 0 10px, transparent 10px 20px).
+          const start = Math.SQRT2 * (index * 20 + 5) - size.height;
+          return (
+            <Line
+              key={index}
+              x1={start - 20}
+              y1={-20}
+              x2={start + size.height + 20}
+              y2={size.height + 20}
+              stroke={C.lockedStripe}
+              strokeWidth={10}
+            />
+          );
+        })}
       </Svg>
       <View
         style={{
-          padding: 10,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+          borderWidth: 2,
+          borderColor: C.ink,
           borderRadius: 12,
           backgroundColor: C.ink,
           alignItems: "center",
         }}
       >
-        <T display size={30} color={C.yellow}>
-          ？
+        <T display size={30} color={C.yellow} style={{ lineHeight: 30 }}>
+          ?
         </T>
-        <T size={12}>未発見</T>
+        <T
+          size={11.5}
+          style={{ fontFamily: F.bold, lineHeight: 18.975, marginTop: 6 }}
+        >
+          未発見
+        </T>
       </View>
     </View>
   );

@@ -19,7 +19,7 @@ import {
 import { useApp } from "../../store";
 
 export function Settings() {
-  const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
+  const { s, api, refresh, syncing, nav, toast, peers, isAdmin } = useApp(),
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [settings, setSettings] = useState(s.settings),
     { busy, error, run } = useAction(),
@@ -40,6 +40,18 @@ export function Settings() {
         </Sheet>
       )}
       <NotificationPanel />
+      <Btn
+        plain
+        small
+        label={syncing ? "同期中…" : "サーバーと同期"}
+        disabled={syncing || busy}
+        onPress={() =>
+          void run(async () => {
+            await refresh();
+            toast("サーバーと同期しました");
+          })
+        }
+      />
       {error && <T color={C.yellow}>{error}</T>}
       <Panel style={S.gap}>
         {(

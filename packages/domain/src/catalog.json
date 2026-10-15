@@ -541,6 +541,11 @@
     "danger": "#d01d21",
     "card-paper": "#fef3bd",
     "confirmed-paper": "#fef3bd",
-    "stage": "#13203e"
+    "stage": "#13203e",
+    "tab-inactive": "#a5aec2",
+    "stamp-ink": "#ba022f",
+    "stamp-border": "#cc243d",
+    "locked-stripe": "#143ca1",
+    "locked-center": "#09256d"
   }
 }
