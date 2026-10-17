@@ -52,8 +52,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "export:web": "expo export --platform web",
-    "export:native": "expo export --platform ios --platform android"
+    "export:web": "expo export --platform web --clear",
+    "export:native": "expo export --platform ios --platform android --clear"
   },
   "private": true,
   "engines": {

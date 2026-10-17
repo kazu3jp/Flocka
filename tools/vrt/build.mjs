@@ -94,7 +94,6 @@ const result = spawnSync(
     "--",
     "--output-dir",
     "dist-vrt",
-    "--clear",
   ],
   {
     cwd: root,

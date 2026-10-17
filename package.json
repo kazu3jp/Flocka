@@ -10,7 +10,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev:mobile": "npm run start -w @flocka/mobile",
+    "dev:mobile": "npm run start -w @flocka/mobile --",
     "dev:web": "npm run web -w @flocka/mobile",
     "dev:api": "npm run dev -w @flocka/api",
     "ios": "npm run ios -w @flocka/mobile",
@@ -20,8 +20,9 @@
     "lint": "npm run lint -w @flocka/mobile && eslint apps/api/src packages/*/src tests e2e playwright.config.ts",
     "test": "npm run build:api && tsx --test tests/*.test.ts",
     "validate": "npm run typecheck && npm run lint && npm test",
-    "export:web": "npm run export:web -w @flocka/mobile",
-    "export:native": "npm run export:native -w @flocka/mobile",
+    "export:web": "npm run export:web -w @flocka/mobile --",
+    "export:native": "npm run export:native -w @flocka/mobile --",
+    "verify:export": "node tools/verify-export.mjs",
     "build:api": "npm run build -w @flocka/api",
     "import:design": "node tools/import-design.cjs",
     "format": "prettier --write apps packages tests tools",
