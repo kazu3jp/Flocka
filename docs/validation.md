@@ -62,3 +62,5 @@ JAVA_HOME='/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home' ANDROID_H
 アカウント作成を提供するアプリには、[Appleのアカウント削除要件](https://developer.apple.com/support/offering-account-deletion-in-your-app/)と[Google Playのアカウント削除要件](https://support.google.com/googleplay/android-developer/answer/13327111?hl=ja)が適用されます。アプリ内とWebの削除導線、確認メールによる本人確認、D1/R2の削除、全セッション・連携トークンの失効、失敗時の再試行を実装しました。隔離したWorkers/D1/R2で、501枚の写真の分割削除、外部連携失敗からの復旧、期限切れ・別アカウント・未ログインの拒否、古いバックアップによる復活防止、認証書き込みの競合を検証しました。画面からの削除と端末データ消去も4サイズで確認しています。Web画面の公開、本番のマイグレーション・デプロイ、実機のリンク起動と外部連携の実際の失効は未実施です。詳しくは [アカウント削除](account-deletion.md) を参照してください。
 
 デッキ画面は、バナーの封筒の重なり、見出し・説明文の行高、プロフィールと自己PRバーの余白を元CSSに合わせました。640px高の画面には元CSSの720px以下の条件を反映し、通常の文字サイズでは6枚を画面内に配置します。大きな文字設定ではカード一覧をスクロールできます。デッキのヘッダー・バナー・先頭と末尾のカードは、参照HTMLとの位置・寸法を4サイズで照合しています。
+
+GitHub Actionsの追加確認で、Wranglerの静的な名前付きimportをESLintが解析すると、CLI全体の解析によってNodeの2GBヒープを超える問題を再現しました。テスト環境の作成時に同じWrangler SQLパーサーを動的に読み込む形へ変更し、`NODE_OPTIONS=--max-old-space-size=2048 npm run validate` で26件すべての通過を確認しています。Lintの対象・ルールやCIのメモリ制限は緩和していません。

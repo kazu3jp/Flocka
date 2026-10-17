@@ -1,4 +1,3 @@
-import { unstable_splitSqlQuery as splitSqlQuery } from "wrangler";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import {
@@ -28,6 +27,9 @@ export async function createAuthRuntime(
     appleCredentials?: boolean;
   } = {},
 ) {
+  // Load the CLI only when creating a runtime. Static named-import analysis
+  // otherwise parses Wrangler's entire CLI bundle during ESLint's export checks.
+  const { unstable_splitSqlQuery: splitSqlQuery } = await import("wrangler");
   const webOrigin = input.webOrigin ?? "http://localhost:8081";
   const emails: TestEmail[] = [],
     mailStatus = { value: 200 };
