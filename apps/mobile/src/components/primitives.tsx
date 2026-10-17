@@ -98,17 +98,26 @@ export function LinkButton({
   label,
   onPress,
   color = C.white,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}
+      disabled={disabled}
+      aria-disabled={disabled}
+      style={{
+        minHeight: 44,
+        justifyContent: "center",
+        paddingHorizontal: 8,
+        opacity: disabled ? 0.4 : 1,
+      }}
     >
       <T
         color={color}
@@ -308,13 +317,16 @@ export function Board({
             </ScrollView>
           ) : (
             <View
-              style={{
-                flex: 1,
-                paddingHorizontal: 14,
-                paddingTop: 4,
-                paddingBottom: 12,
-                gap: 10,
-              }}
+              style={[
+                {
+                  flex: 1,
+                  paddingHorizontal: 14,
+                  paddingTop: 4,
+                  paddingBottom: 12,
+                  gap: 10,
+                },
+                contentStyle,
+              ]}
             >
               {children}
             </View>

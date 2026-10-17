@@ -5,18 +5,18 @@ type Runtime = Awaited<ReturnType<typeof createAuthRuntime>>;
 export type Scenario = "onboarding" | "empty" | "collected";
 
 /** Test-only players are registered, verified and populated through real APIs. */
-export async function seedScenario(runtime: Runtime, scenario: Scenario) {
+export async function seedScenario(
+  runtime: Runtime,
+  scenario: Scenario,
+  namespace = "",
+) {
+  const email = (name: string) =>
+    `vrt.${namespace ? namespace + "." : ""}${name}@example.test`;
   if (scenario === "onboarding") {
-    const session = await runtime.authenticate(
-      "ハルカ",
-      "vrt.onboarding@example.test",
-    );
+    const session = await runtime.authenticate("ハルカ", email("onboarding"));
     return { cookie: session.cookie };
   }
-  const owner = await runtime.register(
-    "ハルカ",
-    `vrt.${scenario}@example.test`,
-  );
+  const owner = await runtime.register("ハルカ", email(scenario));
   const profile = {
     ...owner.player.profile,
     role: "ハッカソンでよく実装担当",
@@ -26,9 +26,9 @@ export async function seedScenario(runtime: Runtime, scenario: Scenario) {
   if (scenario === "empty")
     return { cookie: owner.cookie, playerId: owner.player.id };
   const peers = await Promise.all([
-    runtime.register("ミナト", "vrt.minato@example.test"),
-    runtime.register("ソラ", "vrt.sora@example.test"),
-    runtime.register("カエデ", "vrt.kaede@example.test"),
+    runtime.register("ミナト", email("minato")),
+    runtime.register("ソラ", email("sora")),
+    runtime.register("カエデ", email("kaede")),
   ]);
   const peerProfiles = [
     {

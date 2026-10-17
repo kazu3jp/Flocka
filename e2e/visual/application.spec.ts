@@ -99,9 +99,34 @@ test("real collected cards, profile, settings and exchange", async ({
   await page
     .getByRole("button", { name: "このカードをデコる", exact: true })
     .click();
-  await capture(page, "decoration");
   await reference.locator('[data-od-id="card-deco"]').click();
   await referenceComparison(page, reference, "decoration", testInfo);
+  await compareLayout(
+    [
+      {
+        name: "decoration preview",
+        actual: page.getByTestId("decoration-preview"),
+        reference: reference.locator('[data-od-id="deco-card-preview"]'),
+      },
+      {
+        name: "decoration tabs",
+        actual: page.getByTestId("decoration-tabs"),
+        reference: reference.locator(".seg"),
+      },
+      {
+        name: "decoration workspace",
+        actual: page.getByTestId("decoration-workspace"),
+        reference: reference.locator('[data-od-id="deco-workspace"]'),
+      },
+      {
+        name: "first decoration option",
+        actual: page.getByRole("button", { name: "集中線", exact: true }),
+        reference: reference.locator('[data-od-id="deco-pattern-burst"]'),
+      },
+    ],
+    testInfo,
+  );
+  await capture(page, "decoration");
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await page.getByRole("button", { name: "自分のページ", exact: true }).click();

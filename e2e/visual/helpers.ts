@@ -52,9 +52,10 @@ export async function ready(page: Page) {
 export async function signInFixture(
   context: BrowserContext,
   scenario: "onboarding" | "empty" | "collected",
+  instance = "",
 ) {
   const response = await context.request.post(
-    `/__vrt/fixture?scenario=${scenario}`,
+    `/__vrt/fixture?scenario=${scenario}&instance=${encodeURIComponent(instance)}`,
   );
   expect(response.ok()).toBeTruthy();
   const fixture = (await response.json()) as {

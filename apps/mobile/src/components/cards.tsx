@@ -1,3 +1,4 @@
+import { StickerArtwork } from "./sticker-artwork";
 import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
 import React, { useId, useState } from "react";
@@ -12,29 +13,30 @@ import {
 import Svg, {
   Circle,
   Defs,
+  Ellipse,
   Line,
   Path,
   Pattern,
   Rect,
   RadialGradient,
   Stop,
-  SvgXml,
 } from "react-native-svg";
 import { ART_COLORS, type Card } from "@flocka/domain";
-import vectors from "../vectors.json";
 import { C, F, S } from "./theme";
 import { T } from "./text";
 
-function CardPattern({
+export function CardPattern({
   card,
   selfOnly,
   width,
   height,
+  swatch = false,
 }: {
   card: Card;
   selfOnly: boolean;
   width: number;
   height: number;
+  swatch?: boolean;
 }) {
   const pattern = card.deco?.pattern || "burst",
     id = "pattern" + useId().replace(/:/g, "");
@@ -47,7 +49,7 @@ function CardPattern({
     ]),
   );
   const tile: Record<string, [number, number]> = {
-    dots: [14, 14],
+    dots: swatch ? [10, 10] : [14, 14],
     grid: [12, 12],
     stripes: [28, 28],
     check: [20, 20],
@@ -61,56 +63,56 @@ function CardPattern({
   const [tileWidth, tileHeight] = tile[pattern] || [20, 20];
   let motif: React.ReactNode;
   if (pattern === "dots")
-    motif = <Circle cx={7} cy={7} r={3.2} fill={shade2} />;
+    motif = (
+      <Circle
+        cx={swatch ? 5 : 7}
+        cy={swatch ? 5 : 7}
+        r={(swatch ? 10 : 14) * Math.SQRT2 * 0.115}
+        fill={shade2}
+      />
+    );
   else if (pattern === "grid")
     motif = (
-      <Path d="M12 0H0V12" stroke={shade2} fill="none" strokeWidth={1.5} />
-    );
-  else if (pattern === "stripes")
-    motif = (
-      <Path
-        d="M-7 7L7-7 M0 28L28 0 M21 35L35 21"
-        stroke={shade}
-        strokeWidth={7}
-      />
+      <>
+        <Rect width={12} height={1.5} fill={shade2} />
+        <Rect width={1.5} height={12} fill={shade2} />
+      </>
     );
   else if (pattern === "check")
     motif = (
       <>
-        <Rect width={10} height={10} fill={shade2} />
-        <Rect x={10} y={10} width={10} height={10} fill={shade2} />
+        <Rect x={10} width={10} height={10} fill={shade2} />
+        <Rect y={10} width={10} height={10} fill={shade2} />
       </>
     );
   else if (pattern === "diamonds")
-    motif = <Path d="M12 0L24 12L12 24L0 12Z" fill={shade2} />;
+    motif = <Path d="M0 0H24L12 12Z M0 24H24L12 12Z" fill={shade2} />;
   else if (pattern === "rings")
     motif = (
       <Circle
         cx={11}
         cy={11}
-        r={5.6}
+        r={5.756}
         stroke={shade2}
-        strokeWidth={2}
+        strokeWidth={1.867}
         fill="none"
       />
     );
   else if (pattern === "zigzag")
-    motif = <Path d="M0 0L10 10L20 0Z" fill={shade2} />;
+    motif = <Path d="M0 0H10L0 10Z M10 0H20V10Z" fill={shade2} />;
   else if (pattern === "confetti")
     motif = (
       <>
-        <Circle cx={6} cy={8} r={3} fill={shade2} />
-        <Circle cx={18} cy={20} r={3} fill={light} />
+        <Ellipse cx={6} cy={8.4} rx={3.31} ry={3.6} fill={shade2} />
+        <Ellipse cx={18} cy={19.6} rx={3.31} ry={3.6} fill={light} />
       </>
     );
   else if (pattern === "lines")
-    motif = (
-      <Line x1={0} y1={2} x2={12} y2={2} stroke={shade2} strokeWidth={3} />
-    );
+    motif = <Rect y={9} width={12} height={3} fill={shade2} />;
   else if (pattern === "cross")
     motif = <Path d="M0 0L18 18M18 0L0 18" stroke={shade2} strokeWidth={2} />;
   const cx = width * 0.5,
-    cy = height * 0.62;
+    cy = height * (swatch ? 0.6 : 0.62);
   const radius = Math.hypot(width * 0.5, height * 0.62);
   const rays = Array.from({ length: 20 }, (_, i) => {
     const a = (i * 18 * Math.PI) / 180,
@@ -123,20 +125,45 @@ function CardPattern({
       />
     );
   });
+  // CSS -45deg stripes repeat every 14px along the gradient, starting at
+  // the bottom-right of the actual art box rather than at an arbitrary tile.
+  const stripeBands =
+    pattern === "stripes"
+      ? Array.from(
+          { length: Math.ceil((width + height) / (14 * Math.SQRT2)) + 1 },
+          (_, index) => {
+            const high = width + height - index * 14 * Math.SQRT2;
+            const low = high - 7 * Math.SQRT2;
+            return (
+              <Path
+                key={index}
+                d={`M${low} 0H${high}L${high - height} ${height}H${low - height}Z`}
+                fill={shade}
+              />
+            );
+          },
+        )
+      : null;
   return (
     <Svg
       width="100%"
       height="100%"
-      viewBox={pattern === "burst" ? `0 0 ${width} ${height}` : undefined}
+      viewBox={
+        pattern === "burst" || pattern === "stripes"
+          ? `0 0 ${width} ${height}`
+          : undefined
+      }
       preserveAspectRatio="none"
       style={StyleSheet.absoluteFill}
     >
       <Rect width="100%" height="100%" fill={base} />
       {pattern === "burst" ? (
         <>
-          <Circle cx={cx} cy={cy} r={radius * 0.28} fill={light} />
+          {!swatch && <Circle cx={cx} cy={cy} r={radius * 0.28} fill={light} />}
           {rays}
         </>
+      ) : pattern === "stripes" ? (
+        stripeBands
       ) : pattern !== "plain" ? (
         <>
           <Defs>
@@ -195,12 +222,6 @@ export function StrengthCard({
   const nameSize = large
     ? 18
     : Math.max(13, Math.min(18, (cardHeight - 5) * 0.09));
-  const corners = [
-    { bottom: 0, right: 0 },
-    { bottom: 0, left: 0 },
-    { top: 0, right: 0 },
-    { top: 0, left: 0 },
-  ];
   const inner = (
     <>
       {selfOnly && (
@@ -285,6 +306,7 @@ export function StrengthCard({
           flex: 1,
           minHeight: 0,
           margin: 6,
+          marginHorizontal: frame === "stars" ? 0 : 6,
           marginBottom: 0,
           borderWidth: 2,
           borderStyle: "solid",
@@ -294,7 +316,7 @@ export function StrengthCard({
         }}
       >
         <CardPattern card={card} selfOnly={selfOnly} {...artSize} />
-        <View style={{ position: "absolute", left: 5, top: 4 }}>
+        <View style={{ position: "absolute", left: 5, top: 4, zIndex: 4 }}>
           <T
             color={C.ink}
             size={10}
@@ -357,27 +379,29 @@ export function StrengthCard({
         )}
         {card.deco?.stickers.map((k, i) => {
           const layout = card.deco?.layout?.[k];
-          const ci = layout
-            ? ["br", "bl", "tr", "tl"].indexOf(layout.position)
-            : i;
+          const position = layout?.position ?? ["br", "bl", "tr", "tl"][i % 4];
+          const size = Math.min(
+            (artSize.width * (layout?.size ?? 23)) / 100,
+            artSize.height * 0.28,
+            46,
+          );
           return (
             <View
               key={k}
               style={{
                 position: "absolute",
-                ...(corners[ci] || corners[i]),
-                width: `${layout?.size || 23}%`,
-                aspectRatio: 1,
+                left: position.endsWith("r") ? "80%" : "20%",
+                top: position.startsWith("b") ? "76%" : "24%",
+                width: size,
+                height: size,
                 transform: [
-                  { rotate: `${layout?.angle || (i % 2 ? -12 : 12)}deg` },
+                  { translateX: -size / 2 },
+                  { translateY: -size / 2 },
+                  { rotate: `${layout?.angle ?? (i % 2 ? -12 : 12)}deg` },
                 ],
               }}
             >
-              <SvgXml
-                xml={(vectors.stickers as Record<string, string>)[k]}
-                width="100%"
-                height="100%"
-              />
+              <StickerArtwork stickerKey={k} shadow />
             </View>
           );
         })}
@@ -501,10 +525,22 @@ export function StrengthCard({
         ? 3
         : 0,
     ...(frame === "notebook"
-      ? { borderLeftWidth: 7, borderLeftColor: C.pink }
+      ? {
+          borderLeftWidth: 7,
+          borderLeftColor: C.pink,
+          borderRightWidth: 4,
+          borderTopLeftRadius: 3,
+          borderBottomLeftRadius: 3,
+          borderTopRightRadius: 12,
+          borderBottomRightRadius: 12,
+        }
       : {}),
     overflow: "hidden",
-    boxShadow: selfOnly && frame === "none" ? "none" : `3px 3px 0 ${C.ink}`,
+    boxShadow:
+      (selfOnly && frame === "none") ||
+      ["ticket", "ribbon", "mint", "pixel"].includes(frame)
+        ? "none"
+        : `3px 3px 0 ${C.ink}`,
   };
   return onPress ? (
     <Pressable

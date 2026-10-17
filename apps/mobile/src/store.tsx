@@ -70,6 +70,7 @@ type ContextValue = {
   retrySave: () => void;
   clearDeletedAccount: () => Promise<void>;
   refresh: () => Promise<void>;
+  savePreferences: () => Promise<void>;
   update: <R>(recipe: (draft: State) => R) => R;
   api: ReturnType<typeof getApiClient>;
   saveProfile: (profile: Profile, self: string[]) => Promise<void>;
@@ -478,6 +479,7 @@ export function Provider({
         resolvePreferences,
         api,
         refresh,
+        savePreferences: flushPreferences,
         saveProfile,
         update,
         reload: () => {

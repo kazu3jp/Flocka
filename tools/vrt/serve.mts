@@ -97,9 +97,14 @@ const server = createServer(tls, async (request, response) => {
       const scenario = z
         .enum(["onboarding", "empty", "collected"])
         .parse(url.searchParams.get("scenario"));
-      if (!fixtures.has(scenario))
-        fixtures.set(scenario, seedScenario(runtime, scenario));
-      const fixture = await fixtures.get(scenario);
+      const instance = z
+        .string()
+        .regex(/^[a-z0-9-]{0,60}$/)
+        .parse(url.searchParams.get("instance") ?? "");
+      const key = `${scenario}:${instance}`;
+      if (!fixtures.has(key))
+        fixtures.set(key, seedScenario(runtime, scenario, instance));
+      const fixture = await fixtures.get(key);
       response.setHeader("Content-Type", "application/json");
       response.end(JSON.stringify(fixture));
       return;
