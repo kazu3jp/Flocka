@@ -41,11 +41,11 @@ Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/he
 
 初回はウェルカム、アカウント作成、メール確認、6ステップのプロフィール登録へ進みます。メール未確認ではログインできません。ウェルカムのサンプルカードは機能の説明用です。登録後の交換・証言・プロフィールはサーバーの実データを使用します。
 
-「自分」画面からバックアップをD1/R2に保存・復元し、ログアウトできます。端末データはユーザーID別の保存領域です。API未設定や通信失敗を認証成功として扱いません。
+「自分」画面からバックアップをD1/R2に保存・復元し、ログアウト・アカウント削除を開始できます。端末データはユーザーID別の保存領域です。API未設定や通信失敗を認証成功として扱いません。
 
 実機では `EXPO_PUBLIC_API_URL` と `BETTER_AUTH_URL` を開発PCのLANアドレスに、Androidエミュレーターでは `http://10.0.2.2:8787` に設定します。Webのホスト・ポートを変える場合は `ALLOWED_ORIGINS` も設定し、Expo/Workersを再起動してください。Apple/Googleとメールの再設定リンクには安定した `flocka://` を持つ開発ビルドを使います。
 
-引き継ぎ時点で `flocka-app-api` と本番D1/R2の設定が追加されていました。2026年10月14日に `https://api.flocka.zofax.net/health` のHTTP 200を確認しています。今回の再開後の変更と0005・0006マイグレーションは本番へ適用していません。
+引き継ぎ時点で `flocka-app-api` と本番D1/R2の設定が追加されていました。2026年10月14日に `https://api.flocka.zofax.net/health` のHTTP 200を確認しています。今回の再開後の変更と0005〜0008マイグレーションは本番へ適用していません。
 
 ## 検証
 
@@ -53,12 +53,14 @@ Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/he
 
 ```sh
 npm run validate
-npm run export:web
-npm run export:native
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:web
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- web
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:native
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- native
 npm run build:api
 ```
 
-`validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認を含む20テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
+`validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認とアカウント削除を含む26テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
 
 ## 実装と接続設定
 
@@ -67,6 +69,8 @@ Expoの全画面が実サーバーと接続しています。交換コードのQ
 Workersにはプロフィール、期限付き交換コード、双方承認の交換、証言の送受信・開封・公開設定、ブロック、通報・削除依頼の保存と運営による対応、通知outboxとExpo Pushへの配信、5分ごとのCron（通知配信・期限切れデータと未参照写真の削除）を実装し、HTTP経由で検証しています。
 
 Better Authでメール・パスワード認証、6桁のメール確認、再設定リンク、ログアウトを実装しています。Apple/Googleは資格情報を設定した場合のみ有効です。セッションは30日有効で、ネイティブではExpoプラグインとSecureStore、WebではHttpOnly Cookieを使います。パスワード再設定は既存セッションを失効させます。既存の匿名トークンは0003マイグレーションで失効し、古い端末データを別アカウントへ自動で引き継ぎません。
+
+アカウント削除は「自分」画面とWebの `/delete-account` から開始します。メールで本人確認した後に削除を確定し、D1・R2のデータ、全セッション、通知登録とApple/Google連携を削除します。途中の失敗は「処理中」として再試行し、成功扱いにしません。Web画面の公開と本番への反映は未実施です。手順・対象データ・検証範囲は [アカウント削除](docs/account-deletion.md) を参照してください。
 
 サーバーの証言と端末内バックアップは別テーブルで管理し、バックアップを書き換えて証言を作ることはできません。規約・プライバシーポリシーは `packages/domain/src/legal.ts` で版管理し、登録画面と設定画面から読めます。運営者名と窓口を反映しています。正式な文書を別途提示いただいていないため、掲載した本文の運営者による内容確認は必要です。
 

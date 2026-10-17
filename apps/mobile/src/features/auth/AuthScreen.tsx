@@ -1,7 +1,7 @@
 import { LegalDocument } from "./LegalDocument";
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import { z } from "zod";
 import {
   Board,
@@ -28,10 +28,18 @@ import {
 } from "./fields";
 
 type AuthView = "welcome" | "signup" | "verify" | "login" | "reset";
-export function AuthScreen() {
+export function AuthScreen({
+  destination = "/",
+  returnURL,
+  initialView = "welcome",
+}: {
+  destination?: Href;
+  returnURL?: string;
+  initialView?: "welcome" | "login";
+} = {}) {
   const session = useAuth(),
     router = useRouter(),
-    [view, setView] = useState<AuthView>("welcome"),
+    [view, setView] = useState<AuthView>(initialView),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [agree, setAgree] = useState(false),
@@ -177,16 +185,17 @@ export function AuthScreen() {
         await getAuthClient().signIn.social({
           provider,
           callbackURL:
-            Platform.OS === "web" ? window.location.origin : "flocka://",
+            returnURL ??
+            (Platform.OS === "web" ? window.location.origin : "flocka://"),
         }),
       );
       if (Platform.OS !== "web") {
         await session.refetch();
-        router.replace("/");
+        router.replace(destination);
       }
     });
   if (session.isPending || session.error) return <SessionStatus />;
-  if (session.data) return <Redirect href="/" />;
+  if (session.data) return <Redirect href={destination} />;
   const emailOk = validEmail(email);
   const mailField = (
     <AuthField

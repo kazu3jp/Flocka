@@ -117,3 +117,10 @@ export function usePushRegistration(
     };
   }, [api, accountId, enabled, onError]);
 }
+
+/** Server-side account deletion already unregisters every destination. */
+export function forgetDeletedPushDevice(accountId: string) {
+  return serializeDevice(accountId, () =>
+    AsyncStorage.removeItem(deviceKey(accountId)),
+  );
+}

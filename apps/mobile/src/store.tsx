@@ -2,7 +2,10 @@ import {
   useNotificationResponse,
   type NoticeKind,
 } from "./features/notifications/use-notification-response";
-import { usePushRegistration } from "./features/notifications/use-push-registration";
+import {
+  forgetDeletedPushDevice,
+  usePushRegistration,
+} from "./features/notifications/use-push-registration";
 import { getApiClient } from "./features/auth/client";
 import { ApiClientError } from "@flocka/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -65,6 +68,7 @@ type ContextValue = {
   resolvePreferences: (choice: "server" | "local") => Promise<void>;
   reload: () => void;
   retrySave: () => void;
+  clearDeletedAccount: () => Promise<void>;
   refresh: () => Promise<void>;
   update: <R>(recipe: (draft: State) => R) => R;
   api: ReturnType<typeof getApiClient>;
@@ -112,6 +116,7 @@ export function Provider({
     savedPreferences = useRef(JSON.stringify(preferencesOf(fresh()))),
     syncQueue = useRef(Promise.resolve()),
     saveQueue = useRef(Promise.resolve()),
+    persistenceStopped = useRef(false),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null),
     ownAvatar = useRef<{ version?: string | null; photo: string } | null>(null),
     peerPhotos = useRef(
@@ -288,6 +293,7 @@ export function Provider({
     toast,
   );
   const persist = useCallback(() => {
+    if (persistenceStopped.current) return;
     const state = JSON.stringify(stateRef.current),
       navigation = JSON.stringify(navRef.current);
     saveQueue.current = saveQueue.current
@@ -478,6 +484,16 @@ export function Provider({
           setReady(false);
           setError(null);
           setReloadKey((key) => key + 1);
+        },
+        clearDeletedAccount: async () => {
+          persistenceStopped.current = true;
+          await saveQueue.current;
+          await forgetDeletedPushDevice(storageScope);
+          await AsyncStorage.multiRemove([stateKey, navKey]);
+          ownAvatar.current = null;
+          peerPhotos.current.clear();
+          stateRef.current = fresh();
+          navRef.current = initNav();
         },
         retrySave: () => {
           persist();

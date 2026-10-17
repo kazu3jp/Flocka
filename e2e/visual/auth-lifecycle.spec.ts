@@ -164,4 +164,86 @@ test("email signup, onboarding, logout and password reset", async ({
   await expect(
     page.getByRole("button", { name: /実装力・自己申告/ }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "自分のページ", exact: true }).click();
+  await page
+    .getByRole("button", { name: "アカウントを削除", exact: true })
+    .click();
+  await expect(
+    page.getByText("アカウントを削除する", { exact: true }),
+  ).toBeVisible();
+  await capture(page, "delete-account-request");
+  await page
+    .getByRole("button", { name: "確認メールを送信", exact: true })
+    .click();
+  await expect(page.getByText(/確認メールを送信しました/)).toBeVisible();
+  let deletionLink = "";
+  await expect
+    .poll(async () => {
+      const response = await context.request.get(
+        `/__vrt/mailbox?to=${encodeURIComponent(email)}`,
+      );
+      const messages = (await response.json()) as {
+        subject: string;
+        text: string;
+      }[];
+      deletionLink =
+        messages
+          .slice()
+          .reverse()
+          .find((message) => message.subject === "Flocka：アカウント削除の確認")
+          ?.text.match(/https?:\/\/[^\s]+/)?.[0] ?? "";
+      return deletionLink;
+    })
+    .not.toBe("");
+  await page.goto(deletionLink);
+  await expect(
+    page.getByText("削除を確定しますか？", { exact: true }),
+  ).toBeVisible();
+  const deleteButton = page.getByRole("button", {
+    name: "アカウントを完全に削除",
+    exact: true,
+  });
+  await expect(deleteButton).toBeDisabled();
+  await capture(page, "delete-account-confirm");
+  await page
+    .getByRole("button", {
+      name: "削除すると元に戻せないことを確認しました",
+      exact: true,
+    })
+    .click();
+  await deleteButton.click();
+  await expect(
+    page.getByText("アカウントを削除しました", { exact: true }),
+  ).toBeVisible();
+  await capture(page, "delete-account-complete");
+  const session = await context.request.get("/api/auth/get-session");
+  expect(await session.json()).toBeNull();
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).filter(
+        (key) =>
+          key.includes("flocka-expo-state-v1:") && !key.endsWith(":signed-out"),
+      ),
+    ),
+  ).toEqual([]);
+  await page
+    .getByRole("button", { name: "ログイン画面へ", exact: true })
+    .click();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "アカウントを作成", exact: true }),
+  ).toBeVisible();
+});
+
+test("external account deletion entry asks for login", async ({ page }) => {
+  await page.goto("/delete-account");
+  await expect(
+    page.getByRole("textbox", { name: "メールアドレス", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "ログイン", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "アカウントを完全に削除", exact: true }),
+  ).toHaveCount(0);
 });

@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { disablePush } from "../notifications/use-push-registration";
 import { useApp } from "../../store";
 import React, { useState } from "react";
@@ -7,6 +8,7 @@ import { useAuth } from "./provider";
 import { assertAuthResult, getAuthClient } from "./client";
 export function AccountPanel() {
   const { api } = useApp();
+  const router = useRouter();
   const { data, refetch } = useAuth(),
     [ask, setAsk] = useState(false),
     [busy, setBusy] = useState(false),
@@ -45,6 +47,12 @@ export function AccountPanel() {
         label="ログアウト"
         disabled={busy}
         onPress={() => setAsk(true)}
+      />
+      <Btn
+        plain
+        small
+        label="アカウントを削除"
+        onPress={() => router.push("/delete-account")}
       />
       {ask && (
         <Sheet

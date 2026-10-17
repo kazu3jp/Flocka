@@ -1,3 +1,4 @@
+import { DeletionOutcomeProvider } from "./deletion-outcome";
 import React, { createContext, useContext } from "react";
 import { Board, Btn, T } from "../../components/ui";
 import { API_URL, getAuthClient } from "./client";
@@ -19,7 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 function ConfiguredAuthProvider({ children }: { children: React.ReactNode }) {
   const session = getAuthClient().useSession();
-  return <Context.Provider value={session}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={session}>
+      <DeletionOutcomeProvider>{children}</DeletionOutcomeProvider>
+    </Context.Provider>
+  );
 }
 export function useAuth() {
   const value = useContext(Context);

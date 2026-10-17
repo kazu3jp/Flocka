@@ -59,6 +59,10 @@ export function assertAuthResult(result: {
         "メールアドレスまたはパスワードを確認してください",
       EMAIL_NOT_VERIFIED:
         "メールアドレスの確認が必要です。確認コードを送信してください",
+      INVALID_TOKEN:
+        "確認リンクが無効か期限切れです。確認メールをもう一度送信してください",
+      ACCOUNT_DELETION_PENDING:
+        "アカウントの削除を処理中です。完了までサーバーで再試行します",
       INVALID_OTP: "確認コードを確認してください",
       OTP_EXPIRED: "確認コードの有効期限が切れています。再送してください",
       TOO_MANY_ATTEMPTS:
