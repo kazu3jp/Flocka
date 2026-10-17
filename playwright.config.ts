@@ -35,6 +35,7 @@ export default defineConfig({
   projects: [
     { name: "mobile", use: { viewport: { width: 390, height: 844 } } },
     { name: "narrow", use: { viewport: { width: 320, height: 740 } } },
+    { name: "short", use: { viewport: { width: 390, height: 640 } } },
     { name: "desktop", use: { viewport: { width: 1280, height: 1000 } } },
   ],
   webServer: {

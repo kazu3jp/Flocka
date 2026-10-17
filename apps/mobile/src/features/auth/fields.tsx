@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { Pressable, View, type TextInputProps } from "react-native";
+import {
+  Pressable,
+  View,
+  useWindowDimensions,
+  type TextInputProps,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { C, F, Field, Icon, S, T } from "../../components/ui";
 
@@ -151,6 +156,7 @@ export function SocialButtons({
   busy: boolean;
   onPress: (provider: "apple" | "google") => void;
 }) {
+  const { height } = useWindowDimensions();
   return (
     <View style={{ gap: 10 }}>
       {(["apple", "google"] as const).map((provider) => {
@@ -166,7 +172,7 @@ export function SocialButtons({
             style={[
               S.row,
               {
-                minHeight: 54,
+                minHeight: height <= 720 ? 50 : 54,
                 justifyContent: "center",
                 borderWidth: 2.5,
                 borderColor: C.ink,

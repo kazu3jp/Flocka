@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  useWindowDimensions,
   type StyleProp,
   type TextInputProps,
   type ViewProps,
@@ -42,6 +43,7 @@ export function Btn({
   icon?: string;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { height } = useWindowDimensions();
   return (
     <Pressable
       accessibilityRole="button"
@@ -51,7 +53,7 @@ export function Btn({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: small ? 44 : 54,
+          minHeight: small ? 44 : height <= 720 ? 50 : 54,
           paddingHorizontal: small ? 10 : 18,
           paddingVertical: 10,
           borderRadius: 14,

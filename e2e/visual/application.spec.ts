@@ -1,5 +1,10 @@
 import { test, expect } from "./test";
-import { capture, referenceComparison, signInFixture } from "./helpers";
+import {
+  capture,
+  compareLayout,
+  referenceComparison,
+  signInFixture,
+} from "./helpers";
 
 test("first profile registration", async ({ page, context }) => {
   await signInFixture(context, "onboarding");
@@ -37,6 +42,36 @@ test("real collected cards, profile, settings and exchange", async ({
   const reference = await context.newPage();
   await reference.goto("/reference/?embed=deck");
   await referenceComparison(page, reference, "collected-deck", testInfo);
+  await compareLayout(
+    [
+      {
+        name: "deck header",
+        actual: page.getByTestId("deck-header"),
+        reference: reference.locator(".hud"),
+      },
+      {
+        name: "challenge banner",
+        actual: page.getByTestId("deck-challenge"),
+        reference: reference.locator(".quest"),
+      },
+      {
+        name: "PR banner",
+        actual: page.getByTestId("deck-pr"),
+        reference: reference.locator(".prbar"),
+      },
+      {
+        name: "confirmed deck card",
+        actual: page.getByTestId("strength-card-bridge"),
+        reference: reference.locator('[data-od-id="card-bridge"]'),
+      },
+      {
+        name: "last deck card",
+        actual: page.getByLabel("未発見のカード", { exact: true }).last(),
+        reference: reference.locator(".gcard.locked").last(),
+      },
+    ],
+    testInfo,
+  );
   await page
     .getByRole("button", { name: /人と情報をつなぐ力・確認済み/ })
     .click();

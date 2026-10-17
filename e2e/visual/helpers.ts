@@ -3,10 +3,44 @@ import {
   type Page,
   type BrowserContext,
   type TestInfo,
+  type Locator,
 } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
+
+export async function compareLayout(
+  pairs: { name: string; actual: Locator; reference: Locator }[],
+  testInfo: TestInfo,
+) {
+  const measurements = await Promise.all(
+    pairs.map(async (pair) => ({
+      name: pair.name,
+      actual: await pair.actual.boundingBox(),
+      reference: await pair.reference.boundingBox(),
+    })),
+  );
+  await testInfo.attach("source-layout", {
+    body: JSON.stringify(measurements, null, 2),
+    contentType: "application/json",
+  });
+  await writeFile(
+    testInfo.outputPath("source-layout.json"),
+    JSON.stringify(measurements, null, 2),
+  );
+  for (const measurement of measurements) {
+    expect(measurement.actual, measurement.name).not.toBeNull();
+    expect(measurement.reference, measurement.name).not.toBeNull();
+    for (const dimension of ["x", "y", "width", "height"] as const) {
+      expect(
+        Math.abs(
+          measurement.actual![dimension] - measurement.reference![dimension],
+        ),
+        `${measurement.name}: ${dimension}`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }
+}
 
 export async function ready(page: Page) {
   await page.evaluate(() => document.fonts.ready);

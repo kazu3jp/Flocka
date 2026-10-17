@@ -204,7 +204,12 @@ export function StrengthCard({
   const inner = (
     <>
       {selfOnly && (
-        <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Svg
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        >
           <Defs>
             <Pattern
               id={frameId + "paper"}
@@ -223,7 +228,12 @@ export function StrengthCard({
         </Svg>
       )}
       {frame === "stars" && (
-        <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Svg
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        >
           <Defs>
             <Pattern
               id={frameId}
@@ -601,7 +611,7 @@ export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
         }}
       >
         <T display size={30} color={C.yellow} style={{ lineHeight: 30 }}>
-          ?
+          ？
         </T>
         <T
           size={11.5}
