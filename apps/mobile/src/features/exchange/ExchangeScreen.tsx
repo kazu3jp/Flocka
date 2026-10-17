@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Pressable, View } from "react-native";
 import {
   Board,
@@ -8,28 +8,16 @@ import {
   Icon,
   S,
   Sheet,
+  T,
 } from "../../components/ui";
 
 import { useApp } from "../../store";
 import { Player } from "./player-card";
+import { useShowcase } from "./use-showcase";
 
 export function Exchange() {
-  const { s, d, nav, update, toast } = useApp(),
-    [pick, setPick] = useState(false);
-  const chosen = s.showcase.length
-    ? s.showcase
-    : d.deck.slice(0, 3).map((c) => c.key);
-  const toggle = (k: string) => {
-    if (chosen.includes(k))
-      update((x) => {
-        x.showcase = chosen.filter((v) => v !== k);
-      });
-    else if (chosen.length >= 3) toast("3枚まで選べます");
-    else
-      update((x) => {
-        x.showcase = [...chosen, k];
-      });
-  };
+  const { s, d, nav } = useApp();
+  const showcase = useShowcase();
   return (
     <Board>
       <Header
@@ -45,7 +33,7 @@ export function Exchange() {
           </Pressable>
         }
       />
-      <Player onPick={() => setPick(true)} />
+      <Player onPick={showcase.show} />
       <Btn
         label="近くの人と交換"
         icon="swap"
@@ -63,22 +51,25 @@ export function Exchange() {
           onPress={() => nav.push("connections")}
         />
       )}
-      {pick && (
-        <Sheet
-          title="相手に見せる強み（3枚まで）"
-          onClose={() => setPick(false)}
-        >
+      {showcase.open && (
+        <Sheet title="相手に見せる強み（3枚まで）" onClose={showcase.close}>
           <View style={S.wrap}>
             {d.deck.map((c) => (
               <Choice
                 key={c.key}
                 label={c.name}
-                selected={chosen.includes(c.key)}
-                onPress={() => toggle(c.key)}
+                selected={showcase.chosen.includes(c.key)}
+                disabled={showcase.busy}
+                onPress={() => showcase.toggle(c.key)}
               />
             ))}
           </View>
-          <Btn label="決定" onPress={() => setPick(false)} />
+          {showcase.error && <T accessibilityRole="alert">{showcase.error}</T>}
+          <Btn
+            label={showcase.busy ? "保存中…" : "決定"}
+            disabled={showcase.busy}
+            onPress={showcase.finish}
+          />
         </Sheet>
       )}
     </Board>
