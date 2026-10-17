@@ -281,13 +281,30 @@ export function StrengthCard({
           borderBottomWidth: 2.5,
           borderColor: C.ink,
           justifyContent: "space-between",
+          gap: 6,
         }}
       >
-        <T size={11.5} color={C.ink} style={{ fontFamily: F.bold }}>
+        <T
+          size={11.5}
+          color={C.ink}
+          style={{
+            fontFamily: F.bold,
+            lineHeight: 18.975,
+            letterSpacing: 0.23,
+          }}
+        >
           {status}
         </T>
         {card.self && !selfOnly && (
-          <T size={11.5} color={C.ink} style={{ fontFamily: F.bold }}>
+          <T
+            size={11.5}
+            color={C.ink}
+            style={{
+              fontFamily: F.bold,
+              lineHeight: 18.975,
+              letterSpacing: 0.23,
+            }}
+          >
             自分も選んだ
           </T>
         )}
