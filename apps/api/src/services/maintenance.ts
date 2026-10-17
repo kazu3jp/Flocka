@@ -1,3 +1,4 @@
+import { retryAccountDeletions } from "./account-deletion";
 const OUTBOX_RETENTION_MS = 7 * 24 * 3600_000;
 const ORPHAN_AVATAR_GRACE_MS = 24 * 3600_000;
 const AVATAR_SCAN_LIMIT = 500;
@@ -63,6 +64,7 @@ export async function runMaintenance(
   env: Env,
   now = new Date(),
 ): Promise<void> {
+  await retryAccountDeletions(env, now);
   await deleteExpiredRows(env.DB, now);
   await deleteOrphanAvatars(env, now);
 }

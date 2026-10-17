@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 export async function readBody(
-  request: Request,
+  request: Pick<Request, "body">,
   limit: number,
 ): Promise<Uint8Array> {
   if (!request.body) return new Uint8Array();

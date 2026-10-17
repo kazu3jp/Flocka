@@ -20,11 +20,21 @@ const emailSchema = z.object({
 });
 export type TestEmail = z.infer<typeof emailSchema>;
 export async function createAuthRuntime(
-  input: { port?: number; webOrigin?: string; authURL?: string } = {},
+  input: {
+    port?: number;
+    webOrigin?: string;
+    authURL?: string;
+    appleCredentials?: boolean;
+  } = {},
 ) {
   const webOrigin = input.webOrigin ?? "http://localhost:8081";
   const emails: TestEmail[] = [],
     mailStatus = { value: 200 };
+  const revocations = {
+    calls: [] as { url: string; body: string }[],
+    status: 200,
+    error: "invalid_token",
+  };
   const push = {
     calls: [] as { path: string; body: unknown }[],
     status: 200,
@@ -54,6 +64,18 @@ export async function createAuthRuntime(
             },
           },
           env: {
+            ...(input.appleCredentials
+              ? {
+                  APPLE_CLIENT_ID: {
+                    type: "json" as const,
+                    value: "test-apple-client",
+                  },
+                  APPLE_CLIENT_SECRET: {
+                    type: "json" as const,
+                    value: "test-apple-secret",
+                  },
+                }
+              : {}),
             DB: { type: "d1", id: "test-flocka" },
             AVATARS: { type: "r2", name: "test-avatars" },
             ALLOWED_ORIGINS: { type: "json", value: webOrigin },
@@ -81,6 +103,23 @@ export async function createAuthRuntime(
           outboundService: {
             type: "fetcher",
             handler: async (request: TestRequest) => {
+              if (
+                [
+                  "https://appleid.apple.com/auth/revoke",
+                  "https://oauth2.googleapis.com/revoke",
+                ].includes(request.url)
+              ) {
+                revocations.calls.push({
+                  url: request.url,
+                  body: await request.text(),
+                });
+                return new TestResponse(
+                  revocations.status === 200
+                    ? null
+                    : JSON.stringify({ error: revocations.error }),
+                  { status: revocations.status },
+                );
+              }
               if (request.url.startsWith("https://exp.host/--/api/v2/push/")) {
                 const path = new URL(request.url).pathname.split("/").pop()!;
                 push.calls.push({ path, body: await request.json() });
@@ -241,6 +280,7 @@ export async function createAuthRuntime(
       register,
       authenticate,
       setAdmins,
+      revocations,
     };
   } catch (error) {
     await runtime.dispose();

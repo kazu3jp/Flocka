@@ -47,3 +47,12 @@ export function resetEmail(email: string, url: string) {
     html: `<div style="background:#f8f5e3;padding:32px;font-family:sans-serif;color:#161b34"><h1>Flocka</h1><h2>パスワードの再設定</h2><p><a href="${escapeHtml(url)}">新しいパスワードを設定する</a></p><p>有効期限は30分です。心当たりがなければ、このメールを破棄してください。</p></div>`,
   };
 }
+
+export function accountDeletionEmail(email: string, url: string) {
+  return {
+    to: email,
+    subject: "Flocka：アカウント削除の確認",
+    text: `アカウントを削除する場合は、30分以内に次のリンクを開き、同じアカウントでログインして削除を確定してください。リンクを開くだけでは削除されません。\n${url}\n削除するとプロフィール、写真、交換履歴、送受信した証言、バックアップを復元できません。心当たりがなければ、このメールを破棄してください。`,
+    html: `<div style="background:#f8f5e3;padding:32px;font-family:sans-serif;color:#161b34"><h1>Flocka</h1><h2>アカウント削除の確認</h2><p><a href="${escapeHtml(url)}">削除の確認画面を開く</a></p><p>30分以内に同じアカウントでログインして、削除を確定してください。リンクを開くだけでは削除されません。</p><p>プロフィール、写真、交換履歴、送受信した証言、バックアップは復元できません。心当たりがなければ、このメールを破棄してください。</p></div>`,
+  };
+}

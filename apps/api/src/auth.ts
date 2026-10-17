@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import { accountDeletionPending } from "./services/account-deletion";
 import { createAuth } from "./auth/config";
 import { ApiError, type ApiContext } from "./http";
 
@@ -29,6 +30,12 @@ export const requireSession = createMiddleware<ApiContext>(async (c, next) => {
       403,
       "EMAIL_NOT_VERIFIED",
       "メールアドレスを確認してください",
+    );
+  if (await accountDeletionPending(c.env.DB, session.user.id))
+    throw new ApiError(
+      403,
+      "ACCOUNT_DELETION_PENDING",
+      "アカウントの削除を処理中です",
     );
   const expectedAccount = c.req.header("X-Flocka-Account");
   if (expectedAccount && expectedAccount !== session.user.id)

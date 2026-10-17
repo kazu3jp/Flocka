@@ -1,3 +1,4 @@
+import { hasMissingProviderToken } from "../services/revoke-provider-tokens";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins";
@@ -5,7 +6,18 @@ import { expo } from "@better-auth/expo";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
-import { sendAuthEmail, verificationEmail, resetEmail } from "./email";
+import {
+  sendAuthEmail,
+  verificationEmail,
+  resetEmail,
+  accountDeletionEmail,
+} from "./email";
+
+import {
+  accountDeletionPending,
+  beginAccountDeletion,
+  processAccountDeletion,
+} from "../services/account-deletion";
 
 export function socialProviders(env: Env) {
   return {
@@ -36,6 +48,7 @@ export function createAuth(
       message: "認証シークレットを設定してください",
     });
   let verificationDeliveryError: Error | undefined;
+  let deletionDeliveryError: Error | undefined;
   return betterAuth({
     appName: "Flocka",
     baseURL: env.BETTER_AUTH_URL,
@@ -54,7 +67,66 @@ export function createAuth(
       database: { generateId: "uuid" },
       ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
     },
+    account: { encryptOAuthTokens: true },
+    databaseHooks: {
+      session: {
+        create: {
+          async before(session) {
+            if (await accountDeletionPending(env.DB, session.userId))
+              throw new APIError("FORBIDDEN", {
+                code: "ACCOUNT_DELETION_PENDING",
+                message: "アカウントの削除を処理中です",
+              });
+          },
+        },
+      },
+    },
     user: {
+      deleteUser: {
+        enabled: true,
+        deleteTokenExpiresIn: 1800,
+        async sendDeleteAccountVerification({ user, url, token }) {
+          const target = new URL(url).searchParams.get("callbackURL");
+          if (!target)
+            throw new APIError("BAD_REQUEST", {
+              message: "削除の確認画面を指定してください",
+            });
+          const link = new URL(target);
+          link.searchParams.set("token", token);
+          try {
+            await sendAuthEmail(
+              env,
+              accountDeletionEmail(user.email, link.href),
+            );
+          } catch (error) {
+            await env.DB.prepare(
+              "DELETE FROM auth_verifications WHERE identifier = ?",
+            )
+              .bind(`delete-account-${token}`)
+              .run();
+            deletionDeliveryError =
+              error instanceof Error
+                ? error
+                : new Error("メール配信に失敗しました");
+            throw error;
+          }
+        },
+        async beforeDelete(user) {
+          if (await hasMissingProviderToken(env.DB, user.id))
+            throw new APIError("BAD_REQUEST", {
+              code: "PROVIDER_REAUTHENTICATION_REQUIRED",
+              message:
+                "一度ログアウトし、連携しているAppleまたはGoogleでログインし直してから、確認メールをもう一度送信してください",
+            });
+          await beginAccountDeletion(env, user.id);
+          if (!(await processAccountDeletion(env, user.id)))
+            throw new APIError("SERVICE_UNAVAILABLE", {
+              code: "ACCOUNT_DELETION_PENDING",
+              message:
+                "削除を受け付けました。現在処理中です。完了までサーバーで再試行します。",
+            });
+        },
+      },
       additionalFields: {
         termsAccepted: {
           type: "boolean",
@@ -100,11 +172,14 @@ export function createAuth(
         "/email-otp/send-verification-otp": { window: 30, max: 1 },
         "/email-otp/verify-email": { window: 60, max: 5 },
         "/request-password-reset": { window: 60, max: 3 },
+        "/delete-user": { window: 60, max: 3 },
       },
     },
     hooks: {
       // Better Auth catches email callback failures. Surface them for the explicit resend request.
       after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/delete-user" && deletionDeliveryError)
+          throw deletionDeliveryError;
         if (
           ctx.path === "/email-otp/send-verification-otp" &&
           verificationDeliveryError
@@ -112,6 +187,38 @@ export function createAuth(
           throw verificationDeliveryError;
       }),
       before: createAuthMiddleware(async (ctx) => {
+        // Never perform destructive work on GET (mail scanners can prefetch links).
+        if (ctx.path === "/delete-user/callback")
+          throw new APIError("METHOD_NOT_ALLOWED", {
+            message: "確認画面で削除を確定してください",
+          });
+        if (ctx.path === "/delete-user" && !ctx.body?.token) {
+          let target: URL;
+          try {
+            target = new URL(ctx.body?.callbackURL ?? "");
+          } catch {
+            throw new APIError("BAD_REQUEST", {
+              message: "削除の確認画面を指定してください",
+            });
+          }
+          const isApp =
+            target.protocol === "flocka:" &&
+            target.host === "delete-account" &&
+            target.pathname === "";
+          const isWeb =
+            env.ALLOWED_ORIGINS.split(",").includes(target.origin) &&
+            target.pathname === "/delete-account";
+          if (
+            (!isApp && !isWeb) ||
+            target.username ||
+            target.password ||
+            target.search ||
+            target.hash
+          )
+            throw new APIError("BAD_REQUEST", {
+              message: "削除の確認画面が無効です",
+            });
+        }
         if (ctx.path === "/sign-up/email" && ctx.body?.termsAccepted !== true)
           throw new APIError("BAD_REQUEST", {
             code: "TERMS_REQUIRED",

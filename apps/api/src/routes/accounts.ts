@@ -45,7 +45,7 @@ accountRoutes.post("/accounts", async (c) => {
     );
   const { photo: _photo, ...avatar } = input.profile.avatar;
   await c.env.DB.prepare(
-    "INSERT INTO accounts(id, profile_json, self_json, created_at) VALUES(?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
+    "INSERT INTO accounts(id, profile_json, self_json, created_at) SELECT ?1, ?2, ?3, ?4 WHERE EXISTS(SELECT 1 FROM auth_users WHERE id = ?1) AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE account_id = ?1) ON CONFLICT(id) DO NOTHING",
   )
     .bind(
       id,
