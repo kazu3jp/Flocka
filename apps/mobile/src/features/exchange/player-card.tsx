@@ -1,17 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
-import {
-  Avatar,
-  C,
-  LinkButton,
-  Panel,
-  S,
-  StrengthCard,
-  T,
-  Sheet,
-} from "../../components/ui";
+import { Avatar, C, LinkButton, S, T, Sheet } from "../../components/ui";
 import { bareCard, type Card, type RemoteTestimony } from "@flocka/domain";
 import { useApp } from "../../store";
+import { PlayerSurface } from "./player-surface";
 
 export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
   const { peers } = useApp();
@@ -93,81 +85,35 @@ export function Player({
       : d.deck.slice(0, 3);
   const interests = peer ? peer.profile.interests : s.profile.interests;
   return (
-    <Panel style={{ flex: 1, padding: 0, overflow: "hidden", minHeight: 330 }}>
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          backgroundColor: C.ink,
-        }}
-      >
-        <T size={12}>プレイヤーカード</T>
-      </View>
-      <View style={[S.row, { padding: 16, paddingBottom: 4 }]}>
-        {peerId ? (
-          <PeerAvatar id={peerId} size={60} />
-        ) : (
-          <Avatar name={s.profile.name} avatar={s.profile.avatar} size={64} />
-        )}
-        <T display size={26} color={C.ink} style={S.fill}>
-          {peerId ? peer?.profile.name : s.profile.name}
-        </T>
-      </View>
-      <T size={13} color={C.muted} style={{ paddingHorizontal: 16 }}>
-        {peerId ? peer?.profile.role : s.profile.role}
-      </T>
-      <View style={[S.row, { paddingHorizontal: 16 }]}>
-        <T size={12} color={C.ink} style={S.fill}>
-          強み
-        </T>
-        {onPick && <LinkButton label="選ぶ" color={C.ink} onPress={onPick} />}
-      </View>
-      <View
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-        }}
-      >
-        {cards.map((c, i) => (
-          <StrengthCard
-            key={c.key}
-            card={c}
-            style={{
-              width: cards.length === 3 ? "36%" : "46%",
-              height: "95%",
-              minHeight: 190,
-              marginLeft: i ? -9 : 0,
-              transform: [{ rotate: `${(i - (cards.length - 1) / 2) * 8}deg` }],
-            }}
-          />
-        ))}
-      </View>
-      <View
-        style={{
-          padding: 14,
-          paddingTop: 6,
-          borderTopWidth: 1,
-          borderColor: C.grey,
-        }}
-      >
-        <T color={C.muted} size={11}>
-          関心
-        </T>
-        {accepted && (
-          <LinkButton
-            color={C.ink}
-            label="公開された証言を見る"
-            onPress={() => setShowPublic(true)}
-          />
-        )}
-        <T color={C.ink} size={12}>
-          {interests.map((i) => "#" + i).join("　")}
-        </T>
-      </View>
+    <>
+      <PlayerSurface
+        compact={!!peerId}
+        avatar={
+          peerId ? (
+            <PeerAvatar id={peerId} size={56} />
+          ) : (
+            <Avatar name={s.profile.name} avatar={s.profile.avatar} size={64} />
+          )
+        }
+        name={
+          peerId
+            ? (peer?.profile.name ?? "プロフィールを取得中")
+            : s.profile.name
+        }
+        role={peerId ? (peer?.profile.role ?? "") : s.profile.role}
+        cards={cards}
+        interests={interests}
+        onPick={onPick}
+        footer={
+          accepted ? (
+            <LinkButton
+              color={C.ink}
+              label="公開された証言を見る"
+              onPress={() => setShowPublic(true)}
+            />
+          ) : undefined
+        }
+      />
       {showPublic && (
         <Sheet title="公開された証言" onClose={() => setShowPublic(false)}>
           {!published ? (
@@ -188,6 +134,6 @@ export function Player({
           )}
         </Sheet>
       )}
-    </Panel>
+    </>
   );
 }

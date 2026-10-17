@@ -13,11 +13,11 @@ test("showcase completion waits for durable preferences and retries failed saves
   // The reference hides the player hand and its edit link in compact heights.
   // Open at the normal height, then exercise saving in the short sheet as well.
   const viewport = page.viewportSize()!;
-  if (testInfo.project.name === "short")
+  if (viewport.height < 844)
     await page.setViewportSize({ ...viewport, height: 844 });
   await page.goto("/exchange");
   await page.getByRole("button", { name: "選ぶ", exact: true }).click();
-  if (testInfo.project.name === "short") await page.setViewportSize(viewport);
+  if (viewport.height < 844) await page.setViewportSize(viewport);
   const selected = page.locator('button[aria-pressed="true"]');
   await expect(selected).toHaveCount(3);
   const removedLabel = await selected.first().getAttribute("aria-label");
@@ -57,7 +57,7 @@ test("showcase completion waits for durable preferences and retries failed saves
   expect(response.ok()).toBeTruthy();
   expect((await response.json()).preferences.data.showcase).toHaveLength(2);
   await page.reload();
-  if (testInfo.project.name === "short")
+  if (viewport.height < 844)
     await page.setViewportSize({ ...viewport, height: 844 });
   await page.getByRole("button", { name: "選ぶ", exact: true }).click();
   await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(2);

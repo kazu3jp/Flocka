@@ -1,5 +1,12 @@
 import React from "react";
-import { Image, Text, View, type TextProps } from "react-native";
+import {
+  Image,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+  type TextProps,
+} from "react-native";
 import { SvgXml } from "react-native-svg";
 import { AV_COLORS, IC, type AvatarData } from "@flocka/domain";
 import vectors from "../vectors.json";
@@ -31,15 +38,18 @@ export function T({
 export function Icon({
   name,
   size = 22,
+  style,
   color = C.white,
 }: {
   name: string;
   size?: number;
+  style?: StyleProp<ViewStyle>;
   color?: string;
 }) {
   return (
     <SvgXml
       xml={`<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${IC[name] || IC.spark}</svg>`}
+      style={style}
       width={size}
       height={size}
     />

@@ -27,26 +27,45 @@ export function Exchange() {
             accessibilityRole="button"
             accessibilityLabel="つながった人"
             onPress={() => nav.push("connections")}
-            style={{ padding: 12 }}
+            style={{
+              width: 44,
+              height: 44,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
             <Icon name="users" />
           </Pressable>
         }
       />
       <Player onPick={showcase.show} />
-      <Btn
-        label="近くの人と交換"
-        icon="swap"
-        onPress={() => nav.push("nearby")}
-      />
-      <Btn plain label="QRで交換" icon="qr" onPress={() => nav.push("scan")} />
+      <View testID="exchange-actions" style={{ flexDirection: "row", gap: 10 }}>
+        <Btn
+          label="近くの人と交換"
+          icon="swap"
+          iconSize={20}
+          iconStyle={{ flexShrink: 0 }}
+          style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 0 }}
+          textStyle={{ lineHeight: 17, flexShrink: 1 }}
+          onPress={() => nav.push("nearby")}
+        />
+        <Btn
+          plain
+          label="QRで交換"
+          icon="qr"
+          style={{ paddingVertical: 0 }}
+          textStyle={{ lineHeight: 17 }}
+          iconSize={20}
+          iconStyle={{ flexShrink: 0 }}
+          onPress={() => nav.push("scan")}
+        />
+      </View>
       {s.connections.some(
         (c) =>
           c.status === "accepted" && !c.vibe && !s.blocked.includes(c.peerId),
       ) && (
         <Btn
           plain
-          small
           label="交換した人に印象を贈る"
           onPress={() => nav.push("connections")}
         />

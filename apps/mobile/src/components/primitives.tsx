@@ -13,6 +13,7 @@ import {
   type TextInputProps,
   type ViewProps,
   type ViewStyle,
+  type TextStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
@@ -32,6 +33,9 @@ export function Btn({
   danger = false,
   small = false,
   icon,
+  iconSize = 22,
+  iconStyle,
+  textStyle,
   style,
 }: {
   label: string;
@@ -41,6 +45,9 @@ export function Btn({
   danger?: boolean;
   small?: boolean;
   icon?: string;
+  iconSize?: number;
+  iconStyle?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
 }) {
   const { height } = useWindowDimensions();
@@ -81,12 +88,19 @@ export function Btn({
         style,
       ]}
     >
-      {icon && <Icon name={icon} color={danger ? C.white : C.ink} />}
+      {icon && (
+        <Icon
+          name={icon}
+          size={iconSize}
+          style={iconStyle}
+          color={danger ? C.white : C.ink}
+        />
+      )}
       <T
         display
         size={small ? 13 : 17}
         color={disabled ? C.pale : danger ? C.white : C.ink}
-        style={{ textAlign: "center" }}
+        style={[{ textAlign: "center" }, textStyle]}
       >
         {label}
       </T>

@@ -147,9 +147,86 @@ test("real collected cards, profile, settings and exchange", async ({
   await expect(
     page.getByRole("button", { name: "近くの人と交換", exact: true }),
   ).toBeVisible();
-  await capture(page, "exchange");
   await reference.goto("/reference/?embed=exchange");
   await referenceComparison(page, reference, "exchange", testInfo);
+  await compareLayout(
+    [
+      {
+        name: "player",
+        actual: page.getByTestId("player-card"),
+        reference: reference.locator('[data-od-id="my-player-card"]'),
+      },
+      {
+        name: "player identity",
+        actual: page.getByTestId("player-identity"),
+        reference: reference.locator(".player > .row").first(),
+      },
+      {
+        name: "player role",
+        actual: page.getByTestId("player-role"),
+        reference: reference.locator(".player-role"),
+      },
+      {
+        name: "player footer",
+        actual: page.getByTestId("player-footer"),
+        reference: reference.locator(".player-foot"),
+      },
+      {
+        name: "exchange actions",
+        actual: page.getByTestId("exchange-actions"),
+        reference: reference.locator(".ex-actions"),
+      },
+    ],
+    testInfo,
+  );
+  const sourceHandVisible = await reference.locator(".player-hand").isVisible();
+  await expect(page.getByTestId("player-hand")).toHaveCount(
+    sourceHandVisible ? 1 : 0,
+  );
+  if (sourceHandVisible) {
+    await compareLayout(
+      [
+        {
+          name: "player name",
+          actual: page.getByTestId("player-name"),
+          reference: reference.locator(".player-name"),
+        },
+        {
+          name: "player hand",
+          actual: page.getByTestId("player-hand"),
+          reference: reference.locator(".player-hand"),
+        },
+        {
+          name: "middle showcase card",
+          actual: page
+            .getByTestId("player-hand")
+            .getByTestId("strength-card-impl"),
+          reference: reference.locator(".player-hand .gcard").nth(1),
+        },
+      ],
+      testInfo,
+    );
+  }
+  await capture(page, "exchange");
+  if (testInfo.project.name === "mobile") {
+    const viewport = page.viewportSize()!;
+    // At these window heights, the source player's content box is 520/521px.
+    for (const [height, visible] of [
+      [792, false],
+      [793, true],
+    ] as const) {
+      await page.setViewportSize({ ...viewport, height });
+      await reference.setViewportSize({ ...viewport, height });
+      if (visible)
+        await expect(reference.locator(".player-hand")).toBeVisible();
+      else await expect(reference.locator(".player-hand")).not.toBeVisible();
+      await expect(page.getByTestId("player-hand")).toHaveCount(
+        visible ? 1 : 0,
+      );
+    }
+    await page.setViewportSize(viewport);
+    await reference.setViewportSize(viewport);
+  }
   await page.getByRole("button", { name: "つながった人", exact: true }).click();
   await capture(page, "connections");
   await page.getByRole("tab", { name: "自己PR", exact: true }).click();
