@@ -59,6 +59,7 @@ export default function Screen() {
       toast,
       ready,
       error,
+      reload,
       s,
       n,
       nav,
@@ -84,7 +85,21 @@ export default function Screen() {
   }, [setOpening]);
   if (auth.isPending || auth.error) return <SessionStatus />;
   if (!auth.data) return <Redirect href="/auth" />;
-  if (!ready || error) return <Redirect href="/" />;
+  if (error)
+    return (
+      <Board>
+        <T>{error}</T>
+        <T size={13}>保存データは上書きしていません。</T>
+        <Btn label="もう一度読み込む" onPress={reload} />
+      </Board>
+    );
+  // Keep the requested URL while the account snapshot is loading.
+  if (!ready)
+    return (
+      <Board>
+        <T color={C.pale}>デッキを読み込み中…</T>
+      </Board>
+    );
   if (!SCREENS.includes(screen as ScreenId))
     return (
       <Board>
