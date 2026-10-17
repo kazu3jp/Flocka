@@ -1,18 +1,10 @@
 import React from "react";
 import { Pressable, View } from "react-native";
-import {
-  Board,
-  Btn,
-  Choice,
-  Header,
-  Icon,
-  S,
-  Sheet,
-  T,
-} from "../../components/ui";
+import { Board, Btn, Header, Icon } from "../../components/ui";
 
 import { useApp } from "../../store";
 import { Player } from "./player-card";
+import { ShowcasePicker } from "./showcase-picker";
 import { useShowcase } from "./use-showcase";
 
 export function Exchange() {
@@ -70,27 +62,7 @@ export function Exchange() {
           onPress={() => nav.push("connections")}
         />
       )}
-      {showcase.open && (
-        <Sheet title="相手に見せる強み（3枚まで）" onClose={showcase.close}>
-          <View style={S.wrap}>
-            {d.deck.map((c) => (
-              <Choice
-                key={c.key}
-                label={c.name}
-                selected={showcase.chosen.includes(c.key)}
-                disabled={showcase.busy}
-                onPress={() => showcase.toggle(c.key)}
-              />
-            ))}
-          </View>
-          {showcase.error && <T accessibilityRole="alert">{showcase.error}</T>}
-          <Btn
-            label={showcase.busy ? "保存中…" : "決定"}
-            disabled={showcase.busy}
-            onPress={showcase.finish}
-          />
-        </Sheet>
-      )}
+      {showcase.open && <ShowcasePicker cards={d.deck} selection={showcase} />}
     </Board>
   );
 }
