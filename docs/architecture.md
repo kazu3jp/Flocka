@@ -12,26 +12,26 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 
 `/api/auth/*` にBetter Authのハンドラーを配置しています。`/v1/*` はすべて有効なBetter Authセッションとメール確認を要求します。`POST /v1/accounts` は認証済みユーザーにプロフィールと自己申告カード2〜3枚を作成します。ユーザーIDとプレイヤーIDを共通にし、他人のIDをリクエストから採用しません。APIクライアントはWebでCookieを送信し、ネイティブでExpoプラグインのSecureStoreからCookieを取得して送信します。
 
-| メソッド・パス | 内容 |
-| --- | --- |
-| `GET /health` | D1接続を含む稼働確認 |
-| `GET /auth/config` | 設定済みのApple/Googleプロバイダー名のみを返す |
-| `GET/POST /api/auth/*` | Better Authのメール登録・確認・ログイン・再設定・ログアウト |
-| `POST /v1/accounts` | 認証済みユーザーのプレイヤープロフィール作成（再試行時は既存を返す） |
-| `GET/PATCH /v1/me` | 自分のプロフィール取得・更新 |
-| `PUT /v1/me/settings` | 証言の受け取り設定 |
-| `POST /v1/invites` | 10分有効・1人が使用できる交換コード |
-| `GET/POST /v1/exchanges` | 自分の交換一覧・コードから交換開始 |
-| `GET /v1/exchanges/:id` | 参加者だけが交換を取得 |
-| `POST /v1/exchanges/:id/approve` | 自分の出会いのメモと承認を保存 |
-| `POST /v1/exchanges/:id/cancel` | 参加者が交換を取り消す |
-| `GET/POST /v1/testimonies` | 届いた証言取得・承認済み相手へ贈る |
-| `PATCH /v1/testimonies/:id` | 受信者だけが開封・予想・公開範囲を更新 |
-| `POST /v1/blocks` / `DELETE /v1/blocks/:id` | ブロック・解除 |
-| `POST /v1/moderation` / `POST /v1/moderation/:id/withdraw` | 通報・削除依頼の記録・取り下げ |
-| `GET/PUT /v1/me/backup` | 本人だけが端末データを保存・取得 |
-| `GET/PUT /v1/me/avatar` | 本人のR2写真を保存・取得 |
-| `GET /v1/me/backup/avatar` | 保存済みバックアップに対応する写真を取得 |
+| メソッド・パス                                             | 内容                                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| `GET /health`                                              | D1接続を含む稼働確認                                                 |
+| `GET /auth/config`                                         | 設定済みのApple/Googleプロバイダー名のみを返す                       |
+| `GET/POST /api/auth/*`                                     | Better Authのメール登録・確認・ログイン・再設定・ログアウト          |
+| `POST /v1/accounts`                                        | 認証済みユーザーのプレイヤープロフィール作成（再試行時は既存を返す） |
+| `GET/PATCH /v1/me`                                         | 自分のプロフィール取得・更新                                         |
+| `PUT /v1/me/settings`                                      | 証言の受け取り設定                                                   |
+| `POST /v1/invites`                                         | 10分有効・1人が使用できる交換コード                                  |
+| `GET/POST /v1/exchanges`                                   | 自分の交換一覧・コードから交換開始                                   |
+| `GET /v1/exchanges/:id`                                    | 参加者だけが交換を取得                                               |
+| `POST /v1/exchanges/:id/approve`                           | 自分の出会いのメモと承認を保存                                       |
+| `POST /v1/exchanges/:id/cancel`                            | 参加者が交換を取り消す                                               |
+| `GET/POST /v1/testimonies`                                 | 届いた証言取得・承認済み相手へ贈る                                   |
+| `PATCH /v1/testimonies/:id`                                | 受信者だけが開封・予想・公開範囲を更新                               |
+| `POST /v1/blocks` / `DELETE /v1/blocks/:id`                | ブロック・解除                                                       |
+| `POST /v1/moderation` / `POST /v1/moderation/:id/withdraw` | 通報・削除依頼の記録・取り下げ                                       |
+| `GET/PUT /v1/me/backup`                                    | 本人だけが端末データを保存・取得                                     |
+| `GET/PUT /v1/me/avatar`                                    | 本人のR2写真を保存・取得                                             |
+| `GET /v1/me/backup/avatar`                                 | 保存済みバックアップに対応する写真を取得                             |
 
 `GET /v1/sync` は100件ずつページ送りします。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
 
@@ -59,7 +59,7 @@ Cron（5分ごと）が、24時間以上前に保存された未参照の画像�
 
 ## 外部サービスの設定と検証
 
-引き継ぎ時点で本番D1/R2と `api.flocka.zofax.net` の設定が追加されています。0005・0006マイグレーションと今回の変更は本番へ未適用です。`ADMIN_USER_IDS` と通知資格情報の設定・確認が別途必要です。作業中に別の作業からEASプロジェクトIDが追加されたことを確認しました。BLE探索と通知は実機で未検証です。
+引き継ぎ時点で本番D1/R2と `api.flocka.zofax.net` の設定が追加されています。0005・0006マイグレーションと今回の変更は本番へ未適用です。`ADMIN_USER_IDS` と通知資格情報の設定・確認が別途必要です。既存のEASプロジェクト `@kazu3jppurin/flocka` とアプリ設定のIDをCLIで照合しています。EASの各ビルドプロファイルはNode 22.22.3と `https://api.flocka.zofax.net` を共通設定から継承します。ローカルのExpo開発サーバーは `.env.local` の接続先を使用します。BLE探索と通知は実機で未検証です。
 
 通知は端末ごとの送信結果を記録し、既に受付済みの端末を再試行対象から除外します。Expoのチケットを15分後から照会し、APNs/FCMの受付結果を記録します。`DeviceNotRegistered` は端末登録を削除し、その他の送信エラーは最大5回まで遅延再試行します。HTTPエラー、空・不完全なチケットを成功にしません。ネットワーク断で受付結果を受け取れなかった場合の重複配信と、端末への実際の表示は保証できません。Expoのアクセストークン保護を使用する場合は `EXPO_ACCESS_TOKEN` をSecretsへ設定してください。
 

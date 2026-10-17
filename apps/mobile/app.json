@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f8f5e3"
-      }
+      },
+      "permissions": []
     },
     "web": {
       "bundler": "metro",
@@ -49,6 +50,13 @@
       "expo-web-browser",
       "./plugins/with-utf8-pod-commands.cjs"
     ],
-    "icon": "./assets/icon.png"
+    "icon": "./assets/icon.png",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "05e58101-fca5-4fb0-a5de-4fdf23fde1e2"
+      }
+    },
+    "owner": "kazu3jppurin"
   }
 }

@@ -75,3 +75,14 @@ Better Authでメール・パスワード認証、6桁のメール確認、再�
 通知は「公開範囲・安全」の設定から端末ごとに有効化・停止できます。ログアウト時は端末登録を解除します。Expoへの受付済みチケットとAPNs/FCMへの配信結果は別に保存し、エラーを成功として扱いません。通知を開くと、現在のアカウントで再同期して対応する画面を開きます。
 
 Expo/EASは開発者がビルド・通知の資格情報を管理するサービスです。Flocka利用者のログインとは別です。開発者向けの設定手順は [通知設定](docs/notifications.md) を参照してください。
+
+配布ビルドの設定は `apps/mobile/eas.json` で管理します。既存のExpoプロジェクトは `@kazu3jppurin/flocka` です。各プロファイルはNode 22.22.3と公開API URL `https://api.flocka.zofax.net` を共通設定から継承します。ローカル開発は引き続き `.env.local` の接続先を使用します。ResendやOAuthなどの秘密情報はモバイルの公開環境変数へ入れません。本番Workerの更新・マイグレーション・通知資格情報の準備は [検証記録](docs/validation.md) の未確認項目を参照してください。
+
+配布用の書き出しはキャッシュを消して実行し、生成直後にAPI接続先を検証します。
+
+```sh
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:web
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- web
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:native
+EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- native
+```
