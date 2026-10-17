@@ -1,3 +1,4 @@
+import { decorationSchema } from "./decoration-schema";
 import { z } from "zod";
 import { CARDS } from "./catalog";
 import type { State } from "./types";
@@ -161,25 +162,7 @@ export const appStateSchema: z.ZodType<State> = z.object({
   sentVibes: z.array(sentPieceSchema),
   sentProofs: z.array(sentPieceSchema),
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
-  deco: z.record(
-    strengthKeySchema,
-    z.object({
-      pattern: z.string(),
-      frame: z.string(),
-      stickers: z.array(z.string()).max(4),
-      color: z.string(),
-      layout: z
-        .record(
-          z.string(),
-          z.object({
-            position: z.string(),
-            size: z.number(),
-            angle: z.number(),
-          }),
-        )
-        .optional(),
-    }),
-  ),
+  deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(20_000).nullable(),
   blocked: z.array(z.string()),
   settings: settingsSchema,
@@ -208,25 +191,7 @@ export const apiErrorSchema = z.object({
 export const preferencesSchema = z.object({
   showcase: z.array(strengthKeySchema).max(3),
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
-  deco: z.record(
-    strengthKeySchema,
-    z.object({
-      pattern: z.string().max(40),
-      frame: z.string().max(40),
-      stickers: z.array(z.string().max(40)).max(4),
-      color: z.string().max(40),
-      layout: z
-        .record(
-          z.string().max(40),
-          z.object({
-            position: z.string().max(40),
-            size: z.number().min(5).max(80),
-            angle: z.number().min(-360).max(360),
-          }),
-        )
-        .optional(),
-    }),
-  ),
+  deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(20_000).nullable(),
 });
 export type Preferences = z.infer<typeof preferencesSchema>;

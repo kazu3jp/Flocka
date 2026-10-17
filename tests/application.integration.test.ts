@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiClientError } from "@flocka/api-client";
-import { inviteQR, parseInviteQR } from "@flocka/domain";
+import { fresh, inviteQR, parseInviteQR } from "@flocka/domain";
 import { createAuthRuntime } from "./helpers/auth-runtime";
 
 test("real player snapshots, private preferences, invitations, visibility and moderation synchronize", async () => {
@@ -172,6 +172,63 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     await a.api.unblock(b.player.id);
     await b.api.cancelExchange(exchange.id);
     assert.equal((await a.api.getSnapshot()).exchanges[0].status, "cancelled");
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("decoration preferences and backups reject missing assets and invalid sticker layouts", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const owner = await f.register("装飾の検証");
+    const initial = await owner.api.getSnapshot();
+    const valid = {
+      pattern: "dots",
+      frame: "none",
+      color: "rose",
+      stickers: ["star"],
+      layout: { star: { position: "br", size: 23, angle: 0 } },
+    };
+    const invalid = [
+      { ...valid, pattern: "missing-pattern" },
+      { ...valid, frame: "missing-frame" },
+      { ...valid, color: "missing-color" },
+      { ...valid, stickers: ["missing-sticker"] },
+      { ...valid, stickers: ["star", "star"] },
+      {
+        ...valid,
+        layout: { star: { position: "outside", size: 23, angle: 0 } },
+      },
+    ];
+    for (const decoration of invalid) {
+      await assert.rejects(
+        owner.api.savePreferences(
+          { ...initial.preferences.data, deco: { impl: decoration } },
+          initial.preferences.revision,
+        ),
+        (error) => error instanceof ApiClientError && error.status === 422,
+      );
+      const snapshot = fresh();
+      snapshot.profile = owner.player.profile;
+      snapshot.deco.impl = decoration;
+      await assert.rejects(
+        owner.api.saveBackup(snapshot, null),
+        (error) => error instanceof ApiClientError && error.status === 422,
+      );
+    }
+    assert.equal(
+      (await owner.api.getSnapshot()).preferences.revision,
+      initial.preferences.revision,
+    );
+    await assert.rejects(
+      owner.api.getBackup(),
+      (error) => error instanceof ApiClientError && error.status === 404,
+    );
+    const saved = await owner.api.savePreferences(
+      { ...initial.preferences.data, deco: { impl: valid } },
+      initial.preferences.revision,
+    );
+    assert.equal(saved.data.deco.impl.layout?.star.angle, 0);
   } finally {
     await f.runtime.dispose();
   }
