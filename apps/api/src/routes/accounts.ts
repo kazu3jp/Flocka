@@ -1,3 +1,4 @@
+import { backupWithLiveReferences } from "../repositories/backup-references";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -122,10 +123,10 @@ accountRoutes.put("/me/backup", async (c) => {
   const statement =
     revision === null
       ? c.env.DB.prepare(
-          "INSERT INTO backups(account_id, snapshot_json, revision, updated_at, avatar_key) VALUES(?, ?, 1, ?, ?) ON CONFLICT(account_id) DO NOTHING RETURNING revision",
+          `INSERT INTO backups(account_id, snapshot_json, revision, updated_at, avatar_key) VALUES(?1, ${backupWithLiveReferences("?2", "?1")}, 1, ?3, ?4) ON CONFLICT(account_id) DO NOTHING RETURNING revision, snapshot_json`,
         ).bind(accountId, JSON.stringify(snapshot), at, avatarKey || null)
       : c.env.DB.prepare(
-          "UPDATE backups SET snapshot_json = ?, revision = revision + 1, updated_at = ?, avatar_key = ? WHERE account_id = ? AND revision = ? RETURNING revision",
+          `UPDATE backups SET snapshot_json = ${backupWithLiveReferences("?1", "?4")}, revision = revision + 1, updated_at = ?2, avatar_key = ?3 WHERE account_id = ?4 AND revision = ?5 RETURNING revision, snapshot_json`,
         ).bind(
           JSON.stringify(snapshot),
           at,
@@ -133,12 +134,19 @@ accountRoutes.put("/me/backup", async (c) => {
           accountId,
           revision,
         );
-  const result = await statement.first<{ revision: number }>();
+  const result = await statement.first<{
+    revision: number;
+    snapshot_json: string;
+  }>();
   if (!result)
     throw new ApiError(
       409,
       "BACKUP_CONFLICT",
       "バックアップが更新されています。最新の内容を確認してください",
     );
-  return c.json({ revision: result.revision, snapshot, updatedAt: at });
+  return c.json({
+    revision: result.revision,
+    snapshot: JSON.parse(result.snapshot_json),
+    updatedAt: at,
+  });
 });

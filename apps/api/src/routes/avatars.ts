@@ -22,9 +22,22 @@ avatarRoutes.put("/me/avatar", async (c) => {
     );
   const key = `avatars/${c.get("accountId")}/${crypto.randomUUID()}`;
   await c.env.AVATARS.put(key, bytes, { httpMetadata: { contentType: mime } });
-  await c.env.DB.prepare("UPDATE accounts SET avatar_key = ? WHERE id = ?")
-    .bind(key, c.get("accountId"))
-    .run();
+  try {
+    const updated = await c.env.DB.prepare(
+      "UPDATE accounts SET avatar_key = ? WHERE id = ? AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE account_id = ?) RETURNING id",
+    )
+      .bind(key, c.get("accountId"), c.get("accountId"))
+      .first();
+    if (!updated)
+      throw new ApiError(
+        409,
+        "ACCOUNT_UNAVAILABLE",
+        "アカウントが削除中、または利用できません",
+      );
+  } catch (error) {
+    await c.env.AVATARS.delete(key);
+    throw error;
+  }
   return c.json({ avatarAvailable: true, avatarKey: key });
 });
 avatarRoutes.get("/me/avatar", async (c) => {

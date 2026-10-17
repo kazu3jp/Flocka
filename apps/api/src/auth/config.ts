@@ -71,6 +71,18 @@ export function createAuth(
     databaseHooks: {
       session: {
         create: {
+          async after(session) {
+            // Covers an intent accepted between the before hook and INSERT.
+            if (await accountDeletionPending(env.DB, session.userId)) {
+              await env.DB.prepare("DELETE FROM auth_sessions WHERE id = ?")
+                .bind(session.id)
+                .run();
+              throw new APIError("FORBIDDEN", {
+                code: "ACCOUNT_DELETION_PENDING",
+                message: "アカウントの削除を処理中です",
+              });
+            }
+          },
           async before(session) {
             if (await accountDeletionPending(env.DB, session.userId))
               throw new APIError("FORBIDDEN", {

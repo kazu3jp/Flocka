@@ -1,3 +1,4 @@
+import { symmetricEncrypt } from "better-auth/crypto";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fresh, applySnapshot } from "@flocka/domain";
@@ -156,6 +157,14 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
     assert.equal(backup.snapshot.proofs.length, 0);
     assert.equal(backup.snapshot.prDraft, null);
     assert.deepEqual(backup.snapshot.blocked, [c.player.id]);
+    const staleBackup = await b.api.saveBackup(snapshot, backup.revision);
+    assert.equal(staleBackup.revision, 3);
+    assert.equal(
+      JSON.stringify(staleBackup.snapshot).includes(a.player.id),
+      false,
+      "a stale device cannot restore deleted peer references",
+    );
+    assert.equal(staleBackup.snapshot.prDraft, null);
     assert.equal((await b.api.getSnapshot()).exchanges.length, 0);
     assert.equal((await c.api.getSnapshot()).player.id, c.player.id);
     const stale = await f.auth(
@@ -310,6 +319,23 @@ test("provider failure remains pending, disables all sessions and recovers throu
     );
     assert.equal(login.status, 403);
     assert.equal((await login.json()).code, "ACCOUNT_DELETION_PENDING");
+    await assert.rejects(
+      f.db
+        .prepare(
+          "UPDATE auth_accounts SET access_token = 'new-token' WHERE id = 'apple-account'",
+        )
+        .run(),
+      /ACCOUNT_DELETION_PENDING/,
+    );
+    await assert.rejects(
+      f.db
+        .prepare(
+          "INSERT INTO auth_sessions(id, token, user_id, expires_at, created_at, updated_at) VALUES('racing-session', 'racing-token', ?, ?, ?, ?)",
+        )
+        .bind(a.player.id, now + 3600000, now, now)
+        .run(),
+      /ACCOUNT_DELETION_PENDING/,
+    );
     assert.equal(f.revocations.calls.length, 1);
     const request = new URLSearchParams(f.revocations.calls[0].body);
     assert.equal(request.get("client_id"), "test-apple-client");
@@ -410,6 +436,158 @@ test("avatar deletion drains multiple real R2 pages before claiming completion",
       (await bucket.list({ prefix: `avatars/${a.player.id}/` })).objects.length,
       0,
     );
+    assert.equal(
+      await f.db.prepare("SELECT 1 FROM account_deletions").first(),
+      null,
+    );
+    assert.equal(
+      await f.db
+        .prepare("SELECT 1 FROM auth_users WHERE id = ?")
+        .bind(a.player.id)
+        .first(),
+      null,
+    );
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("accounts without a completed profile can delete themselves, and missing provider tokens require reauthentication", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const a = await f.authenticate("登録途中");
+    const now = Date.now();
+    const user = await f.db
+      .prepare("SELECT id FROM auth_users WHERE email = ?")
+      .bind(a.email)
+      .first<{ id: string }>();
+    assert.ok(user);
+    await f.db
+      .prepare(
+        "INSERT INTO auth_accounts(id, account_id, provider_id, user_id, created_at, updated_at) VALUES('missing-token', 'apple-subject', 'apple', ?, ?, ?)",
+      )
+      .bind(user.id, now, now)
+      .run();
+    assert.equal(
+      (
+        await f.auth(
+          "/delete-user",
+          { callbackURL: "flocka://delete-account" },
+          a.cookie,
+          a.ip,
+        )
+      ).status,
+      200,
+    );
+    const message = f.emails.at(-1)!;
+    const token = /flocka:\/\/delete-account\?token=([^\s]+)/.exec(
+      message.text,
+    )?.[1];
+    assert.ok(token);
+    const response = await f.auth("/delete-user", { token }, a.cookie, a.ip);
+    assert.equal(response.status, 400);
+    assert.equal(
+      (await response.json()).code,
+      "PROVIDER_REAUTHENTICATION_REQUIRED",
+    );
+    assert.equal(
+      await f.db.prepare("SELECT 1 FROM account_deletions").first(),
+      null,
+    );
+    assert.ok(
+      (
+        await (
+          await f.auth("/get-session", undefined, a.cookie, "192.0.2.215")
+        ).json()
+      ).user,
+    );
+    // Remove this test-only linkage to exercise the auth-only deletion path.
+    await f.db
+      .prepare("DELETE FROM auth_accounts WHERE id = 'missing-token'")
+      .run();
+    assert.equal(
+      (
+        await f.auth(
+          "/delete-user",
+          { callbackURL: "http://localhost:8081/delete-account" },
+          a.cookie,
+          "192.0.2.216",
+        )
+      ).status,
+      200,
+    );
+    const confirm = await f.auth(
+      "/delete-user",
+      { token: deletionLink(f.emails).searchParams.get("token") },
+      a.cookie,
+      "192.0.2.217",
+    );
+    assert.equal(confirm.status, 200, await confirm.text());
+    assert.equal(
+      await f.db
+        .prepare("SELECT 1 FROM auth_users WHERE id = ?")
+        .bind(user.id)
+        .first(),
+      null,
+    );
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("Google revocation decrypts Better Auth tokens and recognizes only an already-invalid token", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const a = await f.register("Google連携");
+    const { BETTER_AUTH_SECRET: secret } = await f.runtime.getBindings<{
+      BETTER_AUTH_SECRET: string;
+    }>();
+    const encrypted = await symmetricEncrypt({
+      key: secret,
+      data: "test-google-refresh",
+    });
+    const now = Date.now();
+    await f.db
+      .prepare(
+        "INSERT INTO auth_accounts(id, account_id, provider_id, user_id, refresh_token, created_at, updated_at) VALUES('google-account', 'google-subject', 'google', ?, ?, ?, ?)",
+      )
+      .bind(a.player.id, encrypted, now, now)
+      .run();
+    f.revocations.status = 400;
+    f.revocations.error = "invalid_request";
+    assert.equal(
+      (
+        await f.auth(
+          "/delete-user",
+          { callbackURL: "http://localhost:8081/delete-account" },
+          a.cookie,
+          a.ip,
+        )
+      ).status,
+      200,
+    );
+    const confirm = await f.auth(
+      "/delete-user",
+      { token: deletionLink(f.emails).searchParams.get("token") },
+      a.cookie,
+      a.ip,
+    );
+    assert.equal(confirm.status, 503);
+    assert.equal(
+      new URLSearchParams(f.revocations.calls[0].body).get("token"),
+      "test-google-refresh",
+    );
+    assert.ok(await f.db.prepare("SELECT 1 FROM account_deletions").first());
+    f.revocations.error = "invalid_token";
+    await f.db
+      .prepare(
+        "UPDATE account_deletions SET retry_after = '2000-01-01T00:00:00.000Z'",
+      )
+      .run();
+    const cron = await fetch(
+      f.base + "/cdn-cgi/local/scheduled?cron=*/5%20*%20*%20*%20*&format=json",
+    );
+    assert.equal(cron.status, 200, await cron.text());
     assert.equal(
       await f.db.prepare("SELECT 1 FROM account_deletions").first(),
       null,

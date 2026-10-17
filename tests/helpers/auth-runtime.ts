@@ -1,3 +1,4 @@
+import { unstable_splitSqlQuery as splitSqlQuery } from "wrangler";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import {
@@ -179,10 +180,7 @@ export async function createAuthRuntime(
         /^--.*$/gm,
         "",
       );
-      for (const statement of sql
-        .split(";")
-        .map((text) => text.trim())
-        .filter(Boolean))
+      for (const statement of splitSqlQuery(sql))
         await db.prepare(statement).run();
     }
     const base = (await runtime.ready).origin;
