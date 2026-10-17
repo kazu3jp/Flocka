@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -15,11 +15,16 @@ import {
   type ViewStyle,
   type TextStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 
 import { C, F, S } from "./theme";
-import { T, Icon } from "./text";
+import { T, Icon, ForegroundColor } from "./text";
+import { useModalFrame } from "./app-frame";
+import { useSheetFeedback } from "./feedback";
 
 export function Panel(props: ViewProps) {
   return <View {...props} style={[S.panel, props.style]} />;
@@ -111,7 +116,7 @@ export function Btn({
 export function LinkButton({
   label,
   onPress,
-  color = C.white,
+  color,
   disabled = false,
 }: {
   label: string;
@@ -119,6 +124,7 @@ export function LinkButton({
   color?: string;
   disabled?: boolean;
 }) {
+  const inheritedColor = useContext(ForegroundColor);
   return (
     <Pressable
       accessibilityRole="button"
@@ -134,7 +140,7 @@ export function LinkButton({
       }}
     >
       <T
-        color={color}
+        color={color ?? inheritedColor}
         size={14}
         style={{ textDecorationLine: "underline", fontFamily: F.bold }}
       >
@@ -361,54 +367,112 @@ export function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const frame = useModalFrame();
+  const insets = useSafeAreaInsets();
+  const { content: feedback, register } = useSheetFeedback();
+  useEffect(() => register?.(), [register]);
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{
-          flex: 1,
-          justifyContent: "flex-end",
-          backgroundColor: "#11182788",
-        }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable
-          accessibilityLabel="シートを閉じる"
-          onPress={onClose}
-          style={StyleSheet.absoluteFill}
-        />
-        <SafeAreaView
-          edges={["bottom"]}
-          style={{
-            maxHeight: "90%",
-            backgroundColor: C.blue,
-            borderTopWidth: 2.5,
-            borderColor: C.ink,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            padding: 18,
-          }}
+      <ForegroundColor.Provider value={C.ink}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View style={S.row}>
-            <T display size={20} style={S.fill}>
-              {title}
-            </T>
-            <Pressable
-              accessibilityLabel="閉じる"
-              accessibilityRole="button"
-              onPress={onClose}
-              style={{ padding: 12 }}
-            >
-              <Icon name="x" />
-            </Pressable>
-          </View>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ gap: 14, paddingBottom: 10 }}
+          <View
+            style={[
+              { flex: 1, justifyContent: "flex-end", overflow: "hidden" },
+              frame && {
+                position: "absolute",
+                left: frame.x,
+                top: frame.y,
+                width: frame.width,
+                height: frame.height,
+                borderRadius: frame.borderRadius,
+              },
+            ]}
           >
-            {children}
-          </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="シートを閉じる"
+              accessible={false}
+              focusable={false}
+              onPress={onClose}
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: `${C.ink}8c` },
+              ]}
+            />
+            <ScrollView
+              testID="sheet"
+              role="dialog"
+              accessibilityLabel={title}
+              accessibilityViewIsModal
+              keyboardShouldPersistTaps="handled"
+              style={{
+                flexGrow: 0,
+                maxHeight: "86%",
+                backgroundColor: C.paper,
+                borderTopWidth: 2.5,
+                borderColor: C.ink,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+              }}
+              contentContainerStyle={{
+                paddingHorizontal: 18,
+                paddingTop: 10,
+                paddingBottom: Math.max(insets.bottom, 22),
+              }}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 5,
+                  backgroundColor: C.grey,
+                  borderRadius: 9,
+                  alignSelf: "center",
+                  marginBottom: 8,
+                }}
+              />
+              <View
+                testID="sheet-heading"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  marginBottom: 8,
+                }}
+              >
+                <T
+                  accessibilityRole="header"
+                  display
+                  size={20}
+                  style={{ flexShrink: 1, minWidth: 0, lineHeight: 28 }}
+                >
+                  {title}
+                </T>
+                <Pressable
+                  accessibilityLabel="閉じる"
+                  accessibilityRole="button"
+                  onPress={onClose}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    flexShrink: 0,
+                    marginRight: -10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon name="x" />
+                </Pressable>
+              </View>
+              <View style={{ gap: 14 }}>{children}</View>
+            </ScrollView>
+            {feedback}
+          </View>
+        </KeyboardAvoidingView>
+      </ForegroundColor.Provider>
     </Modal>
   );
 }

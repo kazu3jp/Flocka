@@ -119,7 +119,7 @@ export function Player({
           {!published ? (
             <T>読み込み中…</T>
           ) : published.error ? (
-            <T color={C.yellow}>{published.error}</T>
+            <T color={C.danger}>{published.error}</T>
           ) : !published.items.length ? (
             <T>公開された証言はありません。</T>
           ) : (

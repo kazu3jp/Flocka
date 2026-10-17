@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import {
   Image,
   Text,
@@ -12,13 +12,16 @@ import { AV_COLORS, IC, type AvatarData } from "@flocka/domain";
 import vectors from "../vectors.json";
 import { C, F } from "./theme";
 
+export const ForegroundColor = createContext<string>(C.white);
+
 export function T({
   display = false,
   size = 15,
-  color = C.white,
+  color,
   style,
   ...props
 }: TextProps & { display?: boolean; size?: number; color?: string }) {
+  const inheritedColor = useContext(ForegroundColor);
   return (
     <Text
       {...props}
@@ -27,7 +30,7 @@ export function T({
           fontFamily: display ? F.display : F.body,
           fontSize: size,
           lineHeight: size * 1.5,
-          color,
+          color: color ?? inheritedColor,
         },
         style,
       ]}
@@ -39,16 +42,17 @@ export function Icon({
   name,
   size = 22,
   style,
-  color = C.white,
+  color,
 }: {
   name: string;
   size?: number;
   style?: StyleProp<ViewStyle>;
   color?: string;
 }) {
+  const inheritedColor = useContext(ForegroundColor);
   return (
     <SvgXml
-      xml={`<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${IC[name] || IC.spark}</svg>`}
+      xml={`<svg viewBox="0 0 24 24" fill="none" stroke="${color ?? inheritedColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${IC[name] || IC.spark}</svg>`}
       style={style}
       width={size}
       height={size}

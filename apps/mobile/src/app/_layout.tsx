@@ -15,6 +15,7 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "../store";
 import { C, T } from "../components/ui";
+import { AppFrame } from "../components/app-frame";
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -67,7 +68,8 @@ export default function RootLayout() {
             </T>
           </View>
         )}
-        <View
+        <AppFrame
+          borderRadius={framed ? 48 : 0}
           style={{
             width: framed ? 390 : "100%",
             height: framed ? Math.min(844, height - 48) : "100%",
@@ -91,7 +93,7 @@ export default function RootLayout() {
               />
             </AccountProvider>
           </AuthProvider>
-        </View>
+        </AppFrame>
       </View>
     </SafeAreaProvider>
   );

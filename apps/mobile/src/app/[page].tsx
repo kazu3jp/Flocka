@@ -1,3 +1,4 @@
+import { ScreenFeedback, ToastBanner } from "../components/feedback";
 import { useAuth, SessionStatus } from "../features/auth/provider";
 import React, { useEffect, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
@@ -162,7 +163,16 @@ export default function Screen() {
   ];
   const focused = FOCUSED.includes(screen);
   return (
-    <View style={{ flex: 1, backgroundColor: C.blue }}>
+    <ScreenFeedback
+      style={{ flex: 1, backgroundColor: C.blue }}
+      feedback={
+        <ToastBanner
+          notification={notification}
+          dismiss={dismissToast}
+          focused={focused}
+        />
+      }
+    >
       <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
       <BoardInsets.Provider value={{ top: false, bottom: focused }}>
         <View key={screen + (key || cid || id || "")} style={S.fill}>
@@ -260,46 +270,6 @@ export default function Screen() {
           <T size={12}>{saveError} · タップして再試行</T>
         </Pressable>
       )}
-      {notification && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={notification.text}
-          onPress={dismissToast}
-          style={{
-            position: "absolute",
-            bottom: focused ? 90 : 82,
-            left: 14,
-            right: 14,
-            backgroundColor: C.paper,
-            borderWidth: 2.5,
-            borderColor: C.ink,
-            borderRadius: 14,
-            padding: 12,
-            boxShadow: `4px 4px 0 ${C.ink}`,
-          }}
-        >
-          <View style={S.row}>
-            <T color={C.ink} size={13} style={S.fill}>
-              {notification.text}
-            </T>
-            {notification.action && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={notification.action.label}
-                onPress={() => {
-                  notification.action?.fn();
-                  dismissToast();
-                }}
-                style={{ padding: 8 }}
-              >
-                <T color={C.blue} size={13}>
-                  {notification.action.label}
-                </T>
-              </Pressable>
-            )}
-          </View>
-        </Pressable>
-      )}
       <GuessOverlay />
       {resolvingConflict && preferenceConflict && (
         <Sheet
@@ -348,6 +318,6 @@ export default function Screen() {
           <T size={12}>{syncError} · タップして再同期</T>
         </Pressable>
       )}
-    </View>
+    </ScreenFeedback>
   );
 }
