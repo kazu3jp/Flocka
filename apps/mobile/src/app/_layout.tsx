@@ -1,3 +1,4 @@
+import "../global.css";
 import { AuthProvider, useAuth } from "../features/auth/provider";
 import React from "react";
 import { Stack } from "expo-router";

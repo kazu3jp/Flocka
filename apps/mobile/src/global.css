@@ -1,0 +1,4 @@
+/* Match the original design's font rasterization on the web preview. */
+body {
+  -webkit-font-smoothing: antialiased;
+}

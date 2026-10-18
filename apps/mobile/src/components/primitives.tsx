@@ -372,7 +372,13 @@ export function Sheet({
   const { content: feedback, register } = useSheetFeedback();
   useEffect(() => register?.(), [register]);
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      accessibilityLabel={title}
+      accessibilityViewIsModal
+    >
       <ForegroundColor.Provider value={C.ink}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -404,9 +410,6 @@ export function Sheet({
             />
             <ScrollView
               testID="sheet"
-              role="dialog"
-              accessibilityLabel={title}
-              accessibilityViewIsModal
               keyboardShouldPersistTaps="handled"
               style={{
                 flexGrow: 0,

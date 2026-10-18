@@ -231,9 +231,39 @@ test("real collected cards, profile, settings and exchange", async ({
   await capture(page, "connections");
   await page.getByRole("tab", { name: "自己PR", exact: true }).click();
   await expect(page.getByText(/私の強みは/)).toBeVisible();
-  await capture(page, "self-pr");
   await reference.goto("/reference/?embed=pr");
   await reference.locator(".prdoc-body").click();
   await referenceComparison(page, reference, "self-pr", testInfo);
+  await compareLayout(
+    [
+      {
+        name: "PR document",
+        actual: page.getByTestId("pr-document"),
+        reference: reference.locator(".prdoc"),
+      },
+      {
+        name: "PR heading",
+        actual: page.getByTestId("pr-heading"),
+        reference: reference.locator(".prdoc-head"),
+      },
+      {
+        name: "PR body",
+        actual: page.getByTestId("pr-body"),
+        reference: reference.locator(".prdoc-body"),
+      },
+      {
+        name: "PR sources",
+        actual: page.getByTestId("pr-sources"),
+        reference: reference.locator(".src-chips"),
+      },
+      {
+        name: "PR actions",
+        actual: page.getByTestId("pr-actions"),
+        reference: reference.locator(".btn-row"),
+      },
+    ],
+    testInfo,
+  );
+  await capture(page, "self-pr");
   expect(errors).toEqual([]);
 });
