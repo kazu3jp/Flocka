@@ -70,41 +70,6 @@ export function openPiece(s: State, id: string, guess: string) {
   }
 }
 
-export function buildPR(s: State) {
-  const c = derive(s).prCard;
-  if (!c) return null;
-  const ts = [...c.testimonies]
-    .sort((a, b) => Number(b.kind === "proof") - Number(a.kind === "proof"))
-    .slice(0, 3);
-  let last = "";
-  const quotes = ts
-    .map((p, i) => {
-      const place = (
-        s.connections.find((x) => x.peerId === p.fromId)?.context.place || ""
-      ).trim();
-      const prefix =
-        i === 0
-          ? `${place ? place + "では、" : ""}一緒に活動した仲間から`
-          : `また、${place ? (place === last ? "同じ場で" : place + "で") : ""}別の仲間からも`;
-      last = place || last;
-      return `${prefix}「${wordsOf(p)}」${i === 0 ? "と言われました。" : "という声をもらいました。"}`;
-    })
-    .join("");
-  const names = s.self
-    .filter((k) => k !== c.key)
-    .map((k) => CARDS[k].name)
-    .join("・");
-  const reflection =
-    !c.self && names
-      ? `自分では${names}を強みだと考えていましたが、複数の仲間から同じ点を挙げてもらったことで、${c.name}という一面に気づきました。`
-      : "自分でも意識していた強みですが、複数の仲間から同じ点を挙げてもらい、確信に変わりました。";
-  return {
-    text: `私の強みは「${c.name}」です。\n${quotes}\n${reflection}\nこの強みを活かして、（ここに、これから取り組みたいことを書こう）。`,
-    sources: [...new Set(ts.map((p) => p.fromId))],
-    card: c,
-  };
-}
-
 export function summarize(text: string) {
   const rules: [string, RegExp, string][] = [
     [

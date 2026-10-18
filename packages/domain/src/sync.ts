@@ -18,6 +18,7 @@ export function applySnapshot(
     .filter((piece) => !snapshot.blocked.includes(piece.fromId))
     .map((piece) => ({
       id: piece.id,
+      exchangeId: piece.exchangeId,
       fromId: piece.fromId,
       card: piece.card,
       kind: piece.kind,

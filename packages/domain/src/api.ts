@@ -1,3 +1,4 @@
+import { PR_DRAFT_MAX_LENGTH } from "./limits";
 import { decorationSchema } from "./decoration-schema";
 import { z } from "zod";
 import { CARDS } from "./catalog";
@@ -106,6 +107,7 @@ export const moderationSchema = z.object({
 
 const pieceSchema = z.object({
   id: z.string().max(100),
+  exchangeId: z.string().max(100).optional(),
   fromId: z.string().max(100),
   card: strengthKeySchema,
   kind: z.enum(["vibe", "proof"]),
@@ -163,7 +165,7 @@ export const appStateSchema: z.ZodType<State> = z.object({
   sentProofs: z.array(sentPieceSchema),
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
   deco: z.record(strengthKeySchema, decorationSchema),
-  prDraft: z.string().max(20_000).nullable(),
+  prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
   blocked: z.array(z.string()),
   settings: settingsSchema,
   reports: z.array(requestSchema),
@@ -192,7 +194,7 @@ export const preferencesSchema = z.object({
   showcase: z.array(strengthKeySchema).max(3),
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
   deco: z.record(strengthKeySchema, decorationSchema),
-  prDraft: z.string().max(20_000).nullable(),
+  prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
 export const preferencesRecordSchema = z.object({

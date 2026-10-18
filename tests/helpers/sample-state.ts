@@ -38,6 +38,7 @@ export function sampleState(): State {
     h: number,
   ): Piece => ({
     id,
+    exchangeId: "c-" + fromId,
     fromId,
     card,
     label,

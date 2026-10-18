@@ -77,7 +77,7 @@ export function PieceDetail({ id }: { id: string }) {
       </T>
       <T size={13}>
         場面：
-        {s.connections.find((c) => c.peerId === p.fromId)?.context.place ||
+        {s.connections.find((c) => c.id === p.exchangeId)?.context.place ||
           "記録なし"}
       </T>
       <T display size={18}>

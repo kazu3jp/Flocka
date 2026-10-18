@@ -7,3 +7,6 @@ export * from "./api";
 export * from "./sync";
 
 export * from "./legal";
+
+export * from "./pr-document";
+export * from "./limits";

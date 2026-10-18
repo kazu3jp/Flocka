@@ -17,6 +17,7 @@ export type Profile = {
 
 export type Piece = {
   id: string;
+  exchangeId?: string;
   fromId: string;
   card: string;
   kind: "vibe" | "proof";

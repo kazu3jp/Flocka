@@ -21,6 +21,7 @@ import { sampleState } from "./helpers/sample-state";
 
 const makePiece = (fromId: string, opened = true, card = "bridge"): Piece => ({
   id: fromId + "-" + card,
+  exchangeId: "c-" + fromId,
   fromId,
   card,
   kind: "vibe",
@@ -117,6 +118,45 @@ test("PR uses actual quotations, omits sender names, and prefers scenes", () => 
   );
   assert.ok(pr.text.includes("（ここに、これから取り組みたいことを書こう）"));
 });
+test("PR never describes repeated notes from one witness as different people", () => {
+  const state = sampleState();
+  state.proofs = Array.from({ length: 4 }, (_, index) => ({
+    ...makePiece("mock-a"),
+    id: `same-witness-${index}`,
+    kind: "proof" as const,
+    story: `一人目の仲間からのメモ${index}`,
+  }));
+  const document = buildPR(state)!;
+  assert.deepEqual(document.sources, ["mock-a", "mock-b"]);
+  assert.equal(
+    document.segments.filter((segment) => segment.kind === "quote").length,
+    2,
+  );
+  assert.ok(document.text.includes("一人目の仲間からのメモ0"));
+  assert.ok(
+    document.text.includes(
+      state.vibes.find((piece) => piece.fromId === "mock-b")!.text!,
+    ),
+  );
+  assert.equal(document.text.includes("一人目の仲間からのメモ1"), false);
+});
+
+test("PR attributes a quotation to its actual exchange, never another meeting", () => {
+  const state = sampleState();
+  const original = state.connections[0];
+  original.context.place = "証言を受け取った会場";
+  state.connections.unshift({
+    ...original,
+    id: "later-exchange",
+    context: { place: "別の会場", trigger: "再会" },
+  });
+  assert.ok(buildPR(state)!.text.includes("証言を受け取った会場では、"));
+  assert.equal(buildPR(state)!.text.includes("別の会場"), false);
+  delete state.vibes[0].exchangeId;
+  assert.equal(buildPR(state)!.text.includes("証言を受け取った会場"), false);
+  assert.equal(buildPR(state)!.text.includes("別の会場"), false);
+});
+
 test("native deck ranking and PR match the original HTML business logic", () => {
   const source = readFileSync(
     new URL("../design/flocka-v2-blue-prototype.html", import.meta.url),
@@ -134,27 +174,72 @@ test("native deck ranking and PR match the original HTML business logic", () => 
   vm.runInNewContext(block + ";result={derive,buildPR};", context);
   const original = context.result as {
     derive: (s: unknown) => ReturnType<typeof derive>;
-    buildPR: (s: unknown, d: unknown) => { text: string } | null;
+    buildPR: (
+      s: unknown,
+      d: unknown,
+    ) => {
+      text: string;
+      segs: {
+        br?: number;
+        t?: string;
+        m?: string;
+        q?: string;
+        fill?: string;
+      }[];
+    } | null;
   };
-  for (const blocked of [[], ["mock-b"], ["mock-a"]]) {
-    const s = sampleState();
-    s.blocked = blocked;
-    const d = derive(s),
-      old = original.derive(s);
-    assert.equal(
-      JSON.stringify(
-        d.deck.map((c) => [c.key, c.confirmed, c.discovered, c.givers.length]),
-      ),
-      JSON.stringify(
-        old.deck.map((c) => [
-          c.key,
-          c.confirmed,
-          c.discovered,
-          c.givers.length,
-        ]),
-      ),
-    );
-    assert.equal(buildPR(s)?.text, original.buildPR(s, old)?.text);
+  for (const self of [
+    ["impl", "focus"],
+    ["bridge", "focus"],
+  ]) {
+    for (const withScene of [false, true]) {
+      for (const blocked of [[], ["mock-b"], ["mock-a"]]) {
+        const s = sampleState();
+        s.blocked = blocked;
+        s.self = self;
+        if (withScene)
+          s.proofs.push({
+            ...makePiece("mock-c"),
+            id: "pr-scene",
+            kind: "proof",
+            story: "登壇後、図を描いて質問に答えてくれた",
+          });
+        const d = derive(s),
+          old = original.derive(s);
+        assert.equal(
+          JSON.stringify(
+            d.deck.map((c) => [
+              c.key,
+              c.confirmed,
+              c.discovered,
+              c.givers.length,
+            ]),
+          ),
+          JSON.stringify(
+            old.deck.map((c) => [
+              c.key,
+              c.confirmed,
+              c.discovered,
+              c.givers.length,
+            ]),
+          ),
+        );
+        const actualPR = buildPR(s),
+          referencePR = original.buildPR(s, old);
+        assert.equal(actualPR?.text, referencePR?.text);
+        const referenceSegments = referencePR?.segs.map((segment) => {
+          if (segment.br) return { kind: "break" };
+          if (segment.m) return { kind: "strength", text: segment.m };
+          if (segment.q) return { kind: "quote", text: segment.q };
+          if (segment.fill) return { kind: "placeholder", text: segment.fill };
+          return { kind: "text", text: segment.t };
+        });
+        assert.equal(
+          JSON.stringify(actualPR?.segments),
+          JSON.stringify(referenceSegments),
+        );
+      }
+    }
   }
 });
 test("storage round-trips every profile, card and testimony", () => {

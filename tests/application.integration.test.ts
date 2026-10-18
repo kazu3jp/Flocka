@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiClientError } from "@flocka/api-client";
-import { fresh, inviteQR, parseInviteQR } from "@flocka/domain";
+import { applySnapshot, fresh, inviteQR, parseInviteQR } from "@flocka/domain";
 import { createAuthRuntime } from "./helpers/auth-runtime";
 
 test("real player snapshots, private preferences, invitations, visibility and moderation synchronize", async () => {
@@ -84,6 +84,10 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     );
     const received = await a.api.getSnapshot();
     assert.equal(received.inbox[0].id, piece.id);
+    assert.equal(
+      applySnapshot(received, fresh()).proofs[0].exchangeId,
+      exchange.id,
+    );
     assert.equal(received.peers[0].profile.name, "ソラ");
     assert.equal((await b.api.getSnapshot()).sent[0].id, piece.id);
     await a.api.openTestimony(piece.id, "impl");
