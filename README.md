@@ -64,7 +64,7 @@ EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- native
 npm run build:api
 ```
 
-`validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認、アカウント削除、HTTPクライアントの不正応答・受信タイムアウトを含む37テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
+`validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認、アカウント削除、HTTPクライアントの不正応答・受信タイムアウト、検査用クライアントのIP生成を含む38テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
 
 ## 実装と接続設定
 

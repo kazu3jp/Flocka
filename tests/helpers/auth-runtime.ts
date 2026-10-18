@@ -8,6 +8,7 @@ import {
 import { FlockaApiClient } from "@flocka/api-client";
 import { fresh } from "@flocka/domain";
 import { z } from "zod";
+import { testClientAddress } from "./client-address";
 
 const emailSchema = z.object({
   from: z.string(),
@@ -239,7 +240,7 @@ export async function createAuthRuntime(
     const authenticate = async (name: string, emailOverride?: string) => {
       const number = ++serial,
         email = emailOverride ?? `player${number}@example.test`,
-        ip = `192.0.2.${number}`,
+        ip = testClientAddress(number),
         password = "Test-password123";
       const signup = await auth(
         "/sign-up/email",
