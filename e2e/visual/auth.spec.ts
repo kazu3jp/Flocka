@@ -50,6 +50,47 @@ for (const [index, title] of scenes.entries()) {
     await reference
       .getByRole("button", { name: `${index + 1}枚目：${title}`, exact: true })
       .click();
+    await compareLayout(
+      [
+        {
+          name: "stage",
+          actual: page.getByRole("button", {
+            name: "次の説明を見る",
+            exact: true,
+          }),
+          reference: reference.locator(".tour-stage"),
+        },
+        ...(index === 1
+          ? [
+              {
+                name: "envelope",
+                actual: page.getByTestId("tour-envelope"),
+                reference: reference.locator(".tour-env"),
+              },
+              {
+                name: "seal",
+                actual: page.getByTestId("tour-seal"),
+                reference: reference.locator(".tour-seal"),
+              },
+            ]
+          : []),
+        ...(index === 2
+          ? [
+              {
+                name: "confirmed",
+                actual: page.getByTestId("tour-confirm"),
+                reference: reference.locator(".tour-confirm"),
+              },
+              {
+                name: "document",
+                actual: page.getByTestId("tour-document"),
+                reference: reference.locator(".tour-doc"),
+              },
+            ]
+          : []),
+      ],
+      testInfo,
+    );
     await referenceComparison(
       page,
       reference,
