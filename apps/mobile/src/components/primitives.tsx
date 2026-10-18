@@ -268,6 +268,7 @@ const BoardScroll = createContext(false);
 export function Board({
   children,
   scroll = false,
+  form = false,
   footer,
   safeTop,
   safeBottom,
@@ -275,6 +276,7 @@ export function Board({
 }: {
   children: React.ReactNode;
   scroll?: boolean;
+  form?: boolean;
   footer?: React.ReactNode;
   safeTop?: boolean;
   safeBottom?: boolean;
@@ -313,21 +315,21 @@ export function Board({
         </Defs>
         <Rect width="100%" height="100%" fill="url(#boardGrid)" />
       </Svg>
-      <BoardScroll.Provider value={scroll}>
+      <BoardScroll.Provider value={scroll && !form}>
         <KeyboardAvoidingView
           style={S.fill}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           {scroll ? (
             <ScrollView
-              stickyHeaderIndices={stickyHeader ? [0] : undefined}
+              stickyHeaderIndices={stickyHeader && !form ? [0] : undefined}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={[
                 {
                   paddingHorizontal: 14,
                   paddingTop: 4,
-                  paddingBottom: 24,
-                  gap: 12,
+                  paddingBottom: form ? 12 : 24,
+                  gap: form ? 10 : 12,
                   flexGrow: 1,
                 },
                 contentStyle,

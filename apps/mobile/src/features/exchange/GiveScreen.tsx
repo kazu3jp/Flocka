@@ -6,16 +6,17 @@ import {
   Board,
   Btn,
   C,
-  Choice,
-  Field,
+  F,
   Header,
   LinkButton,
   Panel,
   S,
   T,
 } from "../../components/ui";
-import { CARDS, VIBES, VIBE_CARD, summarize } from "@flocka/domain";
+import { VIBE_CARD, summarize } from "@flocka/domain";
 import { useApp } from "../../store";
+import { GiveReason, ImpressionLabel, ImpressionSummary } from "./give-content";
+import { GiveMode, VibeOptions } from "./give-controls";
 import { PeerAvatar } from "./player-card";
 
 export function Give({ cid }: { cid: string }) {
@@ -68,151 +69,163 @@ export function Give({ cid }: { cid: string }) {
   if (c.vibe || receipt)
     return (
       <Board scroll>
-        <Header title="贈った印象" onBack={nav.pop} />
+        <Header title="" onBack={nav.pop} />
         <DeliveryFeedback busy={busy} error={error} retrySync={retrySync} />
-        <Panel style={S.gap}>
-          <T color={C.muted} size={13}>
-            そう感じた理由
+        <View style={{ gap: 14, alignItems: "stretch" }}>
+          <Panel
+            style={{
+              borderRadius: 14,
+              paddingTop: 18,
+              paddingHorizontal: 18,
+              paddingBottom: 16,
+            }}
+          >
+            <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+              そう感じた理由
+            </T>
+            <T
+              color={C.ink}
+              size={18}
+              style={{ fontFamily: F.bold, lineHeight: 30.6 }}
+            >
+              「{sent?.text}」
+            </T>
+            <View style={{ marginTop: 10 }}>
+              <ImpressionLabel label={sent?.label ?? ""} />
+            </View>
+          </Panel>
+          <Panel style={{ padding: 14 }}>
+            <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+              交換した場所・きっかけ
+            </T>
+            <T color={C.ink} size={14} style={{ lineHeight: 22.4 }}>
+              {c.context.place || "場所は未記入"}
+              {"\n"}
+              {c.context.trigger || "きっかけは未記入"}
+            </T>
+          </Panel>
+          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
+            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+            に印象を贈りました
           </T>
-          <T display color={C.ink} size={22}>
-            「{sent?.text}」
+          <T
+            size={12.5}
+            color={C.pale}
+            style={{ textAlign: "center", lineHeight: 19.375 }}
+          >
+            {peers[c.peerId]?.profile.name}のデッキに、証言として届きます。
           </T>
-          <T color={C.ink}>印象：{sent?.label}</T>
-        </Panel>
-        <Panel>
-          <T color={C.muted} size={12}>
-            交換した場所・きっかけ
-          </T>
-          <T color={C.ink}>
-            {c.context.place}
-            {"\n"}
-            {c.context.trigger}
-          </T>
-        </Panel>
-        <T display size={24} style={{ textAlign: "center" }}>
-          {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
-          に印象を贈りました
-        </T>
-        <T size={12}>相手に印象を送りました。相手の受信箱に届きます。</T>
+        </View>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
       </Board>
     );
   return (
-    <Board scroll>
+    <Board scroll form>
       <Header
         title="印象を贈る"
         onBack={nav.pop}
-        right={<PeerAvatar id={c.peerId} size={32} />}
+        right={
+          <View style={[S.row, { gap: 8 }]}>
+            <PeerAvatar id={c.peerId} size={32} />
+            <T style={{ fontFamily: F.bold, lineHeight: 24.75 }}>
+              {peers[c.peerId]?.profile.name}
+            </T>
+          </View>
+        }
       />
       {error && (
         <T color={C.yellow} accessibilityRole="alert">
           {error}
         </T>
       )}
-      <T display size={21}>
-        相手のいいなと思ったところは？
-      </T>
-      <T size={13}>
-        {mode === "pick"
-          ? "言葉を1つ選び、そう感じた理由を添えて贈ってください。"
-          : "どんな場面で、なぜそう感じたかを8文字以上で書いてください。"}
-      </T>
-      <Panel>
-        <T color={C.muted} size={12}>
+      <View testID="give-instructions">
+        <T display size={20} style={{ lineHeight: 28 }}>
+          相手のいいなと思ったところは？
+        </T>
+        <T size={14} color={C.pale} style={{ marginTop: 6, lineHeight: 22.4 }}>
+          {mode === "pick"
+            ? "言葉を1つ選び、そう感じた理由を添えて贈ってください。"
+            : "どんな場面で、なぜそう感じたかを8文字以上で書いてください。要約は任意です。"}
+        </T>
+      </View>
+      <Panel
+        testID="give-exchange-context"
+        style={{ paddingVertical: 10, paddingHorizontal: 14 }}
+      >
+        <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
           交換のきっかけ
         </T>
-        <T color={C.ink} size={14}>
-          {c.context.place} ／ {c.context.trigger}
+        <T color={C.ink} size={14} style={{ lineHeight: 22.4 }}>
+          {[c.context.place, c.context.trigger].filter(Boolean).join(" ／ ") ||
+            "まだ記入されていません"}
         </T>
-        <LinkButton
-          label="出会いのメモを編集"
-          color={C.ink}
-          onPress={() => nav.push("confirm", { cid })}
-        />
+        {!sel && !text && (
+          <LinkButton
+            label="出会いのメモを編集"
+            color={C.ink}
+            onPress={() => nav.push("confirm", { cid })}
+          />
+        )}
       </Panel>
-      <View style={S.row}>
-        <Choice
-          label="言葉を選ぶ"
-          selected={mode === "pick"}
-          onPress={() => setMode("pick")}
-        />
-        <Choice
-          label="自由に書く"
-          selected={mode === "free"}
-          onPress={() => setMode("free")}
-        />
-      </View>
-      {mode === "pick" && (
-        <View style={S.wrap}>
-          {VIBES.map((v) => (
-            <View key={v} style={{ width: "48%" }}>
-              <Choice
-                label={v}
-                selected={sel === v}
-                onPress={() => setSel(v)}
-              />
-            </View>
-          ))}
-        </View>
-      )}
-      <Field
-        label={
-          mode === "pick"
-            ? "なぜそう感じましたか？（必須・140文字まで）"
-            : "印象と、その理由（8〜140文字）"
-        }
-        value={text}
-        maxLength={140}
-        multiline
-        onChangeText={(v) => {
-          setText(v);
+      <GiveMode mode={mode} onChange={setMode} />
+      {mode === "pick" && <VibeOptions selected={sel} onChange={setSel} />}
+      <GiveReason
+        mode={mode}
+        text={text}
+        onChange={(value) => {
+          setText(value);
           setSum(null);
         }}
-        placeholder="例：発表の準備中、困っている人に声をかけてくれたから"
       />
-      <T size={12}>{text.length}/140</T>
       {mode === "free" && (
         <>
-          <Btn
-            plain
-            small
-            label={sum ? "もう一度要約" : "要約する"}
-            icon="spark"
-            disabled={text.trim().length < 8}
-            onPress={() => setSum(summarize(text))}
-          />
+          <View style={[S.row, { justifyContent: "space-between" }]}>
+            <T size={12.5} color={C.pale} style={{ lineHeight: 19.375 }}>
+              {text.length}/140
+            </T>
+            <Btn
+              plain
+              small
+              label={sum ? "もう一度要約" : "要約する"}
+              icon="spark"
+              iconSize={16}
+              style={{ paddingVertical: 0, paddingHorizontal: 14 }}
+              textStyle={{ fontSize: 14 }}
+              disabled={text.trim().length < 8}
+              onPress={() => setSum(summarize(text))}
+            />
+          </View>
           {sum && (
-            <>
-              <Panel>
-                <T color={C.ink}>要約：{sum.label}</T>
-                <T size={12} color={C.muted}>
-                  近い強みカード（変更できます）
-                </T>
-              </Panel>
-              <View style={S.wrap}>
-                {Object.entries(CARDS).map(([k, c]) => (
-                  <Choice
-                    key={k}
-                    label={c.name}
-                    selected={sum.card === k}
-                    onPress={() => setSum({ ...sum, card: k })}
-                  />
-                ))}
-              </View>
-            </>
+            <ImpressionSummary
+              summary={sum}
+              onChange={(card) => setSum({ ...sum, card })}
+            />
           )}
         </>
       )}
-      <Panel>
-        <T color={C.muted} size={12}>
+      <View style={{ flexGrow: 1 }} />
+      <Panel
+        testID="give-selection-preview"
+        style={{ paddingVertical: 10, paddingHorizontal: 14 }}
+      >
+        <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
           {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}に贈る印象
         </T>
-        <T color={C.ink}>
+        <T color={C.ink} size={14} style={{ lineHeight: 22.4, marginTop: 4 }}>
           {mode === "pick"
-            ? sel || "言葉を1つ選んでください"
-            : text || "相手に感じた印象を書いてください"}
+            ? sel
+              ? `「${sel}」`
+              : "上から言葉を1つ選んでください"
+            : text.trim() || "相手に感じた印象を書いてください"}
         </T>
       </Panel>
+      <T
+        size={12.5}
+        color={C.pale}
+        style={{ textAlign: "center", lineHeight: 19.375 }}
+      >
+        贈った印象は、相手のデッキに証言として届きます。
+      </T>
       <Btn
         label="この印象を贈る"
         disabled={

@@ -40,7 +40,7 @@ for (const kind of ["vibe", "proof"] as const) {
     if (kind === "vibe") {
       await page.goto(`/give?cid=${fixture.exchanges![0]}`);
       await page
-        .getByRole("button", { name: "話しやすい", exact: true })
+        .getByRole("radio", { name: "話しやすい", exact: true })
         .click();
     } else {
       await page.goto("/memo");
