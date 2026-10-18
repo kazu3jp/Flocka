@@ -7,6 +7,9 @@ import vectors from "../apps/mobile/src/vectors.json";
 import {
   CARDS,
   buildPR,
+  resolvePRDocument,
+  withPreferences,
+  preferencesOf,
   derive,
   fresh,
   initNav,
@@ -155,6 +158,52 @@ test("PR attributes a quotation to its actual exchange, never another meeting", 
   delete state.vibes[0].exchangeId;
   assert.equal(buildPR(state)!.text.includes("証言を受け取った会場"), false);
   assert.equal(buildPR(state)!.text.includes("別の会場"), false);
+});
+
+test("manual PR stays linked to its saved evidence when another strength becomes strongest", () => {
+  const state = sampleState();
+  state.self = ["focus", "idea"];
+  const original = buildPR(state)!;
+  state.prDraft = "自分で編集した下書き";
+  state.prDraftSource = {
+    card: original.card.key,
+    pieceIds: original.pieceIds,
+  };
+  for (const fromId of ["mock-a", "mock-b", "mock-c"])
+    state.proofs.push({
+      ...makePiece(fromId, true, "impl"),
+      kind: "proof",
+      guess: "skip",
+      story: "実装を進めた",
+    });
+  assert.equal(buildPR(state)!.card.key, "impl");
+  const saved = resolvePRDocument(state);
+  assert.equal(saved.document!.card.key, "bridge");
+  assert.deepEqual(saved.document!.sources, original.sources);
+  assert.equal(saved.sourceKnown, true);
+  assert.equal(saved.generated!.card.key, "impl");
+  state.vibes[0].visibility = "hidden";
+  assert.equal(resolvePRDocument(state).sourceKnown, false);
+  assert.equal(state.prDraft, "自分で編集した下書き");
+  delete state.prDraftSource;
+  assert.equal(resolvePRDocument(state).sourceKnown, false);
+  state.prDraft = null;
+  assert.equal(resolvePRDocument(state).document!.card.key, "impl");
+});
+
+test("server preference replacement clears omitted draft evidence", () => {
+  const state = sampleState();
+  const original = buildPR(state)!;
+  state.prDraft = original.text;
+  state.prDraftSource = {
+    card: original.card.key,
+    pieceIds: original.pieceIds,
+  };
+  const preferences = preferencesOf(fresh());
+  const replaced = withPreferences(state, preferences);
+  assert.equal(replaced.prDraftSource, undefined);
+  assert.equal(replaced.prDraft, null);
+  assert.deepEqual(preferencesOf(replaced), preferences);
 });
 
 test("native deck ranking and PR match the original HTML business logic", () => {

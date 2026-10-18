@@ -1,13 +1,13 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { copyText } from "../clipboard/copy-text";
-import { buildPR } from "@flocka/domain";
+import { resolvePRDocument } from "@flocka/domain";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
 
 export function usePRDocument() {
   const { s, savePreferences, update, toast } = useApp();
-  const document = buildPR(s);
+  const { document, generated, sourceKnown } = resolvePRDocument(s);
   const draft = s.prDraft ?? document?.text ?? "";
   const [editing, setEditing] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -40,6 +40,7 @@ export function usePRDocument() {
       const savingVisit = visit.current;
       update((state) => {
         state.prDraft = null;
+        delete state.prDraftSource;
       });
       await savePreferences();
       if (!savingVisit || savingVisit !== visit.current) return;
@@ -61,10 +62,25 @@ export function usePRDocument() {
   };
   return {
     document,
+    sourceKnown,
+    regenerationStrength: generated?.card.name,
     draft,
     manual: s.prDraft !== null,
     editing,
-    beginEditing: () => setEditing(true),
+    beginEditing: () => {
+      if (busy) return;
+      if (document)
+        update((state) => {
+          if (state.prDraft === null) {
+            state.prDraft = document.text;
+            state.prDraftSource = {
+              card: document.card.key,
+              pieceIds: document.pieceIds,
+            };
+          }
+        });
+      setEditing(true);
+    },
     change,
     finish,
     copy,

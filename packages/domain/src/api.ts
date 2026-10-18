@@ -141,6 +141,21 @@ const requestSchema = z.object({
   at: z.string(),
   withdrawn: z.boolean().optional(),
 });
+const prDraftSourceSchema = z
+  .object({
+    card: strengthKeySchema,
+    pieceIds: z
+      .array(z.string().min(1).max(100))
+      .min(2)
+      .max(3)
+      .refine(
+        (ids) => new Set(ids).size === ids.length,
+        "引用元が重複しています",
+      ),
+  })
+  .nullable()
+  .optional();
+
 export const appStateSchema: z.ZodType<State> = z.object({
   schemaVersion: z.literal(1),
   onboarded: z.boolean(),
@@ -166,6 +181,7 @@ export const appStateSchema: z.ZodType<State> = z.object({
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
   deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
+  prDraftSource: prDraftSourceSchema,
   blocked: z.array(z.string()),
   settings: settingsSchema,
   reports: z.array(requestSchema),
@@ -195,6 +211,7 @@ export const preferencesSchema = z.object({
   resp: z.record(strengthKeySchema, z.enum(["agree", "hold", "disagree"])),
   deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
+  prDraftSource: prDraftSourceSchema,
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
 export const preferencesRecordSchema = z.object({

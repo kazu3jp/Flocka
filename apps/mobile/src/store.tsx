@@ -28,6 +28,7 @@ import { AppState, BackHandler, Platform } from "react-native";
 import {
   applySnapshot,
   preferencesOf,
+  withPreferences,
   derive,
   fresh,
   initNav,
@@ -275,7 +276,7 @@ export function Provider({
               const saved = await api.savePreferences(preferencesOf(cached), 1);
               prefsRevision.current = saved.revision;
               savedPreferences.current = JSON.stringify(saved.data);
-              stateRef.current = { ...stateRef.current, ...saved.data };
+              stateRef.current = withPreferences(stateRef.current, saved.data);
               setS(stateRef.current);
             }
           } catch (error) {
@@ -369,16 +370,23 @@ export function Provider({
                 ? error.message
                 : "サーバーへ保存できませんでした",
             );
+          if (error instanceof ApiClientError && error.status === 409) {
+            // Fetch the conflicting revision before offering the comparison UI.
+            await synchronize().catch(() => {});
+          }
           throw error;
         }
       });
     syncQueue.current = task;
     return task;
-  }, [api]);
+  }, [api, synchronize]);
   const resolvePreferences = async (choice: "server" | "local") => {
     if (!preferenceConflict) return;
     if (choice === "server") {
-      stateRef.current = { ...stateRef.current, ...preferenceConflict.data };
+      stateRef.current = withPreferences(
+        stateRef.current,
+        preferenceConflict.data,
+      );
       setS(stateRef.current);
       prefsRevision.current = preferenceConflict.revision;
       savedPreferences.current = JSON.stringify(preferenceConflict.data);

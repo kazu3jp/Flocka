@@ -17,7 +17,7 @@ export async function eraseAccountRows(
       WHERE account_id != ?1 AND (snapshot_json LIKE '%' || ?1 || '%'
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.reports') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces}))
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.deletions') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces})))`,
-    `UPDATE player_preferences SET data_json = json_set(data_json, '$.prDraft', NULL), revision = revision + 1
+    `UPDATE player_preferences SET data_json = json_remove(json_set(data_json, '$.prDraft', NULL), '$.prDraftSource'), revision = revision + 1
       WHERE account_id IN (SELECT player_a FROM exchanges WHERE player_b = ?1 UNION SELECT player_b FROM exchanges WHERE player_a = ?1)`,
     `DELETE FROM moderation_audit WHERE admin_id = ?1 OR request_id IN (${requests})`,
     `DELETE FROM moderation_requests WHERE account_id = ?1 OR testimony_id IN (${pieces})`,

@@ -7,8 +7,15 @@ export function preferencesOf(state: State): Preferences {
     resp: state.resp,
     deco: state.deco,
     prDraft: state.prDraft,
+    ...(state.prDraftSource !== undefined
+      ? { prDraftSource: state.prDraftSource }
+      : {}),
   };
 }
+export function withPreferences(state: State, preferences: Preferences): State {
+  return { ...state, ...preferences, prDraftSource: preferences.prDraftSource };
+}
+
 export function applySnapshot(
   snapshot: RemoteSnapshot,
   previous: State,
@@ -48,6 +55,9 @@ export function applySnapshot(
     ...(keepLocalPreferences
       ? preferencesOf(previous)
       : snapshot.preferences.data),
+    prDraftSource: keepLocalPreferences
+      ? previous.prDraftSource
+      : snapshot.preferences.data.prDraftSource,
     onboarded: true,
     profile: snapshot.player.profile,
     self: snapshot.player.self,

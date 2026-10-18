@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiClientError } from "@flocka/api-client";
-import { applySnapshot, fresh, inviteQR, parseInviteQR } from "@flocka/domain";
+import {
+  applySnapshot,
+  buildPR,
+  resolvePRDocument,
+  fresh,
+  inviteQR,
+  parseInviteQR,
+} from "@flocka/domain";
 import { createAuthRuntime } from "./helpers/auth-runtime";
 
 test("real player snapshots, private preferences, invitations, visibility and moderation synchronize", async () => {
@@ -235,5 +242,70 @@ test("decoration preferences and backups reject missing assets and invalid stick
     assert.equal(saved.data.deco.impl.layout?.star.angle, 0);
   } finally {
     await f.runtime.dispose();
+  }
+});
+
+test("saved PR evidence survives stronger cards and becomes unverified when withdrawn", async () => {
+  const runtime = await createAuthRuntime();
+  try {
+    const owner = await runtime.register("下書きの持ち主");
+    await owner.api.updateProfile(owner.player.profile, ["focus", "idea"]);
+    const peers = await Promise.all([
+      runtime.register("仲間一"),
+      runtime.register("仲間二"),
+      runtime.register("仲間三"),
+    ]);
+    const exchanges: string[] = [];
+    for (const peer of peers) {
+      const invite = await owner.api.createInvite();
+      const exchange = await peer.api.startExchange(invite.code);
+      await owner.api.approveExchange(exchange.id, "発表会", "共同作業");
+      await peer.api.approveExchange(exchange.id, "発表会", "共同作業");
+      exchanges.push(exchange.id);
+    }
+    for (const index of [0, 1]) {
+      const piece = await peers[index].api.sendScene(
+        exchanges[index],
+        "bridge",
+        "みんなの意見をまとめた場面",
+      );
+      await owner.api.openTestimony(piece.id, "skip");
+    }
+    const initial = await owner.api.getSnapshot();
+    const generated = buildPR(applySnapshot(initial, fresh()))!;
+    const source = { card: generated.card.key, pieceIds: generated.pieceIds };
+    await owner.api.savePreferences(
+      {
+        ...initial.preferences.data,
+        prDraft: "編集して保存した本文",
+        prDraftSource: source,
+      },
+      initial.preferences.revision,
+    );
+    for (const [index, peer] of peers.entries()) {
+      const piece = await peer.api.sendScene(
+        exchanges[index],
+        "impl",
+        "動く形まで実装した場面",
+      );
+      await owner.api.openTestimony(piece.id, "skip");
+    }
+    const saved = applySnapshot(await owner.api.getSnapshot(), fresh());
+    assert.equal(buildPR(saved)!.card.key, "impl");
+    assert.equal(saved.prDraft, "編集して保存した本文");
+    assert.deepEqual(saved.prDraftSource, source);
+    assert.equal(resolvePRDocument(saved).document!.card.key, "bridge");
+    assert.deepEqual(
+      resolvePRDocument(saved).document!.sources,
+      generated.sources,
+    );
+    await owner.api.changeVisibility(source.pieceIds[0], "hidden");
+    assert.equal(
+      resolvePRDocument(applySnapshot(await owner.api.getSnapshot(), fresh()))
+        .sourceKnown,
+      false,
+    );
+  } finally {
+    await runtime.runtime.dispose();
   }
 });

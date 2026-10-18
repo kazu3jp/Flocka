@@ -131,7 +131,9 @@ export function PR() {
             size={16}
             style={{ flex: 1, lineHeight: 20.8 }}
           >
-            強み：{document.card.name}
+            {editor.sourceKnown
+              ? `強み：${document.card.name}`
+              : "保存した下書き"}
           </T>
           <Pressable
             accessibilityRole="button"
@@ -210,7 +212,7 @@ export function PR() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              {document.sources.map((id, index) => (
+              {(editor.sourceKnown ? document.sources : []).map((id, index) => (
                 <View key={id} style={{ marginLeft: index ? -6 : 0 }}>
                   <Avatar
                     name={peers[id]?.profile.name ?? "プロフィールを取得中"}
@@ -225,7 +227,9 @@ export function PR() {
               size={12}
               style={{ fontFamily: F.bold, lineHeight: 19.8 }}
             >
-              仲間{document.sources.length}人の証言から作成
+              {editor.sourceKnown
+                ? `仲間${document.sources.length}人の証言から作成`
+                : "出典を確認できない保存済みの下書き"}
             </T>
           </View>
         </View>
@@ -271,7 +275,10 @@ export function PR() {
       </View>
       {editor.confirmReset && (
         <Sheet title="もう一度書き出す？" onClose={editor.closeReset}>
-          <T>手で編集した内容を消して、現在の証言から下書きを作ります。</T>
+          <T>
+            手で編集した内容を消して、「{editor.regenerationStrength}
+            」の現在の証言から下書きを作ります。
+          </T>
           {editor.error && (
             <T accessibilityRole="alert" color={C.danger}>
               {editor.error}

@@ -1,3 +1,5 @@
+import { invalidPRSource } from "./pr-draft-references";
+
 /**
  * SQLite expression evaluated in the same statement as the backup write.
  * A stale device must not restore copies of a deleted player's server data.
@@ -41,11 +43,14 @@ export function backupWithLiveReferences(
       ),
     ]),
   ];
-  const removed = paths
+  const removedArrays = paths
     .map(
       ([path, value]) =>
         `json_array_length(${snapshot}, '$.${path}') != json_array_length(${value})`,
     )
     .join(" OR ");
-  return `json_set(${snapshot}, ${paths.map(([path, value]) => `'$.${path}', json(${value})`).join(", ")}, '$.prDraft', CASE WHEN ${removed} THEN NULL ELSE json_extract(${snapshot}, '$.prDraft') END)`;
+  const invalidSource = invalidPRSource(snapshot, owner, excluded);
+  const removed = `(${removedArrays}) OR ${invalidSource}`;
+  const cleaned = `json_set(${snapshot}, ${paths.map(([path, value]) => `'$.${path}', json(${value})`).join(", ")}, '$.prDraft', CASE WHEN ${removed} THEN NULL ELSE json_extract(${snapshot}, '$.prDraft') END)`;
+  return `CASE WHEN ${removed} THEN json_remove(${cleaned}, '$.prDraftSource') ELSE ${cleaned} END`;
 }

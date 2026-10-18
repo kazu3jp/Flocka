@@ -1,3 +1,4 @@
+import { ApiClientError } from "@flocka/api-client";
 import { symmetricEncrypt } from "better-auth/crypto";
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -45,7 +46,22 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       },
     ];
     snapshot.proofs = applySnapshot(await b.api.getSnapshot(), fresh()).proofs;
+    const second = await a.api.sendScene(
+      exchange.id,
+      "impl",
+      "別の場面で見た共同作業の記録",
+    );
     snapshot.prDraft = "削除される証言に基づく下書き";
+    snapshot.prDraftSource = { card: "impl", pieceIds: [piece.id, second.id] };
+    const preferences = await b.api.getSnapshot();
+    await b.api.savePreferences(
+      {
+        ...preferences.preferences.data,
+        prDraft: snapshot.prDraft,
+        prDraftSource: snapshot.prDraftSource,
+      },
+      preferences.preferences.revision,
+    );
     snapshot.blocked = [a.player.id, c.player.id];
     await b.api.saveBackup(snapshot, null);
     const { AVATARS: bucket } = await f.runtime.getBindings<{
@@ -156,6 +172,11 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
     assert.equal(backup.snapshot.connections.length, 0);
     assert.equal(backup.snapshot.proofs.length, 0);
     assert.equal(backup.snapshot.prDraft, null);
+    assert.equal(backup.snapshot.prDraftSource, undefined);
+    assert.equal(
+      (await b.api.getSnapshot()).preferences.data.prDraftSource,
+      undefined,
+    );
     assert.deepEqual(backup.snapshot.blocked, [c.player.id]);
     const staleBackup = await b.api.saveBackup(snapshot, backup.revision);
     assert.equal(staleBackup.revision, 3);
@@ -165,6 +186,34 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       "a stale device cannot restore deleted peer references",
     );
     assert.equal(staleBackup.snapshot.prDraft, null);
+    assert.equal(staleBackup.snapshot.prDraftSource, undefined);
+    const currentPreferences = (await b.api.getSnapshot()).preferences;
+    await assert.rejects(
+      b.api.savePreferences(
+        {
+          ...currentPreferences.data,
+          prDraft: snapshot.prDraft,
+          prDraftSource: snapshot.prDraftSource,
+        },
+        currentPreferences.revision,
+      ),
+      (error) =>
+        error instanceof ApiClientError &&
+        error.code === "PR_SOURCE_UNAVAILABLE",
+    );
+    assert.equal(
+      (await b.api.getSnapshot()).preferences.revision,
+      currentPreferences.revision,
+    );
+    const metadataOnly = {
+      ...fresh(),
+      profile: b.player.profile,
+      prDraft: snapshot.prDraft,
+      prDraftSource: snapshot.prDraftSource,
+    };
+    const cleaned = await b.api.saveBackup(metadataOnly, staleBackup.revision);
+    assert.equal(cleaned.snapshot.prDraft, null);
+    assert.equal(cleaned.snapshot.prDraftSource, undefined);
     assert.equal((await b.api.getSnapshot()).exchanges.length, 0);
     assert.equal((await c.api.getSnapshot()).player.id, c.player.id);
     const stale = await f.auth(

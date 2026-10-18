@@ -11,6 +11,7 @@ import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
 import { toTestimony, type TestimonyRow } from "../repositories/testimonies";
+import { invalidPRSource } from "../repositories/pr-draft-references";
 import { isAdmin } from "../services/admin";
 import { hashToken } from "../auth";
 
@@ -140,7 +141,7 @@ applicationRoutes.put("/me/preferences", async (c) => {
     z.object({ data: preferencesSchema, revision: z.number().int().min(1) }),
   );
   const result = await c.env.DB.prepare(
-    "UPDATE player_preferences SET data_json = ?, revision = revision + 1, updated_at = ? WHERE account_id = ? AND revision = ? RETURNING revision",
+    `UPDATE player_preferences SET data_json = ?1, revision = revision + 1, updated_at = ?2 WHERE account_id = ?3 AND revision = ?4 AND NOT (${invalidPRSource("?1", "?3")}) RETURNING revision`,
   )
     .bind(
       JSON.stringify(input.data),
@@ -149,6 +150,19 @@ applicationRoutes.put("/me/preferences", async (c) => {
       input.revision,
     )
     .first<{ revision: number }>();
+  if (!result && input.data.prDraftSource) {
+    const current = await c.env.DB.prepare(
+      "SELECT revision FROM player_preferences WHERE account_id = ?",
+    )
+      .bind(c.get("accountId"))
+      .first<{ revision: number }>();
+    if (current?.revision === input.revision)
+      throw new ApiError(
+        422,
+        "PR_SOURCE_UNAVAILABLE",
+        "引用元の証言を確認できません。現在の証言から書き出し直してください",
+      );
+  }
   if (!result)
     throw new ApiError(
       409,

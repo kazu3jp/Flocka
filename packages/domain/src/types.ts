@@ -87,6 +87,7 @@ export type State = {
   resp: Record<string, "agree" | "hold" | "disagree">;
   deco: Record<string, DecoData>;
   prDraft: string | null;
+  prDraftSource?: { card: string; pieceIds: string[] } | null;
   blocked: string[];
   settings: { allowVibe: boolean; allowProof: boolean; onlyConnected: boolean };
   reports: RequestRecord[];

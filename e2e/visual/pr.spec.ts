@@ -88,7 +88,10 @@ test("PR editing, clipboard, failed saves and regeneration use real preferences"
   releaseSave();
   await expect(editor).toHaveCount(0);
   const saved = await context.request.get("/v1/sync");
-  expect((await saved.json()).preferences.data.prDraft).toBe(edited);
+  const savedPreferences = (await saved.json()).preferences.data;
+  expect(savedPreferences.prDraft).toBe(edited);
+  expect(savedPreferences.prDraftSource.card).toBe("bridge");
+  expect(savedPreferences.prDraftSource.pieceIds).toHaveLength(2);
   await page.reload();
   await expect(page.getByTestId("pr-body")).toContainText(
     edited.split("\n")[1],
@@ -116,6 +119,7 @@ test("PR editing, clipboard, failed saves and regeneration use real preferences"
   await page
     .getByRole("button", { name: "もう一度書き出す", exact: true })
     .click();
+  await expect(page.getByRole("dialog")).toContainText("人と情報をつなぐ力");
   await context.setOffline(true);
   await page.getByRole("button", { name: "書き出す", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -217,4 +221,97 @@ test("browser clipboard policy rejection is reported without a legacy write", as
   await expect(page.getByText("コピーしました", { exact: true })).toHaveCount(
     0,
   );
+});
+
+test("legacy saved PR is retained without attributing it to current witnesses", async ({
+  page,
+  context,
+}, testInfo) => {
+  await signInFixture(
+    context,
+    "collected",
+    `pr-legacy-${testInfo.project.name}`,
+  );
+  const snapshot = await (await context.request.get("/v1/sync")).json();
+  const saved = await context.request.put("/v1/me/preferences", {
+    data: {
+      data: {
+        ...snapshot.preferences.data,
+        prDraft: "以前に保存した自分の文章",
+      },
+      revision: snapshot.preferences.revision,
+    },
+  });
+  expect(saved.ok()).toBeTruthy();
+  await page.goto("/pr");
+  await expect(page.getByTestId("pr-heading")).toContainText("保存した下書き");
+  await expect(page.getByTestId("pr-sources")).toHaveText(
+    "出典を確認できない保存済みの下書き",
+  );
+  await expect(page.getByTestId("pr-body")).toHaveText(
+    "以前に保存した自分の文章",
+  );
+  await capture(page, "self-pr-legacy");
+  await page.getByRole("button", { name: "書き直す", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "自己PRを編集", exact: true })
+    .fill("編集を続けた文章");
+  await page.getByRole("button", { name: "完了", exact: true }).click();
+  await expect(page.getByTestId("pr-editor")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("pr-sources")).toHaveText(
+    "出典を確認できない保存済みの下書き",
+  );
+  await expect(page.getByTestId("pr-body")).toHaveText("編集を続けた文章");
+});
+
+test("taking server preferences clears stale draft evidence without rewriting it", async ({
+  page,
+  context,
+}, testInfo) => {
+  await signInFixture(
+    context,
+    "collected",
+    `pr-conflict-${testInfo.project.name}`,
+  );
+  await page.goto("/pr");
+  await page.getByRole("button", { name: "書き直す", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "自己PRを編集", exact: true })
+    .fill("この端末の保存した文章");
+  await page.getByRole("button", { name: "完了", exact: true }).click();
+  await expect(page.getByTestId("pr-editor")).toHaveCount(0);
+  const snapshot = await (await context.request.get("/v1/sync")).json();
+  const { prDraftSource: discarded, ...serverPreferences } =
+    snapshot.preferences.data;
+  expect(discarded).toBeTruthy();
+  const updated = await context.request.put("/v1/me/preferences", {
+    data: {
+      data: { ...serverPreferences, prDraft: null },
+      revision: snapshot.preferences.revision,
+    },
+  });
+  expect(updated.ok()).toBeTruthy();
+  const remote = await updated.json();
+  await page.getByRole("button", { name: "書き直す", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "自己PRを編集", exact: true })
+    .fill("競合した端末側の編集");
+  await page.getByRole("button", { name: "完了", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: /別の端末で更新されています。編集を比較して選択してください.*タップして再試行/,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "サーバーの内容を取り込む", exact: true })
+    .click();
+  await page.getByRole("button", { name: "完了", exact: true }).click();
+  await expect(page.getByTestId("pr-editor")).toHaveCount(0);
+  // Observe the real 700ms autosave debounce; cleared evidence must not be retried.
+  await page.waitForTimeout(900);
+  const final = await (await context.request.get("/v1/sync")).json();
+  expect(final.preferences.revision).toBe(remote.revision);
+  expect(final.preferences.data.prDraft).toBeNull();
+  expect(final.preferences.data.prDraftSource).toBeUndefined();
 });
