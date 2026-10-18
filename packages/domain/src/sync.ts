@@ -35,6 +35,7 @@ export function applySnapshot(
       opened: piece.opened,
       guess: piece.guess,
       visibility: piece.visibility,
+      visibilityRevision: piece.visibilityRevision,
       createdAt: piece.createdAt,
     }));
   const sent: SentPiece[] = snapshot.sent.map((piece) => ({

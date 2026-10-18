@@ -170,23 +170,37 @@ export class FlockaApiClient {
       "POST",
     );
   }
-  changeVisibility(id: string, visibility: "private" | "public" | "hidden") {
+  changeVisibility(
+    id: string,
+    visibility: "private" | "public" | "hidden",
+    expectedVisibilityRevision?: number,
+  ) {
     return this.json(
       `/v1/testimonies/${encodeURIComponent(id)}`,
       remoteTestimonySchema,
       "PATCH",
-      { visibility },
+      { visibility, expectedVisibilityRevision },
     );
   }
   block(id: string) {
-    return this.json("/v1/blocks", z.object({ blocked: z.boolean() }), "POST", {
-      playerId: id,
-    });
-  }
-  unblock(id: string) {
     return this.json(
-      `/v1/blocks/${encodeURIComponent(id)}`,
-      z.object({ blocked: z.boolean() }),
+      "/v1/blocks",
+      z.object({
+        blocked: z.literal(true),
+        undoToken: z.string().min(1).max(100).nullable(),
+      }),
+      "POST",
+      { playerId: id },
+    );
+  }
+  unblock(id: string, undoToken?: string) {
+    const query =
+      undoToken === undefined
+        ? ""
+        : `?undoToken=${encodeURIComponent(undoToken)}`;
+    return this.json(
+      `/v1/blocks/${encodeURIComponent(id)}${query}`,
+      z.object({ blocked: z.literal(false) }),
       "DELETE",
     );
   }

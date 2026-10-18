@@ -133,7 +133,7 @@ export default function Screen() {
       case "pieces":
         return <Pieces />;
       case "piece":
-        return <PieceDetail id={id || ""} />;
+        return <PieceDetail key={id} id={id || ""} />;
       case "settings":
         return <Settings />;
       case "moderation":

@@ -28,6 +28,7 @@ export type Piece = {
   opened: boolean;
   guess: string | null;
   guessedAt?: string;
+  visibilityRevision?: number;
   visibility: "private" | "public" | "hidden";
   createdAt: string;
 };

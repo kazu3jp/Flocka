@@ -1,3 +1,4 @@
+import { ApiClientError } from "@flocka/api-client";
 type FeedbackAction = { label: string; fn: () => void };
 
 type UndoOptions = {
@@ -17,30 +18,42 @@ export function createUndoAction({
   successMessage,
 }: UndoOptions) {
   let running = false;
-  let applied = false;
+  let state: "pending" | "applied" | "conflict" = "pending";
   let completed = false;
   const perform = async () => {
     if (running || completed || !isActive()) return;
     running = true;
     try {
-      if (!applied) {
-        await undo();
-        applied = true;
+      if (state === "pending") {
+        try {
+          await undo();
+          state = "applied";
+        } catch (error) {
+          if (error instanceof ApiClientError && error.status === 409)
+            state = "conflict";
+          else throw error;
+        }
       }
       if (!isActive()) return;
       await refresh();
       if (!isActive()) return;
       completed = true;
-      notify(successMessage);
+      notify(
+        state === "conflict"
+          ? "別の変更があったため取り消しませんでした"
+          : successMessage,
+      );
     } catch (error) {
       if (!isActive()) return;
       const message =
         error instanceof Error ? error.message : "通信に失敗しました";
       notify(
-        applied
+        state === "applied"
           ? "取り消しは保存済みです。最新の内容を読み込めませんでした"
-          : `取り消せませんでした：${message}`,
-        { label: applied ? "再読込" : "再試行", fn: perform },
+          : state === "conflict"
+            ? "別の変更があったため取り消しませんでした。最新の内容を読み込めませんでした"
+            : `取り消せませんでした：${message}`,
+        { label: state === "pending" ? "再試行" : "再読込", fn: perform },
       );
     } finally {
       running = false;

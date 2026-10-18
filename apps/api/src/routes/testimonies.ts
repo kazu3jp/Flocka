@@ -1,3 +1,4 @@
+import { BlocksRepository } from "../repositories/blocks";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -10,7 +11,11 @@ import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
 
-import { toTestimony, type TestimonyRow } from "../repositories/testimonies";
+import {
+  toTestimony,
+  TestimoniesRepository,
+  type TestimonyRow,
+} from "../repositories/testimonies";
 export const testimonyRoutes = new Hono<ApiContext>();
 testimonyRoutes.post("/testimonies", async (c) => {
   const input = await readJson(c, createTestimonySchema),
@@ -91,40 +96,12 @@ testimonyRoutes.get("/testimonies", async (c) => {
   return c.json({ items: rows.results.map(toTestimony) });
 });
 testimonyRoutes.patch("/testimonies/:id", async (c) => {
-  const patch = await readJson(c, testimonyPatchSchema),
-    id = c.req.param("id"),
-    accountId = c.get("accountId");
-  const row = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ? AND removed_at IS NULL",
-  )
-    .bind(id, accountId)
-    .first<TestimonyRow>();
-  if (!row)
-    throw new ApiError(404, "TESTIMONY_NOT_FOUND", "証言が見つかりません");
-  if (patch.guess && !patch.opened)
-    throw new ApiError(
-      422,
-      "OPEN_REQUIRED",
-      "予想は開封と一緒に記録してください",
-    );
-  await c.env.DB.prepare(
-    `UPDATE testimonies SET opened = MAX(opened, ?), guess = CASE WHEN opened = 1 THEN guess ELSE ? END, visibility = ? WHERE id = ? AND recipient_id = ? AND removed_at IS NULL`,
-  )
-    .bind(
-      patch.opened ? 1 : row.opened,
-      row.opened ? row.guess : patch.guess || row.guess,
-      patch.visibility || row.visibility,
-      id,
-      accountId,
-    )
-    .run();
-  const updated = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE id = ? AND recipient_id = ? AND removed_at IS NULL",
-  )
-    .bind(id, accountId)
-    .first<TestimonyRow>();
-  if (!updated)
-    throw new ApiError(404, "TESTIMONY_NOT_FOUND", "証言が見つかりません");
+  const patch = await readJson(c, testimonyPatchSchema);
+  const updated = await new TestimoniesRepository(c.env.DB).updateOwn(
+    c.req.param("id"),
+    c.get("accountId"),
+    patch,
+  );
   return c.json(toTestimony(updated));
 });
 testimonyRoutes.post("/blocks", async (c) => {
@@ -136,20 +113,24 @@ testimonyRoutes.post("/blocks", async (c) => {
   if (playerId === accountId)
     throw new ApiError(422, "SELF_BLOCK", "自分はブロックできません");
   await new AccountsRepository(c.env.DB).find(playerId);
-  await c.env.DB.prepare(
-    "INSERT OR IGNORE INTO blocks(account_id, blocked_id, created_at) VALUES(?, ?, ?)",
-  )
-    .bind(accountId, playerId, new Date().toISOString())
-    .run();
-  return c.json({ blocked: true });
+  return c.json(
+    await new BlocksRepository(c.env.DB).create(accountId, playerId),
+  );
 });
 testimonyRoutes.delete("/blocks/:id", async (c) => {
-  await c.env.DB.prepare(
-    "DELETE FROM blocks WHERE account_id = ? AND blocked_id = ?",
-  )
-    .bind(c.get("accountId"), c.req.param("id"))
-    .run();
-  return c.json({ blocked: false });
+  const undoToken = z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .parse(c.req.query("undoToken"));
+  return c.json(
+    await new BlocksRepository(c.env.DB).remove(
+      c.get("accountId"),
+      c.req.param("id"),
+      undoToken,
+    ),
+  );
 });
 testimonyRoutes.post("/moderation", async (c) => {
   const input = await readJson(c, moderationSchema),

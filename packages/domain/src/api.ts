@@ -73,12 +73,20 @@ export const testimonyPatchSchema = z
     opened: z.literal(true).optional(),
     guess: guessSchema.optional(),
     visibility: z.enum(["private", "public", "hidden"]).optional(),
+    expectedVisibilityRevision: z.number().int().positive().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "変更する項目がありません")
   .refine(
     (value) => !value.opened || value.guess !== undefined,
     "開封時は予想またはskipが必要です",
+  )
+  .refine(
+    (value) =>
+      value.expectedVisibilityRevision === undefined ||
+      value.visibility !== undefined,
+    "変更番号は公開範囲と一緒に指定してください",
   );
+export type TestimonyPatch = z.infer<typeof testimonyPatchSchema>;
 export const remoteTestimonySchema = z.object({
   id: z.string().uuid(),
   fromId: z.string().uuid(),
@@ -91,6 +99,7 @@ export const remoteTestimonySchema = z.object({
   opened: z.boolean(),
   guess: z.string().nullable(),
   visibility: z.enum(["private", "public", "hidden"]),
+  visibilityRevision: z.number().int().positive(),
   createdAt: z.string(),
 });
 export type RemoteTestimony = z.infer<typeof remoteTestimonySchema>;
@@ -119,6 +128,7 @@ const pieceSchema = z.object({
   guess: z.string().nullable(),
   guessedAt: z.string().optional(),
   visibility: z.enum(["private", "public", "hidden"]),
+  visibilityRevision: z.number().int().positive().optional(),
   createdAt: z.string(),
 });
 const sentPieceSchema = z.object({

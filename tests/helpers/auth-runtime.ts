@@ -25,6 +25,7 @@ export async function createAuthRuntime(
     webOrigin?: string;
     authURL?: string;
     appleCredentials?: boolean;
+    throughMigration?: string;
   } = {},
 ) {
   // Load the CLI only when creating a runtime. Static named-import analysis
@@ -175,15 +176,27 @@ export async function createAuthRuntime(
   try {
     const db = await runtime.getD1Database("DB"),
       directory = new URL("../../apps/api/migrations/", import.meta.url);
-    for (const name of readdirSync(directory)
+    const migrationFiles = readdirSync(directory)
       .filter((name) => name.endsWith(".sql"))
-      .sort()) {
+      .sort();
+    const applyMigration = async (name: string) => {
+      if (!migrationFiles.includes(name))
+        throw new Error(`Unknown migration: ${name}`);
       const sql = readFileSync(new URL(name, directory), "utf8").replace(
         /^--.*$/gm,
         "",
       );
       for (const statement of splitSqlQuery(sql))
         await db.prepare(statement).run();
+    };
+    if (
+      input.throughMigration &&
+      !migrationFiles.includes(input.throughMigration)
+    )
+      throw new Error("Unknown migration boundary");
+    for (const name of migrationFiles) {
+      if (!input.throughMigration || name <= input.throughMigration)
+        await applyMigration(name);
     }
     const base = (await runtime.ready).origin;
     let serial = 0;
@@ -270,6 +283,7 @@ export async function createAuthRuntime(
     return {
       runtime,
       db,
+      applyMigration,
       base,
       emails,
       mailStatus,

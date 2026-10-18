@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef } from "react";
 import { useAction } from "../sync/use-action";
 import { View } from "react-native";
 import { useConfirmation } from "../../components/pickers";
@@ -23,6 +24,15 @@ export function PieceDetail({ id }: { id: string }) {
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
   const redirected = useRef<string | null>(null);
+  const visit = useRef<object | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      visit.current = {};
+      return () => {
+        visit.current = null;
+      };
+    }, []),
+  );
   useEffect(() => {
     if (!p || p.opened || redirected.current === id) return;
     redirected.current = id;
@@ -41,9 +51,21 @@ export function PieceDetail({ id }: { id: string }) {
   const changeVisibility = (visibility: "private" | "public" | "hidden") => {
     const apply = () => {
       void run(async () => {
-        await api.changeVisibility(id, visibility);
+        if (p.visibility === visibility) return;
+        if (p.visibilityRevision === undefined)
+          throw new Error("最新の証言を読み込み直してください");
+        const previous = p.visibility;
+        const saved = await api.changeVisibility(
+          id,
+          visibility,
+          p.visibilityRevision,
+        );
+        offerUndo(
+          "公開範囲を変更しました",
+          () => api.changeVisibility(id, previous, saved.visibilityRevision),
+          "公開範囲を元に戻しました",
+        );
         await refresh();
-        toast("公開範囲を変更しました");
       });
     };
     if (visibility === "public")
@@ -58,7 +80,7 @@ export function PieceDetail({ id }: { id: string }) {
   return (
     <Board scroll>
       <Header title="証言" onBack={nav.pop} />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && <T accessibilityRole="alert" color={C.yellow}>{error}</T>}
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
           {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
@@ -103,6 +125,7 @@ export function PieceDetail({ id }: { id: string }) {
       ).map(([v, label]) => (
         <Btn
           key={v}
+          disabled={busy}
           small
           plain={p.visibility !== v}
           label={label}
@@ -145,10 +168,18 @@ export function PieceDetail({ id }: { id: string }) {
             "この人の証言をデッキ・自己PRから外し、交換一覧にも表示しません。",
             () => {
               void run(async () => {
-                await api.block(p.fromId);
+                const blockingVisit = visit.current;
+                const saved = await api.block(p.fromId);
+                if (saved.undoToken) {
+                  const token = saved.undoToken;
+                  offerUndo(
+                    "ブロックしました",
+                    () => api.unblock(p.fromId, token),
+                    "ブロックを取り消しました",
+                  );
+                } else toast("すでにブロック中です");
                 await refresh();
-                toast("ブロックしました");
-                nav.pop();
+                if (blockingVisit && visit.current === blockingVisit) nav.pop();
               });
             },
             "ブロックする",
