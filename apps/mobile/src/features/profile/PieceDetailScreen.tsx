@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useAction } from "../sync/use-action";
 import { View } from "react-native";
 import { useConfirmation } from "../../components/pickers";
@@ -16,10 +17,19 @@ import { CARDS, allPieces, wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PieceDetail({ id }: { id: string }) {
-  const { s, nav, api, refresh, toast, d, peers } = useApp(),
+  const { s, nav, api, refresh, toast, d, peers, setOpening } = useApp(),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
+  const redirected = useRef<string | null>(null);
+  useEffect(() => {
+    if (!p || p.opened || redirected.current === id) return;
+    redirected.current = id;
+    nav.replace("pieces");
+    setOpening(id);
+  }, [id, nav, p, setOpening]);
+  // A direct URL must follow the same unopened-envelope flow as the inbox.
+  if (p && !p.opened) return null;
   if (!p)
     return (
       <Board>

@@ -55,3 +55,77 @@ test("direct routes reconcile selected tabs and nested back navigation", async (
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await expect(page).toHaveURL(/\/deck$/);
 });
+
+test("a direct unopened testimony URL keeps its contents behind the guess challenge", async ({
+  page,
+  context,
+}, testInfo) => {
+  const fixture = await signInFixture(
+    context,
+    "collected",
+    `unopened-route-${testInfo.project.name}`,
+  );
+  const snapshot = await (await context.request.get("/v1/sync")).json();
+  const piece = snapshot.inbox.find(
+    (entry: { id: string }) => entry.id === fixture.unopenedId,
+  );
+  expect(piece.opened).toBe(false);
+  const url = `/piece?id=${encodeURIComponent(fixture.unopenedId!)}`;
+  await page.goto(url);
+  await expect(page).toHaveURL(/\/pieces$/);
+  await expect(page.getByText("予想チャレンジ", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(`「${piece.text}」`, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "本人だけ", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "あとで開ける", exact: true }).click();
+  await expect(page.getByText("予想チャレンジ", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText("届いた証言", { exact: true })).toBeVisible();
+  const cancelled = await (await context.request.get("/v1/sync")).json();
+  expect(
+    cancelled.inbox.find((entry: { id: string }) => entry.id === piece.id)
+      .opened,
+  ).toBe(false);
+  await page.reload();
+  await expect(page.getByText("予想チャレンジ", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.goto(url);
+  const openingRoute = `**/v1/testimonies/${piece.id}`;
+  await page.route(openingRoute, (route) => route.abort("failed"));
+  await page
+    .getByRole("button", { name: "予想せずに開ける", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByText(`「${piece.text}」`, { exact: true }),
+  ).toHaveCount(0);
+  const failed = await (await context.request.get("/v1/sync")).json();
+  expect(
+    failed.inbox.find((entry: { id: string }) => entry.id === piece.id).opened,
+  ).toBe(false);
+  await page.unroute(openingRoute);
+  await page
+    .getByRole("button", { name: "予想せずに開ける", exact: true })
+    .click();
+  await expect(
+    page.getByText(`「${piece.text}」`, { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "デッキに加える", exact: true })
+    .click();
+  await page.goto(url);
+  await expect(
+    page.getByRole("button", { name: "本人だけ", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(`「${piece.text}」`, { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("予想チャレンジ", { exact: true })).toHaveCount(
+    0,
+  );
+});

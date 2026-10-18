@@ -5,7 +5,7 @@
 | 検証                                            | 結果                                                                                                         |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | 型検査・Lint・33件のテスト (`npm run validate`) | 通過（33/33）                                                                                                |
-| Chromium VRT・画面操作                          | 4サイズ・88/88通過。260枚の基準画像                                                                          |
+| Chromium VRT・画面操作                          | 4サイズ・92/92通過。260枚の基準画像                                                                          |
 | UIからの認証ライフサイクル                      | 登録・メール確認・全6ステップの初期設定・保存・ログアウト・パスワード再設定・再ログイン・アカウント削除を4サイズで確認       |
 | Expo Web・iOS・Androidの書き出し                | 最終コードで通過                                                                                             |
 | Expo Doctor                                     | 前回21/21通過（今回は未実行）                                                                                                    |
@@ -137,3 +137,6 @@ GitHub Actionsの追加確認で、Wranglerの静的な名前付きimportをESLi
 AndroidはJDK 21・Gradle 9.3.1で `:app:assembleDebug --max-workers=2 --console=plain` が成功しました。APKは `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`。apksignerでv2署名を検証し、aaptで `jp.kazu3.flocka`・versionName 1.0.0・versionCode 1・minSdk 24・targetSdk 36・debuggableを確認しました。arm64-v8a / armeabi-v7a / x86 / x86_64すべてに `libreactnative.so` と `libhermesvm.so` を含みます。実機実行と配布用署名は未検証です。
 
 QA Simulatorの起動は完了しましたが、UI操作ツールはアプリ名・Xcode内の実パス・再初期化後のいずれも `Sky Computer Use native pipe startup failed` で接続を開始できませんでした。別のUI操作手段へ切り替えず、Flockaアプリの起動・画面確認は未検証として残します。QA端末は既存端末とは別に作成しており、既存のアプリ・データを変更していません。
+
+
+未開封の証言の詳細URLは、証言一覧に置き換えて予想チャレンジを表示します。本文・実際のカード・公開範囲操作を先に表示せず、閉じた場合は未開封のまま一覧へ戻ります。開封APIの通信失敗時も本文を表示せず、エラーを支援技術へ通知し、実APIへの再試行で開封できます。4サイズで直接URL・閉じる・再読み込み・通信失敗・再試行・開封後の詳細表示を検証しました。全体92件、型検査・Lint・33テスト、Web/iOS/Android書き出しが通過しています。原本と基準画像は変更していません。

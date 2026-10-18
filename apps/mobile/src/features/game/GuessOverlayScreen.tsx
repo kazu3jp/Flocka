@@ -97,7 +97,11 @@ function GuessContent({ id }: { id: string }) {
           </Pressable>
         }
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && (
+        <T accessibilityRole="alert" color={C.yellow}>
+          {error}
+        </T>
+      )}
       <ScrollView
         contentContainerStyle={{ gap: 16, paddingBottom: 16 }}
         style={S.fill}
