@@ -36,9 +36,13 @@ const TOUR = [
 function TourCard({
   cardKey,
   confirmed = false,
+  inPlayerCard = false,
+  selected = false,
 }: {
   cardKey: string;
   confirmed?: boolean;
+  inPlayerCard?: boolean;
+  selected?: boolean;
 }) {
   return (
     <StrengthCard
@@ -52,8 +56,10 @@ function TourCard({
       style={{
         flex: 1,
         width: "100%",
-        marginTop: 4,
-        boxShadow: `3px 3px 0 ${C.ink}`,
+        marginTop: inPlayerCard ? 4 : 0,
+        boxShadow: selected
+          ? `0 0 0 4px ${C.yellow}, 4px 4px 0 ${C.ink}`
+          : `3px 3px 0 ${C.ink}`,
       }}
     />
   );
@@ -128,7 +134,7 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
             <T display color={C.ink} size={15} style={{ lineHeight: 15 }}>
               {name}
             </T>
-            <TourCard cardKey={key} />
+            <TourCard cardKey={key} inPlayerCard />
           </Panel>
         ))}
         <View
@@ -170,7 +176,12 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
             justifyContent: "center",
           }}
         >
-          <Svg width="100%" height="100%" viewBox="0 0 44 32">
+          <Svg
+            width="100%"
+            height="100%"
+            viewBox="0 0 44 32"
+            style={{ filter: `drop-shadow(4px 4px 0 ${C.ink})` }}
+          >
             <Rect
               x={1.5}
               y={1.5}
@@ -191,7 +202,11 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
           <View
             style={{
               position: "absolute",
-              borderRadius: 24,
+              left: "50%",
+              top: "52%",
+              marginLeft: -20,
+              marginTop: -20,
+              borderRadius: 20,
               borderWidth: 2.5,
               borderColor: C.ink,
               backgroundColor: C.pink,
@@ -220,9 +235,17 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
             },
           ]}
         >
-          {["bridge", "warm", "idea"].map((key) => (
-            <View key={key} style={S.fill}>
-              <TourCard cardKey={key} />
+          {["bridge", "warm", "idea"].map((key, index) => (
+            <View
+              key={key}
+              style={[
+                S.fill,
+                index === 0 && {
+                  transform: [{ translateY: -10 }, { rotate: "-2deg" }],
+                },
+              ]}
+            >
+              <TourCard cardKey={key} selected={index === 0} />
             </View>
           ))}
         </View>
@@ -240,7 +263,6 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
           top: "14%",
           width: "46%",
           height: "72%",
-          transform: [{ rotate: "-4deg" }],
         }}
       >
         <TourCard cardKey="bridge" confirmed />
@@ -252,13 +274,14 @@ function Scene({ scene, reduced }: { scene: string; reduced: boolean }) {
           top: "22%",
           width: "40%",
           height: "58%",
+          borderRadius: 12,
           paddingHorizontal: 12,
           paddingVertical: 14,
           gap: 9,
           transform: [{ rotate: "3deg" }],
         }}
       >
-        <T display color={C.ink} size={14}>
+        <T display color={C.ink} size={14} style={{ lineHeight: 14 }}>
           自己PR
         </T>
         {[100, 88, 94, 60].map((width, i) => (

@@ -1,5 +1,5 @@
 import { test, expect } from "./test";
-import { capture, referenceComparison } from "./helpers";
+import { capture, referenceComparison, compareLayout } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   page.on("console", (message) => {
@@ -81,6 +81,24 @@ for (const view of ["signup", "login", "reset"] as const) {
         target.getByText("メールアドレス", { exact: true }),
       ).toBeVisible();
     }
+    await compareLayout(
+      [
+        {
+          name: "back",
+          actual: page.getByRole("button", { name: "戻る", exact: true }),
+          reference: reference.getByRole("button", {
+            name: "戻る",
+            exact: true,
+          }),
+        },
+        ...Array.from({ length: view === "reset" ? 1 : 2 }, (_, index) => ({
+          name: `input-${index + 1}`,
+          actual: page.locator("input").nth(index),
+          reference: reference.locator("input").nth(index),
+        })),
+      ],
+      testInfo,
+    );
     await capture(page, view);
     await referenceComparison(page, reference, view, testInfo);
   });

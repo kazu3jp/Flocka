@@ -63,7 +63,7 @@ export function AuthField({
         {...props}
         label={label}
         hideLabel
-        style={[{ minHeight: 55.4, lineHeight: 26.4 }, style]}
+        style={[{ minHeight: 52, lineHeight: 26.4 }, style]}
       />
     </View>
   );
@@ -120,7 +120,7 @@ export function PasswordField({
           autoCorrect={false}
           autoComplete={signup ? "new-password" : "current-password"}
           maxLength={128}
-          style={{ paddingRight: 72, minHeight: 55.4, lineHeight: 26.4 }}
+          style={{ paddingRight: 72, minHeight: 52, lineHeight: 26.4 }}
         />
         <Pressable
           accessibilityRole="button"
