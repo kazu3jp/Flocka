@@ -1,4 +1,5 @@
-import { useAction } from "../sync/use-action";
+import { useTestimonySend } from "./use-testimony-send";
+import { DeliveryFeedback } from "./delivery-feedback";
 import React, { useState } from "react";
 import { ScrollView, View } from "react-native";
 import {
@@ -22,8 +23,20 @@ export function Memo() {
     [to, setTo] = useState(""),
     [card, setCard] = useState(""),
     [story, setStory] = useState(""),
-    [sent, setSent] = useState(false),
-    { busy, error, run } = useAction();
+    {
+      receipt,
+      busy,
+      error,
+      send: deliver,
+      retrySync,
+    } = useTestimonySend<{
+      id: string;
+      to: string;
+      card: string;
+      story: string;
+    }>(refresh, () =>
+      toast(`${peers[to]?.profile.name ?? "相手"}に封筒を贈りました`),
+    );
   const members = [
     ...new Set(
       s.connections
@@ -32,33 +45,33 @@ export function Memo() {
     ),
   ];
   const send = () => {
-    void run(async () => {
+    void deliver(async () => {
       const exchange = s.connections.find(
         (connection) =>
           connection.peerId === to && connection.status === "accepted",
       );
       if (!exchange) throw new Error("交換が成立した相手を選んでください");
-      await api.sendScene(exchange.id, card, story.trim());
-      setSent(true);
-      await refresh();
-      toast(`${peers[to]?.profile.name ?? "相手"}に封筒を贈りました`);
+      const submittedStory = story.trim();
+      const result = await api.sendScene(exchange.id, card, submittedStory);
+      return { ...result, to, card, story: submittedStory };
     });
   };
-  if (sent)
+  if (receipt)
     return (
       <Board>
         <Header title="" onBack={nav.root} />
+        <DeliveryFeedback busy={busy} error={error} retrySync={retrySync} />
         <View style={{ flex: 1, justifyContent: "center", gap: 16 }}>
           <View style={{ alignItems: "center" }}>
             <Envelope size={180} />
           </View>
           <Panel>
             <T color={C.muted} size={12}>
-              {peers[to]?.profile.name ?? "プロフィールを取得中"}へ ·{" "}
-              {CARDS[card].name}
+              {peers[receipt.to]?.profile.name ?? "プロフィールを取得中"}へ ·{" "}
+              {CARDS[receipt.card].name}
             </T>
             <T display color={C.ink}>
-              「{story}」
+              「{receipt.story}」
             </T>
           </Panel>
           <T display size={26} style={{ textAlign: "center" }}>
@@ -76,7 +89,11 @@ export function Memo() {
         onBack={() => (step ? setStep(step - 1) : nav.pop())}
         right={<T size={12}>{step + 1}/3</T>}
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && (
+        <T color={C.yellow} accessibilityRole="alert">
+          {error}
+        </T>
+      )}
       <ScrollView
         style={S.fill}
         contentContainerStyle={{ gap: 14, paddingBottom: 14 }}

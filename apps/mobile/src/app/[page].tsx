@@ -149,7 +149,7 @@ export default function Screen() {
       case "confirm":
         return <Confirm cid={cid || ""} />;
       case "give":
-        return <Give cid={cid || ""} />;
+        return <Give key={cid} cid={cid || ""} />;
       case "memo":
         return <Memo />;
       case "pr":

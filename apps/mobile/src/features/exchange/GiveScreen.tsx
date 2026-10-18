@@ -1,4 +1,5 @@
-import { useAction } from "../sync/use-action";
+import { useTestimonySend } from "./use-testimony-send";
+import { DeliveryFeedback } from "./delivery-feedback";
 import React, { useState } from "react";
 import { View } from "react-native";
 import {
@@ -24,7 +25,19 @@ export function Give({ cid }: { cid: string }) {
     [text, setText] = useState(""),
     [sum, setSum] = useState<{ card: string; label: string } | null>(null),
     c = s.connections.find((c) => c.id === cid),
-    { busy, error, run } = useAction();
+    {
+      receipt,
+      busy,
+      error,
+      send: deliver,
+      retrySync,
+    } = useTestimonySend<{ id: string; text: string; label: string }>(
+      refresh,
+      () =>
+        toast(
+          `${peers[c?.peerId ?? ""]?.profile.name ?? "相手"}に印象を贈りました`,
+        ),
+    );
   if (!c)
     return (
       <Board>
@@ -32,7 +45,7 @@ export function Give({ cid }: { cid: string }) {
         <T>交換が見つかりませんでした。</T>
       </Board>
     );
-  const sent = s.sentVibes.find((v) => v.id === c.vibe),
+  const sent = s.sentVibes.find((v) => v.id === c.vibe) ?? receipt,
     ready = mode === "pick" ? !!sel && !!text.trim() : text.trim().length >= 8;
   const send = () => {
     if (!ready) return;
@@ -40,16 +53,23 @@ export function Give({ cid }: { cid: string }) {
       mode === "pick"
         ? { card: VIBE_CARD[sel], label: sel }
         : sum || summarize(text);
-    void run(async () => {
-      await api.sendImpression(cid, content.card, content.label, text.trim());
-      await refresh();
-      toast(`${peers[c.peerId]?.profile.name ?? "相手"}に印象を贈りました`);
-    });
+    const submittedText = text.trim();
+    void deliver(async () => ({
+      ...(await api.sendImpression(
+        cid,
+        content.card,
+        content.label,
+        submittedText,
+      )),
+      text: submittedText,
+      label: content.label,
+    }));
   };
-  if (c.vibe)
+  if (c.vibe || receipt)
     return (
       <Board scroll>
         <Header title="贈った印象" onBack={nav.pop} />
+        <DeliveryFeedback busy={busy} error={error} retrySync={retrySync} />
         <Panel style={S.gap}>
           <T color={C.muted} size={13}>
             そう感じた理由
@@ -84,7 +104,11 @@ export function Give({ cid }: { cid: string }) {
         onBack={nav.pop}
         right={<PeerAvatar id={c.peerId} size={32} />}
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && (
+        <T color={C.yellow} accessibilityRole="alert">
+          {error}
+        </T>
+      )}
       <T display size={21}>
         相手のいいなと思ったところは？
       </T>
