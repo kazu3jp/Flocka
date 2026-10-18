@@ -3,7 +3,7 @@ import { Animated, View } from "react-native";
 import { CARDS, PEER_PROFILE, bareCard } from "@flocka/domain";
 import { Avatar, C, Icon, S, StrengthCard, T } from "../../components/ui";
 import Svg, { Path, Rect } from "react-native-svg";
-import { useTourMotion } from "./use-tour-motion";
+import { tourEasing, useTourMotion } from "./use-tour-motion";
 
 function TourCard({
   cardKey,
@@ -18,6 +18,7 @@ function TourCard({
 }) {
   const shadow = selection
     ? selection.interpolate({
+        easing: tourEasing.pop,
         inputRange: [0, 0.55, 0.7, 1],
         outputRange: [0, 0, 1, 1].map(
           (progress) =>
@@ -66,16 +67,22 @@ function TourOption({
       style={[
         S.fill,
         {
-          opacity: enter,
+          opacity: enter.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+            easing: tourEasing.pop,
+          }),
           transform: [
             {
               translateY: enter.interpolate({
+                easing: tourEasing.pop,
                 inputRange: [0, 1],
                 outputRange: ["40%", "0%"],
               }),
             },
             {
               rotate: enter.interpolate({
+                easing: tourEasing.pop,
                 inputRange: [0, 1],
                 outputRange: ["6deg", "0deg"],
               }),
@@ -109,7 +116,15 @@ function TourDocumentLine({
         width: `${width}%`,
         backgroundColor: index === 0 ? C.yellow : C.grey,
         transformOrigin: "left",
-        transform: [{ scaleX: progress }],
+        transform: [
+          {
+            scaleX: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              easing: tourEasing.ease,
+            }),
+          },
+        ],
       }}
     />
   );
@@ -155,6 +170,7 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
               transform: [
                 {
                   translateX: players.interpolate({
+                    easing: tourEasing.ease,
                     inputRange: [0, 0.25, 0.55, 0.75, 1],
                     outputRange: i
                       ? ["120%", "0%", "0%", "-6%", "-6%"]
@@ -163,6 +179,7 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
                 },
                 {
                   rotate: players.interpolate({
+                    easing: tourEasing.ease,
                     inputRange: [0, 0.25, 0.55, 0.75, 1],
                     outputRange: i
                       ? ["8deg", "4deg", "4deg", "2deg", "2deg"]
@@ -199,12 +216,14 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
           transform: [
             {
               scale: swap.interpolate({
+                easing: tourEasing.pop,
                 inputRange: [0, 0.22, 0.35, 0.45, 0.6, 0.8, 1],
                 outputRange: [0, 0, 1.15, 1, 1, 1, 1],
               }),
             },
             {
               rotate: swap.interpolate({
+                easing: tourEasing.pop,
                 inputRange: [0, 0.6, 0.8, 1],
                 outputRange: ["0deg", "0deg", "180deg", "180deg"],
               }),
@@ -248,6 +267,7 @@ function GuessScene({ reduced }: { reduced: boolean }) {
               translateY: reduced
                 ? 0
                 : envelope.interpolate({
+                    easing: tourEasing.envelope,
                     inputRange: [0, 1],
                     outputRange: [0, -8],
                   }),
@@ -256,6 +276,7 @@ function GuessScene({ reduced }: { reduced: boolean }) {
               rotate: reduced
                 ? "0deg"
                 : envelope.interpolate({
+                    easing: tourEasing.envelope,
                     inputRange: [0, 1],
                     outputRange: ["0deg", "-3deg"],
                   }),
@@ -342,12 +363,14 @@ function GuessScene({ reduced }: { reduced: boolean }) {
                   transform: [
                     {
                       translateY: pick.interpolate({
+                        easing: tourEasing.pop,
                         inputRange: [0, 0.55, 0.7, 1],
                         outputRange: [0, 0, -10, -10],
                       }),
                     },
                     {
                       rotate: pick.interpolate({
+                        easing: tourEasing.pop,
                         inputRange: [0, 0.55, 0.7, 1],
                         outputRange: ["0deg", "0deg", "-2deg", "-2deg"],
                       }),
@@ -386,6 +409,7 @@ function PRScene({ reduced }: { reduced: boolean }) {
                 { perspective: 600 },
                 {
                   rotateY: flip.interpolate({
+                    easing: tourEasing.pop,
                     inputRange: [0, 1],
                     outputRange: ["90deg", "0deg"],
                   }),
@@ -414,16 +438,22 @@ function PRScene({ reduced }: { reduced: boolean }) {
             paddingHorizontal: 12,
             paddingVertical: 14,
             gap: 9,
-            opacity: doc,
+            opacity: doc.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              easing: tourEasing.pop,
+            }),
             transform: [
               {
                 translateY: doc.interpolate({
+                  easing: tourEasing.pop,
                   inputRange: [0, 1],
                   outputRange: ["40%", "0%"],
                 }),
               },
               {
                 rotate: doc.interpolate({
+                  easing: tourEasing.pop,
                   inputRange: [0, 1],
                   outputRange: ["6deg", "3deg"],
                 }),

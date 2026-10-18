@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg";
 import { C, F, S, T } from "../../components/ui";
-import { useTourMotion } from "./use-tour-motion";
+import { tourEasing, useTourMotion } from "./use-tour-motion";
 import { TourScene } from "./tour-scenes";
 
 const TOUR = [
@@ -97,10 +97,15 @@ export function WelcomeTour() {
       <Animated.View
         style={{
           gap: 6,
-          opacity: copy,
+          opacity: copy.interpolate({
+            easing: tourEasing.ease,
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          }),
           transform: [
             {
               translateY: copy.interpolate({
+                easing: tourEasing.ease,
                 inputRange: [0, 1],
                 outputRange: [8, 0],
               }),

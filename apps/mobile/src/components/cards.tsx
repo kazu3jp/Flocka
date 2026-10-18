@@ -1,3 +1,4 @@
+import { CardShine } from "./card-shine";
 import { StickerArtwork } from "./sticker-artwork";
 import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
@@ -356,6 +357,7 @@ export function StrengthCard({
           confirmed={card.confirmed}
           selfOnly={selfOnly}
         />
+        {card.confirmed && <CardShine />}
         {frame === "tape" &&
           [0, 1].map((i) => (
             <View

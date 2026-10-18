@@ -3,25 +3,21 @@ import { Animated, Easing } from "react-native";
 
 const ease = Easing.bezier(0.2, 0.8, 0.2, 1);
 const pop = Easing.bezier(0.3, 1.6, 0.5, 1);
+export const tourEasing = {
+  ease,
+  pop,
+  envelope: Easing.bezier(0.42, 0, 0.58, 1),
+};
 const motions = {
-  players: { duration: 3400, stops: [0, 0.25, 0.55, 0.75, 1], easing: ease },
-  swap: {
-    duration: 3400,
-    stops: [0, 0.22, 0.35, 0.45, 0.6, 0.8, 1],
-    easing: pop,
-  },
-  envelope: {
-    duration: 1600,
-    stops: [0, 1, 0],
-    easing: Easing.bezier(0.42, 0, 0.58, 1),
-    loop: true,
-  },
-  option: { duration: 500, stops: [0, 1], easing: pop },
-  pick: { duration: 3400, stops: [0, 0.55, 0.7, 1], easing: pop },
-  flip: { duration: 800, stops: [0, 1], easing: pop },
-  line: { duration: 500, stops: [0, 1], easing: ease },
-  copy: { duration: 450, stops: [0, 1], easing: ease },
-  bar: { duration: 3600, stops: [0, 1], easing: Easing.linear },
+  players: { duration: 3400 },
+  swap: { duration: 3400 },
+  envelope: { duration: 1600, loop: true },
+  option: { duration: 500 },
+  pick: { duration: 3400 },
+  flip: { duration: 800 },
+  line: { duration: 500 },
+  copy: { duration: 450 },
+  bar: { duration: 3600 },
 } as const;
 
 /** Timings and easing come from the original tour's CSS keyframes. */
@@ -40,20 +36,31 @@ export function useTourMotion(
     }
     const spec = motions[name];
     value.setValue(0);
-    const steps = spec.stops.slice(1).map((stop, index) =>
-      Animated.timing(value, {
-        toValue: stop,
-        duration: spec.duration * Math.abs(stop - spec.stops[index]),
-        easing: spec.easing,
-        // Percentage translations and shadow changes share the JS timeline.
-        useNativeDriver: false,
-        isInteraction: false,
-      }),
-    );
-    const sequence = Animated.sequence(steps);
+    // Ease each property's keyframe segment, rather than the clock itself.
+    // Otherwise a held segment clips the source's overshooting motion.
+    const forward = Animated.timing(value, {
+      toValue: 1,
+      duration: spec.duration,
+      easing: Easing.linear,
+      useNativeDriver: false,
+      isInteraction: false,
+    });
     const animation = Animated.sequence([
       Animated.delay(delay),
-      "loop" in spec ? Animated.loop(sequence) : sequence,
+      "loop" in spec
+        ? Animated.loop(
+            Animated.sequence([
+              forward,
+              Animated.timing(value, {
+                toValue: 0,
+                duration: spec.duration,
+                easing: Easing.linear,
+                useNativeDriver: false,
+                isInteraction: false,
+              }),
+            ]),
+          )
+        : forward,
     ]);
     animation.start();
     return () => animation.stop();
