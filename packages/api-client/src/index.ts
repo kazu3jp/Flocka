@@ -44,12 +44,37 @@ export class FlockaApiClient {
       throw new Error("APIのURLに認証情報やクエリは指定できません");
     this.baseUrl = url.href.replace(/\/$/, "");
   }
-  private async request(
+  private invalidResponse(status: number) {
+    return new ApiClientError(
+      status,
+      "INVALID_RESPONSE",
+      "APIの応答を読み込めませんでした。もう一度お試しください",
+    );
+  }
+  private async responseJson(response: Response): Promise<unknown> {
+    try {
+      return await response.json();
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        throw this.invalidResponse(response.status);
+      throw error;
+    }
+  }
+  private async parseResponse<T>(
+    response: Response,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    const parsed = schema.safeParse(await this.responseJson(response));
+    if (!parsed.success) throw this.invalidResponse(response.status);
+    return parsed.data;
+  }
+  private async request<T>(
     path: string,
+    consume: (response: Response) => Promise<T>,
     method = "GET",
     body?: unknown,
     contentType = "application/json",
-  ): Promise<Response> {
+  ): Promise<T> {
     let payload: BodyInit | undefined;
     if (body !== undefined) {
       if (contentType === "application/json") payload = JSON.stringify(body);
@@ -57,9 +82,32 @@ export class FlockaApiClient {
         payload = new Uint8Array(body).buffer;
       else throw new Error("画像の送信データが不正です");
     }
-    const controller = new AbortController(),
-      timer = setTimeout(() => controller.abort(), 15_000);
-    try {
+    const controller = new AbortController();
+    const timeoutError = () =>
+      new ApiClientError(0, "TIMEOUT", "APIへの接続がタイムアウトしました");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(timeoutError());
+      }, 15_000);
+    });
+    const operation = async () => {
+      let cookie: string | undefined;
+      if (this.auth.cookie) {
+        try {
+          cookie = await this.auth.cookie();
+        } catch (error) {
+          if (error instanceof ApiClientError) throw error;
+          throw new ApiClientError(
+            0,
+            "AUTH_STORAGE",
+            "認証情報を読み込めませんでした。もう一度お試しください",
+          );
+        }
+      }
+      // A late credential read must not start a request after its deadline.
+      if (controller.signal.aborted) throw timeoutError();
       const response = await fetch(this.baseUrl + path, {
         method,
         signal: controller.signal,
@@ -68,45 +116,60 @@ export class FlockaApiClient {
           ...(this.auth.accountId
             ? { "X-Flocka-Account": this.auth.accountId }
             : {}),
-          ...(this.auth.cookie ? { Cookie: await this.auth.cookie() } : {}),
+          ...(cookie !== undefined ? { Cookie: cookie } : {}),
           ...(body !== undefined ? { "Content-Type": contentType } : {}),
         },
         body: payload,
       });
       if (!response.ok) {
-        const parsed = apiErrorSchema.safeParse(await response.json());
-        if (parsed.success)
-          throw new ApiClientError(
-            response.status,
-            parsed.data.error.code,
-            parsed.data.error.message,
-          );
+        const parsed = apiErrorSchema.safeParse(
+          await this.responseJson(response),
+        );
+        if (!parsed.success) throw this.invalidResponse(response.status);
+        const message =
+          parsed.data.error.code === "INVALID_INPUT"
+            ? "入力内容を確認して、もう一度お試しください"
+            : ["INVALID_JSON", "JSON_REQUIRED"].includes(parsed.data.error.code)
+              ? "送信内容を確認できませんでした。もう一度お試しください"
+              : parsed.data.error.message;
         throw new ApiClientError(
           response.status,
-          "INVALID_RESPONSE",
-          "APIの応答を読み込めませんでした",
+          parsed.data.error.code,
+          message,
         );
       }
-      return response;
+      // Keep the deadline active until JSON or image data has been consumed.
+      return consume(response);
+    };
+    try {
+      return await Promise.race([operation(), deadline]);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError")
+      const timedOut = controller.signal.aborted;
+      controller.abort();
+      if (timedOut) throw timeoutError();
+      if (error instanceof TypeError)
         throw new ApiClientError(
           0,
-          "TIMEOUT",
-          "APIへの接続がタイムアウトしました",
+          "NETWORK_ERROR",
+          "APIに接続できません。接続先と通信環境を確認してください",
         );
       throw error;
     } finally {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
     }
   }
-  private async json<T>(
+  private json<T>(
     path: string,
     schema: z.ZodType<T>,
     method = "GET",
     body?: unknown,
   ): Promise<T> {
-    return schema.parse(await (await this.request(path, method, body)).json());
+    return this.request(
+      path,
+      (response) => this.parseResponse(response, schema),
+      method,
+      body,
+    );
   }
   async getSnapshot() {
     const snapshot = await this.json("/v1/sync?page=0", syncSchema);
@@ -279,8 +342,9 @@ export class FlockaApiClient {
     };
   }
   async peerAvatar(id: string): Promise<string> {
-    return this.image(
-      await this.request(`/v1/players/${encodeURIComponent(id)}/avatar`),
+    return this.request(
+      `/v1/players/${encodeURIComponent(id)}/avatar`,
+      (response) => this.image(response),
     );
   }
   acceptTerms() {
@@ -398,26 +462,41 @@ export class FlockaApiClient {
     if (!match) throw new Error("JPEGまたはPNGの写真を指定してください");
     const binary = atob(match[2]),
       bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    const response = await this.request(
+    const result = await this.request(
       "/v1/me/avatar",
+      (response) =>
+        this.parseResponse(response, z.object({ avatarKey: z.string() })),
       "PUT",
       bytes,
       match[1],
     );
-    return z.object({ avatarKey: z.string() }).parse(await response.json())
-      .avatarKey;
+    return result.avatarKey;
   }
-  async getAvatar(backup = false): Promise<string> {
-    const response = await this.request(
+  getAvatar(backup = false): Promise<string> {
+    return this.request(
       backup ? "/v1/me/backup/avatar" : "/v1/me/avatar",
+      (response) => this.image(response),
     );
-    return this.image(response);
   }
   private async image(response: Response): Promise<string> {
+    const mime = response.headers
+      .get("Content-Type")
+      ?.split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (mime !== "image/jpeg" && mime !== "image/png")
+      throw this.invalidResponse(response.status);
     const bytes = new Uint8Array(await response.arrayBuffer());
+    const valid =
+      mime === "image/jpeg"
+        ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+        : [137, 80, 78, 71, 13, 10, 26, 10].every(
+            (value, index) => bytes[index] === value,
+          );
+    if (!valid) throw this.invalidResponse(response.status);
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += 8192)
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-    return `data:${response.headers.get("Content-Type")};base64,${btoa(binary)}`;
+    return `data:${mime};base64,${btoa(binary)}`;
   }
 }
