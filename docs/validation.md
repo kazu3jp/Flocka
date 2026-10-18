@@ -10,9 +10,9 @@
 | Expo Web・iOS・Androidの書き出し                | 最終コードで通過                                                                                             |
 | Expo Doctor                                     | 前回21/21通過（今回は未実行）                                                                                                    |
 | Android BLEモジュールのKotlinコンパイル         | 通過                                                                                                         |
-| Androidアプリ全体のDebugビルド | 削除機能追加前の2026-10-17、`assembleDebug`成功。APKのv2署名、パッケージ名、4 CPU向けライブラリを確認 |
+| Androidアプリ全体のDebugビルド | 2026-10-18の50077c0で `assembleDebug`成功。APKのv2署名、jp.kazu3.flocka、4 CPU向けReact Native/Hermes VMを確認 |
 | iOS prebuild・CocoaPods                         | 通過。121依存関係、120 Pods                                                                                  |
-| iOS Simulatorネイティブビルド                   | 削除機能追加前に通過。arm64・x86_64、署名なしのDebugビルド                                                                   |
+| iOS Simulatorネイティブビルド                   | 2026-10-18の50077c0でarm64 Simulator向けDebugビルド通過。署名なし・画面操作は未検証                                                                   |
 | ローカルD1マイグレーション                      | 0001〜0008適用成功                                                                                           |
 | 本番 `/health`                                  | 2026-10-14の既存デプロイでHTTP 200、`status: ok`を確認                                                                                       |
 | GitHubリポジトリ                                | PRIVATEを確認                                                                                                |
@@ -130,3 +130,10 @@ GitHub Actionsの追加確認で、Wranglerの静的な名前付きimportをESLi
 ツアーの進行率を一定速度で進め、各変形のキーフレーム区間へ個別にイージングを適用する形へ修正しました。進行率自体を先に曲げると、選択カードや交換マークの弾む動きが保持区間で頭打ちになるためです。原本のCSSアニメーションを2210msで停止し、選択カードの途中の移動量と回転を4サイズで実アプリと比較します。許容差は移動0.4px・回転行列の成分0.005です。
 
 光沢は1回目・2回目の移動、完了位置、完了後の停止、動きを抑える設定による非表示をChromiumで検査します。小数幅を整数のclientWidthで割ると検査側に丸め誤差が入るため、実際の描画幅を使います。静止画の基準画像を更新せずに全体を再検証します。透視投影を含む全要素の全フレームの一致、光沢のピクセル一致と実機表示は未検証です。
+
+
+2026-10-18、50077c0のチェックアウトでネイティブ全体のDebugビルドを再実行しました。iOSは独立したiPhone 16e / iOS 26.3のQA Simulatorを作成し、XcodeのSDK 27.0・arm64宛てで `BUILD SUCCEEDED` を確認しました。出力は `/tmp/FlockaExpoDerivedData/Build/Products/Debug-iphonesimulator/Flocka.app`、パッケージIDは `jp.kazu3.flocka`、最小OSは16.4です。Debugアプリのビルドであり、アプリ起動・画面操作やストア配布用の署名検証を示すものではありません。
+
+AndroidはJDK 21・Gradle 9.3.1で `:app:assembleDebug --max-workers=2 --console=plain` が成功しました。APKは `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`。apksignerでv2署名を検証し、aaptで `jp.kazu3.flocka`・versionName 1.0.0・versionCode 1・minSdk 24・targetSdk 36・debuggableを確認しました。arm64-v8a / armeabi-v7a / x86 / x86_64すべてに `libreactnative.so` と `libhermesvm.so` を含みます。実機実行と配布用署名は未検証です。
+
+QA Simulatorの起動は完了しましたが、UI操作ツールはアプリ名・Xcode内の実パス・再初期化後のいずれも `Sky Computer Use native pipe startup failed` で接続を開始できませんでした。別のUI操作手段へ切り替えず、Flockaアプリの起動・画面確認は未検証として残します。QA端末は既存端末とは別に作成しており、既存のアプリ・データを変更していません。
