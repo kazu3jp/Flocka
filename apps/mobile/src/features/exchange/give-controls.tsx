@@ -62,6 +62,7 @@ export function VibeOptions({
           accessibilityRole="radio"
           accessibilityLabel={value}
           accessibilityState={{ checked: selected === value }}
+          aria-checked={selected === value}
           onPress={() => onChange(value)}
           style={{
             width: "auto",

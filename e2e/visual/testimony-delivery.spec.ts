@@ -44,10 +44,10 @@ for (const kind of ["vibe", "proof"] as const) {
         .click();
     } else {
       await page.goto("/memo");
-      await page.getByRole("button", { name: "ミナト", exact: true }).click();
+      await page.getByRole("radio", { name: "ミナト", exact: true }).click();
       await page.getByRole("button", { name: "次へ", exact: true }).click();
       await page
-        .getByRole("button", { name: "人と情報をつなぐ力", exact: true })
+        .getByRole("radio", { name: "人と情報をつなぐ力", exact: true })
         .click();
       await page.getByRole("button", { name: "次へ", exact: true }).click();
     }

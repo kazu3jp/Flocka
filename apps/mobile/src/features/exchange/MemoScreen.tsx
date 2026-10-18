@@ -1,20 +1,15 @@
 import { useTestimonySend } from "./use-testimony-send";
 import { DeliveryFeedback } from "./delivery-feedback";
 import React, { useState } from "react";
-import { ScrollView, View } from "react-native";
-import {
-  Board,
-  Btn,
-  C,
-  Choice,
-  Envelope,
-  Field,
-  Header,
-  Panel,
-  S,
-  T,
-} from "../../components/ui";
+import { View } from "react-native";
+import { Board, Btn, C, Header, Panel, F, T } from "../../components/ui";
 import { CARDS } from "@flocka/domain";
+import {
+  MemoProgress,
+  MemoRecipient,
+  MemoStory,
+  MemoStrengths,
+} from "./memo-controls";
 import { useApp } from "../../store";
 
 export function Memo() {
@@ -39,7 +34,10 @@ export function Memo() {
     );
   const members = [
     ...new Set(
-      s.connections
+      [...s.connections]
+        .sort((a, b) =>
+          (a.exchangedAt ?? "").localeCompare(b.exchangedAt ?? ""),
+        )
         .filter((c) => c.status === "accepted" && !s.blocked.includes(c.peerId))
         .map((c) => c.peerId),
     ),
@@ -59,98 +57,120 @@ export function Memo() {
   if (receipt)
     return (
       <Board>
-        <Header title="" onBack={nav.root} />
+        <Header title="" onBack={nav.pop} />
         <DeliveryFeedback busy={busy} error={error} retrySync={retrySync} />
-        <View style={{ flex: 1, justifyContent: "center", gap: 16 }}>
-          <View style={{ alignItems: "center" }}>
-            <Envelope size={180} />
-          </View>
-          <Panel>
-            <T color={C.muted} size={12}>
-              {peers[receipt.to]?.profile.name ?? "プロフィールを取得中"}へ ·{" "}
+        <View
+          testID="memo-completion"
+          style={{ flex: 1, justifyContent: "center", gap: 14 }}
+        >
+          <Panel
+            style={{
+              borderRadius: 14,
+              paddingTop: 18,
+              paddingHorizontal: 18,
+              paddingBottom: 16,
+            }}
+          >
+            <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+              {peers[receipt.to]?.profile.name ?? "プロフィールを取得中"}へ・
               {CARDS[receipt.card].name}
             </T>
-            <T display color={C.ink}>
+            <T
+              color={C.ink}
+              size={18}
+              style={{ fontFamily: F.bold, lineHeight: 30.6 }}
+            >
               「{receipt.story}」
             </T>
           </Panel>
-          <T display size={26} style={{ textAlign: "center" }}>
+          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
             封筒で贈りました
           </T>
-          <T size={12}>相手の受信箱に封筒を届けました。</T>
+          <T
+            size={12.5}
+            color={C.pale}
+            style={{ textAlign: "center", lineHeight: 19.375 }}
+          >
+            {peers[receipt.to]?.profile.name}のデッキに、証言として届きます。
+          </T>
         </View>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
       </Board>
     );
   return (
-    <Board>
+    <Board scroll form>
       <Header
-        title="見た場面をメモで贈る"
+        title=""
         onBack={() => (step ? setStep(step - 1) : nav.pop())}
-        right={<T size={12}>{step + 1}/3</T>}
+        right={<MemoProgress step={step} />}
       />
       {error && (
         <T color={C.yellow} accessibilityRole="alert">
           {error}
         </T>
       )}
-      <ScrollView
-        style={S.fill}
-        contentContainerStyle={{ gap: 14, paddingBottom: 14 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <T display size={26}>
-          {step === 0
-            ? "誰に贈る？"
-            : step === 1
-              ? `${peers[to]?.profile.name}の、どの強み？`
-              : "その強みを見た場面は？"}
-        </T>
-        {step === 0 &&
-          (!members.length ? (
-            <T>
+      <T testID="memo-heading" display size={26} style={{ lineHeight: 36.4 }}>
+        {step === 0
+          ? "誰に贈る？"
+          : step === 1
+            ? `${peers[to]?.profile.name}の、どの強み？`
+            : "その強みを見た場面は？"}
+      </T>
+      {step === 0 && (
+        <>
+          {!members.length && (
+            <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
               まだ交換した人がいません。交換すると、ここから場面のメモを贈れます。
             </T>
-          ) : (
-            members.map((id) => (
-              <Choice
+          )}
+          <View
+            testID="memo-recipients"
+            accessibilityRole="radiogroup"
+            accessibilityLabel="相手"
+            style={{ gap: 10 }}
+          >
+            {members.map((id) => (
+              <MemoRecipient
                 key={id}
-                label={peers[id]?.profile.name ?? "プロフィールを取得中"}
+                id={id}
+                name={peers[id]?.profile.name ?? "プロフィールを取得中"}
+                context={
+                  s.connections.find(
+                    (connection) =>
+                      connection.peerId === id &&
+                      connection.status === "accepted",
+                  )?.context.place || "交換済み"
+                }
                 selected={to === id}
                 onPress={() => setTo(id)}
               />
-            ))
-          ))}
-        {step === 1 && (
-          <View style={S.wrap}>
-            {Object.entries(CARDS).map(([k, c]) => (
-              <Choice
-                key={k}
-                label={c.name}
-                selected={card === k}
-                onPress={() => setCard(k)}
-              />
             ))}
           </View>
-        )}
-        {step === 2 && (
-          <>
-            <T size={13}>性格の採点ではなく、見た行動をひとつ</T>
-            <Field
-              label="場面（8〜80文字）"
-              value={story}
-              multiline
-              maxLength={80}
-              onChangeText={setStory}
-              placeholder="例：登壇後の質問に、図を描いて答えてくれた"
-            />
-            <T size={12}>{story.length}/80</T>
-          </>
-        )}
-      </ScrollView>
+        </>
+      )}
+      {step === 1 && <MemoStrengths selected={card} onChange={setCard} />}
+      {step === 2 && (
+        <>
+          <T size={12.5} color={C.pale} style={{ lineHeight: 19.375 }}>
+            性格の採点ではなく、見た行動をひとつ
+          </T>
+          <MemoStory value={story} onChange={setStory} />
+          <T
+            size={12.5}
+            color={C.pale}
+            style={{ textAlign: "right", lineHeight: 19.375 }}
+          >
+            {story.length}/80
+          </T>
+        </>
+      )}
+      <View style={{ flexGrow: 1 }} />
       <Btn
         label={step < 2 ? "次へ" : "封筒で贈る"}
-        disabled={busy || ![!!to, !!card, story.trim().length >= 8][step]}
+        disabled={
+          busy ||
+          ![members.includes(to), !!card, story.trim().length >= 8][step]
+        }
         onPress={() => (step < 2 ? setStep(step + 1) : send())}
       />
     </Board>

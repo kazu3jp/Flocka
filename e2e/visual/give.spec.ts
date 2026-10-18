@@ -60,6 +60,9 @@ test("impression forms and delivered content follow the original design", async 
   await reference
     .getByRole("radio", { name: "話しやすい", exact: true })
     .click();
+  await expect(
+    page.getByRole("radio", { name: "話しやすい", exact: true }),
+  ).toBeChecked();
   const reason = "初対面でも話しかけてくれて、一緒に発表の準備ができた";
   await page.getByRole("textbox").fill(reason);
   await reference.locator("textarea").fill(reason);
