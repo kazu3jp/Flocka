@@ -9,12 +9,18 @@ import {
 import { getApiClient } from "./features/auth/client";
 import { ApiClientError } from "@flocka/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter, type Href } from "expo-router";
+import {
+  useGlobalSearchParams,
+  usePathname,
+  useRouter,
+  type Href,
+} from "expo-router";
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -27,6 +33,8 @@ import {
   initNav,
   restoreState,
   validNav,
+  navigationForRoute,
+  SCREENS,
   type Entry,
   type NavState,
   type ScreenId,
@@ -88,6 +96,15 @@ export function Provider({
   children: React.ReactNode;
   storageScope: string;
 }) {
+  const pathname = usePathname();
+  const searchParams = useGlobalSearchParams();
+  const routeParams = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(searchParams)
+        .filter(([key, value]) => key !== "page" && typeof value === "string")
+        .sort(([left], [right]) => left.localeCompare(right)),
+    ),
+  );
   const router = useRouter(),
     [api] = useState(() =>
       getApiClient(storageScope === "signed-out" ? undefined : storageScope),
@@ -123,6 +140,19 @@ export function Provider({
     peerPhotos = useRef(
       new Map<string, { version?: string | null; photo: string }>(),
     );
+  useLayoutEffect(() => {
+    if (!ready || !s.onboarded) return;
+    const screen = pathname.slice(1) as ScreenId;
+    if (!SCREENS.includes(screen)) return;
+    const next = navigationForRoute(navRef.current, {
+      id: screen,
+      params: JSON.parse(routeParams),
+    });
+    if (next !== navRef.current) {
+      navRef.current = next;
+      setN(next);
+    }
+  }, [pathname, routeParams, ready, s.onboarded]);
   useEffect(() => {
     mounted.current = true;
     return () => {

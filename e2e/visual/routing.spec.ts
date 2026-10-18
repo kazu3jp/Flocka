@@ -29,3 +29,29 @@ test("requested card URL survives initial loading and a failed snapshot retry", 
   await expect(decorationButton).toBeVisible();
   expect(new URL(page.url()).pathname).toBe("/card");
 });
+
+test("direct routes reconcile selected tabs and nested back navigation", async ({
+  page,
+  context,
+}) => {
+  await signInFixture(context, "collected");
+  await page.goto("/pr");
+  await expect(
+    page.getByRole("tab", { name: "自己PR", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.goto("/exchange");
+  await expect(
+    page.getByRole("tab", { name: "交換", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "つながった人", exact: true }).click();
+  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  await expect(page).toHaveURL(/\/exchange$/);
+  await page.goto("/card?key=bridge");
+  await page
+    .getByRole("button", { name: "このカードをデコる", exact: true })
+    .click();
+  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  await expect(page).toHaveURL(/\/card\?key=bridge$/);
+  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  await expect(page).toHaveURL(/\/deck$/);
+});

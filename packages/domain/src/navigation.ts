@@ -61,3 +61,65 @@ export function validNav(v: unknown): v is NavState {
     })
   );
 }
+
+const EXCHANGE_SCREENS = new Set<ScreenId>([
+  "exchange",
+  "connections",
+  "nearby",
+  "scan",
+  "confirm",
+  "give",
+  "memo",
+]);
+
+function sameEntry(left: Entry, right: Entry) {
+  const leftParams = left.params ?? {};
+  const rightParams = right.params ?? {};
+  return (
+    left.id === right.id &&
+    Object.keys(leftParams).length === Object.keys(rightParams).length &&
+    Object.entries(leftParams).every(
+      ([key, value]) => rightParams[key] === value,
+    )
+  );
+}
+
+/** Reconcile an external URL without sending another router navigation. */
+export function navigationForRoute(current: NavState, entry: Entry): NavState {
+  const tab: Tab =
+    entry.id === "pr"
+      ? "pr"
+      : EXCHANGE_SCREENS.has(entry.id)
+        ? "exchange"
+        : "find";
+  const root = ROOTS[tab] === entry.id;
+  const activeStack = current.stacks[current.tab];
+  // Internal navigation already records the originating tab and its back stack.
+  if (
+    (!root || current.tab === tab) &&
+    sameEntry(activeStack[activeStack.length - 1], entry)
+  )
+    return current;
+  const tabs = root
+    ? [tab]
+    : [...new Set<Tab>([current.tab, tab, "find", "exchange", "pr"])];
+  for (const candidate of tabs) {
+    const stack = current.stacks[candidate];
+    for (let index = stack.length - 1; index >= 0; index -= 1) {
+      if (sameEntry(stack[index], entry))
+        return {
+          ...current,
+          tab: candidate,
+          stacks: { ...current.stacks, [candidate]: stack.slice(0, index + 1) },
+        };
+    }
+  }
+  return {
+    ...current,
+    tab,
+    stacks: {
+      ...current.stacks,
+      [tab]: root ? [entry] : [{ id: ROOTS[tab] }, entry],
+    },
+  };
+}
