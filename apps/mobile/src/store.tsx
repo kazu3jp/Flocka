@@ -1,3 +1,4 @@
+import { createUndoAction } from "./features/sync/undo-action";
 import {
   useNotificationResponse,
   type NoticeKind,
@@ -86,6 +87,11 @@ type ContextValue = {
   opening: string | null;
   setOpening: (id: string | null) => void;
   toast: (text: string, action?: Toast["action"]) => void;
+  offerUndo: (
+    text: string,
+    undo: () => Promise<unknown>,
+    successMessage: string,
+  ) => void;
   notification: Toast | null;
   dismissToast: () => void;
 };
@@ -166,7 +172,7 @@ export function Provider({
     setNotification({ text, action });
     timer.current = setTimeout(
       () => setNotification(null),
-      action ? 5000 : 3000,
+      action ? 5000 : 2600,
     );
   }, []);
   const synchronize = useCallback(async () => {
@@ -248,6 +254,22 @@ export function Provider({
     syncQueue.current = task;
     return task;
   }, [storageScope, synchronize]);
+  const offerUndo = useCallback(
+    (text: string, undo: () => Promise<unknown>, successMessage: string) => {
+      if (!mounted.current) return;
+      toast(
+        text,
+        createUndoAction({
+          undo,
+          refresh,
+          isActive: () => mounted.current,
+          notify: toast,
+          successMessage,
+        }),
+      );
+    },
+    [refresh, toast],
+  );
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -542,6 +564,7 @@ export function Provider({
         opening,
         setOpening,
         toast,
+        offerUndo,
         notification,
         dismissToast: () => setNotification(null),
       }}

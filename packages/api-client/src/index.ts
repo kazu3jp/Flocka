@@ -205,7 +205,7 @@ export class FlockaApiClient {
   withdrawRequest(id: string) {
     return this.json(
       `/v1/moderation/${encodeURIComponent(id)}/withdraw`,
-      z.object({ withdrawn: z.boolean() }),
+      z.object({ withdrawn: z.literal(true) }),
       "POST",
     );
   }

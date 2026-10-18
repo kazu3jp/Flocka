@@ -17,7 +17,8 @@ import { CARDS, allPieces, wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
 
 export function PieceDetail({ id }: { id: string }) {
-  const { s, nav, api, refresh, toast, d, peers, setOpening } = useApp(),
+  const { s, nav, api, refresh, toast, d, peers, setOpening, offerUndo } =
+      useApp(),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
@@ -165,9 +166,13 @@ export function PieceDetail({ id }: { id: string }) {
             "この証言の削除依頼を運営に送信します。",
             () => {
               void run(async () => {
-                await api.requestModeration(id, "deletion");
+                const request = await api.requestModeration(id, "deletion");
+                offerUndo(
+                  "削除依頼を受け付けました",
+                  () => api.withdrawRequest(request.id),
+                  "削除依頼を取り消しました",
+                );
                 await refresh();
-                toast("削除依頼を受け付けました");
               });
             },
             "依頼する",

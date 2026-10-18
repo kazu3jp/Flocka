@@ -49,6 +49,8 @@ Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/he
 
 ## 検証
 
+未完了の要件と検証範囲は [完成条件の照合](docs/release-readiness.md)、実行結果は [検証記録](docs/validation.md) にまとめています。
+
 画面の回帰テストは `npm run test:vrt`、比較レポートの表示は `npm run test:vrt:report` です。初回は `npx playwright install chromium` を実行してください。対象画面と基準画像の更新方法は [画面テスト](docs/visual-testing.md) を参照してください。
 
 ```sh
