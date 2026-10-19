@@ -66,6 +66,8 @@ npm run build:api
 
 `validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認、アカウント削除、HTTPクライアントの不正応答・受信タイムアウト、検査用クライアントのIP生成を含む38テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
 
+Android実機をUSBで接続する手順は [実機デバッグ](docs/android-device-debugging.md) を参照してください。
+
 ## 実装と接続設定
 
 Expoの全画面が実サーバーと接続しています。交換コードのQR・手入力、近くのプレイヤー検出（BLE、`apps/mobile/modules/flocka-nearby`）、双方承認の交換、印象・場面の送受信、公開範囲・ブロック・通報、端末設定の同期、プッシュ通知の端末登録、運営向けの通報対応画面（`ADMIN_USER_IDS` に含まれるアカウントのみ）を実装しています。BLEと通知は開発ビルド（`npm run ios` / `npm run android`）の実機が必要で、Expo Goやシミュレーターでは動きません。
