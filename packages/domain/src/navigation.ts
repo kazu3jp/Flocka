@@ -4,6 +4,7 @@ export type Tab = keyof typeof ROOTS;
 
 export const SCREENS = [
   "deck",
+  "collection",
   "card",
   "deco",
   "me",

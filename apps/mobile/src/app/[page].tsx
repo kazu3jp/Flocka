@@ -18,6 +18,7 @@ import {
 } from "../features/profile";
 import { Moderation } from "../features/admin";
 import { CardDetail, Deck, Deco, GuessOverlay, PR } from "../features/game";
+import { Collection } from "../features/game/CollectionScreen";
 import {
   Confirm,
   Connections,
@@ -130,6 +131,8 @@ export default function Screen() {
         return <Onboarding />;
       case "deck":
         return <Deck />;
+      case "collection":
+        return <Collection />;
       case "card":
         return <CardDetail cardKey={key || ""} />;
       case "deco":
