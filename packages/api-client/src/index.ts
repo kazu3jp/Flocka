@@ -334,6 +334,13 @@ export class FlockaApiClient {
           nextPage: z.number().int().nonnegative().nullable(),
         }),
       );
+      // A repeated or earlier page would loop forever on a misbehaving server.
+      if (result.nextPage !== null && result.nextPage <= page)
+        throw new ApiClientError(
+          0,
+          "PAGINATION_STALLED",
+          "証言の一覧を読み込めませんでした。もう一度お試しください",
+        );
       items.push(...result.items);
       page = result.nextPage;
     }
