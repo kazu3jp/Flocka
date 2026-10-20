@@ -1,11 +1,11 @@
-import React, { useId, useMemo } from "react";
+import React, { memo, useId, useMemo } from "react";
 import { Platform } from "react-native";
 import { CachedSvgXml } from "./cached-svg-xml";
 import vectors from "../vectors.json";
 import { C } from "./theme";
 
 /** Original sticker paths, with the source CSS shadow for stickers placed on a card. */
-export function StickerArtwork({
+export const StickerArtwork = memo(function StickerArtwork({
   stickerKey,
   shadow = false,
 }: {
@@ -27,4 +27,4 @@ export function StickerArtwork({
       .replace("</svg>", "</g></svg>");
   }, [stickerKey, shadow, filterId]);
   return <CachedSvgXml xml={xml} width="100%" height="100%" />;
-}
+});

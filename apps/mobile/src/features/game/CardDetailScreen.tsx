@@ -38,6 +38,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
       <StrengthCard
         card={card}
         style={{ height: 230, width: "62%", alignSelf: "center" }}
+        height={230}
       />
       <Btn
         plain

@@ -63,6 +63,7 @@ export function Deco({ cardKey }: { cardKey: string }) {
             height: previewHeight - 8,
             width: (previewHeight - 8) * 0.78,
           }}
+          height={previewHeight - 8}
         />
       </View>
       <View

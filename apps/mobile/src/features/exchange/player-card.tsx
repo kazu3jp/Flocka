@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { Avatar, C, LinkButton, S, T, Sheet } from "../../components/ui";
 import { bareCard, type Card, type RemoteTestimony } from "@flocka/domain";
@@ -14,6 +14,35 @@ export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
       avatar={peers[id]?.profile.avatar}
     />
   );
+}
+
+/** A peer's self-chosen cards, with only the testimonies they published. */
+function peerHand(keys: string[], items: RemoteTestimony[]): Card[] {
+  return keys.map((key) => {
+    const testimonies = items
+      .filter((piece) => piece.card === key)
+      .map((piece) => ({
+        ...piece,
+        label: piece.label ?? undefined,
+        text: piece.text ?? undefined,
+        story: piece.story ?? undefined,
+      }));
+    const givers = [...new Set(testimonies.map((piece) => piece.fromId))];
+    return {
+      ...bareCard(key),
+      testimonies,
+      givers,
+      confirmed: givers.length >= 2,
+    };
+  });
+}
+
+/** The cards chosen to show, or the first three of the deck. */
+function ownHand(showcase: string[], deck: Card[]): Card[] {
+  const chosen = showcase
+    .map((k) => deck.find((c) => c.key === k))
+    .filter((c): c is Card => !!c);
+  return chosen.length ? chosen : deck.slice(0, 3);
 }
 
 export function Player({
@@ -59,30 +88,16 @@ export function Player({
     };
   }, [api, peerId, accepted]);
   const published = publicData?.id === peerId ? publicData : null;
-  const chosen = s.showcase
-    .map((k) => d.deck.find((c) => c.key === k))
-    .filter((c): c is Card => !!c);
-  const cards = peer
-    ? peer.self.map((key) => {
-        const testimonies = (published?.items ?? [])
-          .filter((piece) => piece.card === key)
-          .map((piece) => ({
-            ...piece,
-            label: piece.label ?? undefined,
-            text: piece.text ?? undefined,
-            story: piece.story ?? undefined,
-          }));
-        const givers = [...new Set(testimonies.map((piece) => piece.fromId))];
-        return {
-          ...bareCard(key),
-          testimonies,
-          givers,
-          confirmed: givers.length >= 2,
-        };
-      })
-    : chosen.length
-      ? chosen
-      : d.deck.slice(0, 3);
+  const peerSelf = peer?.self,
+    publishedItems = published?.items;
+  // Keep the hand's card objects stable while the inputs are unchanged.
+  const cards = useMemo(
+    () =>
+      peerSelf
+        ? peerHand(peerSelf, publishedItems ?? [])
+        : ownHand(s.showcase, d.deck),
+    [peerSelf, publishedItems, s.showcase, d.deck],
+  );
   const interests = peer ? peer.profile.interests : s.profile.interests;
   return (
     <>

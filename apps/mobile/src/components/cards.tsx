@@ -2,12 +2,13 @@ import { CardShine } from "./card-shine";
 import { StickerArtwork } from "./sticker-artwork";
 import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
-import React, { useId, useState } from "react";
+import React, { memo, useId, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
+  type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -15,7 +16,6 @@ import Svg, {
   Circle,
   Defs,
   Ellipse,
-  Line,
   Path,
   Pattern,
   Rect,
@@ -26,7 +26,31 @@ import { ART_COLORS, type Card } from "@flocka/domain";
 import { C, F, S } from "./theme";
 import { T } from "./text";
 
-export function CardPattern({
+/** Burst wedges alternate with gaps, so one path with 20 subpaths fills the same area. */
+function burstRaysPath(cx: number, cy: number, radius: number) {
+  let d = "";
+  for (let i = 0; i < 20; i++) {
+    const a = (i * 18 * Math.PI) / 180,
+      b = ((i * 18 + 9) * Math.PI) / 180;
+    d += `M${cx} ${cy} L${cx + radius * 2 * Math.sin(a)} ${cy - radius * 2 * Math.cos(a)} L${cx + radius * 2 * Math.sin(b)} ${cy - radius * 2 * Math.cos(b)} Z`;
+  }
+  return d;
+}
+
+// CSS -45deg stripes repeat every 14px along the gradient, starting at
+// the bottom-right of the actual art box rather than at an arbitrary tile.
+function stripeBandsPath(width: number, height: number) {
+  let d = "";
+  const count = Math.ceil((width + height) / (14 * Math.SQRT2)) + 1;
+  for (let index = 0; index < count; index++) {
+    const high = width + height - index * 14 * Math.SQRT2;
+    const low = high - 7 * Math.SQRT2;
+    d += `M${low} 0H${high}L${high - height} ${height}H${low - height}Z`;
+  }
+  return d;
+}
+
+export const CardPattern = memo(function CardPattern({
   card,
   selfOnly,
   width,
@@ -41,14 +65,16 @@ export function CardPattern({
 }) {
   const pattern = card.deco?.pattern || "burst",
     id = "pattern" + useId().replace(/:/g, "");
-  const palette =
-    ART_COLORS["deco-" + card.deco?.color] || ART_COLORS[card.key];
-  const { base, shade, shade2, light } = Object.fromEntries(
-    Object.entries(palette).map(([key, value]) => [
-      key,
-      selfOnly ? selfClaimColor(value) : value,
-    ]),
-  );
+  const decoColor = card.deco?.color;
+  const { base, shade, shade2, light } = useMemo(() => {
+    const palette = ART_COLORS["deco-" + decoColor] || ART_COLORS[card.key];
+    return Object.fromEntries(
+      Object.entries(palette).map(([key, value]) => [
+        key,
+        selfOnly ? selfClaimColor(value) : value,
+      ]),
+    );
+  }, [decoColor, card.key, selfOnly]);
   const tile: Record<string, [number, number]> = {
     dots: swatch ? [10, 10] : [14, 14],
     grid: [12, 12],
@@ -115,36 +141,14 @@ export function CardPattern({
   const cx = width * 0.5,
     cy = height * (swatch ? 0.6 : 0.62);
   const radius = Math.hypot(width * 0.5, height * 0.62);
-  const rays = Array.from({ length: 20 }, (_, i) => {
-    const a = (i * 18 * Math.PI) / 180,
-      b = ((i * 18 + 9) * Math.PI) / 180;
-    return (
-      <Path
-        key={i}
-        d={`M${cx} ${cy} L${cx + radius * 2 * Math.sin(a)} ${cy - radius * 2 * Math.cos(a)} L${cx + radius * 2 * Math.sin(b)} ${cy - radius * 2 * Math.cos(b)} Z`}
-        fill={shade}
-      />
-    );
-  });
-  // CSS -45deg stripes repeat every 14px along the gradient, starting at
-  // the bottom-right of the actual art box rather than at an arbitrary tile.
-  const stripeBands =
-    pattern === "stripes"
-      ? Array.from(
-          { length: Math.ceil((width + height) / (14 * Math.SQRT2)) + 1 },
-          (_, index) => {
-            const high = width + height - index * 14 * Math.SQRT2;
-            const low = high - 7 * Math.SQRT2;
-            return (
-              <Path
-                key={index}
-                d={`M${low} 0H${high}L${high - height} ${height}H${low - height}Z`}
-                fill={shade}
-              />
-            );
-          },
-        )
-      : null;
+  const raysPath = useMemo(
+    () => (pattern === "burst" ? burstRaysPath(cx, cy, radius) : ""),
+    [pattern, cx, cy, radius],
+  );
+  const stripesPath = useMemo(
+    () => (pattern === "stripes" ? stripeBandsPath(width, height) : ""),
+    [pattern, width, height],
+  );
   return (
     <Svg
       width="100%"
@@ -161,10 +165,10 @@ export function CardPattern({
       {pattern === "burst" ? (
         <>
           {!swatch && <Circle cx={cx} cy={cy} r={radius * 0.28} fill={light} />}
-          {rays}
+          <Path d={raysPath} fill={shade} />
         </>
       ) : pattern === "stripes" ? (
-        stripeBands
+        <Path d={stripesPath} fill={shade} />
       ) : pattern !== "plain" ? (
         <>
           <Defs>
@@ -182,18 +186,24 @@ export function CardPattern({
       ) : null}
     </Svg>
   );
-}
+});
 
-export function StrengthCard({
+/**
+ * Pass `height` when the caller already sizes the card, so the name and
+ * flavor text are final on the first render instead of after a layout pass.
+ */
+export const StrengthCard = memo(function StrengthCard({
   card,
   onPress,
   style,
   large = false,
+  height,
 }: {
   card: Card;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   large?: boolean;
+  height?: number;
 }) {
   const color = card.confirmed
     ? C.yellow
@@ -217,7 +227,13 @@ export function StrengthCard({
       : C.ink;
   const frameId = "frame" + useId().replace(/:/g, "");
   const selfOnly = status === "自己申告";
-  const [cardHeight, setCardHeight] = useState(0);
+  const [measuredHeight, setMeasuredHeight] = useState(0);
+  const cardHeight = height ?? measuredHeight;
+  const measureCard =
+    height === undefined
+      ? (event: LayoutChangeEvent) =>
+          setMeasuredHeight(event.nativeEvent.layout.height)
+      : undefined;
   const [artSize, setArtSize] = useState({ width: 100, height: 100 });
   const showFlavor = large || cardHeight >= 225;
   const nameSize = large
@@ -356,8 +372,9 @@ export function StrengthCard({
           cardKey={card.key}
           confirmed={card.confirmed}
           selfOnly={selfOnly}
+          artHeight={artSize.height}
         />
-        {card.confirmed && <CardShine />}
+        {card.confirmed && <CardShine {...artSize} />}
         {frame === "tape" &&
           [0, 1].map((i) => (
             <View
@@ -567,7 +584,7 @@ export function StrengthCard({
       accessibilityRole="button"
       accessibilityLabel={`${card.name}・${status}`}
       onPress={onPress}
-      onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
+      onLayout={measureCard}
       style={({ pressed }) => [
         container,
         pressed && { transform: [{ translateY: -2 }, { rotate: "-.6deg" }] },
@@ -579,19 +596,38 @@ export function StrengthCard({
   ) : (
     <View
       testID={`strength-card-${card.key}`}
-      onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
+      onLayout={measureCard}
       style={[container, style]}
     >
       {inner}
     </View>
   );
+});
+
+// CSS repeating-linear-gradient(45deg, color 0 10px, transparent 10px 20px).
+// The 10px strokes never overlap, so one path draws every stripe.
+function lockedStripesPath(width: number, height: number) {
+  let d = "";
+  const count = Math.ceil((width + height) / Math.SQRT2 / 20);
+  for (let index = 0; index < count; index++) {
+    const start = Math.SQRT2 * (index * 20 + 5) - height;
+    d += `M${start - 20} -20L${start + height + 20} ${height + 20}`;
+  }
+  return d;
 }
 
-export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
+export const LockedCard = memo(function LockedCard({
+  style,
+}: {
+  style?: StyleProp<ViewStyle>;
+}) {
   const [size, setSize] = useState({ width: 100, height: 100 });
   const gradientId = "lockedCenter" + useId().replace(/:/g, "");
   const diagonal = Math.hypot(size.width, size.height) / 2;
-  const stripeCount = Math.ceil((size.width + size.height) / Math.SQRT2 / 20);
+  const stripesPath = useMemo(
+    () => lockedStripesPath(size.width, size.height),
+    [size.width, size.height],
+  );
   return (
     <View
       accessibilityLabel="未発見のカード"
@@ -638,21 +674,12 @@ export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
           </RadialGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
-        {Array.from({ length: stripeCount }, (_, index) => {
-          // CSS repeating-linear-gradient(45deg, color 0 10px, transparent 10px 20px).
-          const start = Math.SQRT2 * (index * 20 + 5) - size.height;
-          return (
-            <Line
-              key={index}
-              x1={start - 20}
-              y1={-20}
-              x2={start + size.height + 20}
-              y2={size.height + 20}
-              stroke={C.lockedStripe}
-              strokeWidth={10}
-            />
-          );
-        })}
+        <Path
+          d={stripesPath}
+          fill="none"
+          stroke={C.lockedStripe}
+          strokeWidth={10}
+        />
       </Svg>
       <View
         style={{
@@ -677,7 +704,7 @@ export function LockedCard({ style }: { style?: StyleProp<ViewStyle> }) {
       </View>
     </View>
   );
-}
+});
 
 export function ResponsiveCards({
   cards,
@@ -696,6 +723,7 @@ export function ResponsiveCards({
           card={c}
           onPress={onPress ? () => onPress(c.key) : undefined}
           style={{ width: (w - 38) / 2, height: 220 }}
+          height={220}
         />
       ))}
     </View>

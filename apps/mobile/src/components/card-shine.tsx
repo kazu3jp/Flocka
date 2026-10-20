@@ -1,10 +1,18 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useMemo, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-/** The original .gcard .shine: 115 degrees, 400ms delay, two 1.4s passes. */
-export function CardShine() {
-  const [{ width, height }, setSize] = useState({ width: 1, height: 1 });
+/**
+ * The original .gcard .shine: 115 degrees, 400ms delay, two 1.4s passes.
+ * It fills the card's art box, so the card passes that measured size in.
+ */
+export function CardShine({
+  width,
+  height,
+}: {
+  width: number;
+  height: number;
+}) {
   const [reduced, setReduced] = useState(true);
   const [position] = useState(() => new Animated.Value(-120));
   const gradientId = "card-shine-" + useId().replace(/:/g, "");
@@ -44,6 +52,17 @@ export function CardShine() {
     animation.start();
     return () => animation.stop();
   }, [position, reduced]);
+  const translateX = useMemo(
+    () =>
+      position.interpolate({
+        inputRange: [-120, 120],
+        outputRange:
+          Platform.OS === "web"
+            ? ["-120%", "120%"]
+            : [-width * 1.2, width * 1.2],
+      }),
+    [position, width],
+  );
   if (reduced) return null;
 
   // CSS gradients span the projection of all four corners onto their axis.
@@ -54,33 +73,12 @@ export function CardShine() {
   return (
     <Animated.View
       testID="card-shine"
-      onLayout={({ nativeEvent }) =>
-        setSize((current) =>
-          current.width === nativeEvent.layout.width &&
-          current.height === nativeEvent.layout.height
-            ? current
-            : {
-                width: nativeEvent.layout.width,
-                height: nativeEvent.layout.height,
-              },
-        )
-      }
       pointerEvents="none"
       accessible={false}
       style={{
         position: "absolute",
         inset: 0,
-        transform: [
-          {
-            translateX: position.interpolate({
-              inputRange: [-120, 120],
-              outputRange:
-                Platform.OS === "web"
-                  ? ["-120%", "120%"]
-                  : [-width * 1.2, width * 1.2],
-            }),
-          },
-        ],
+        transform: [{ translateX }],
       }}
     >
       {width > 0 && height > 0 && (

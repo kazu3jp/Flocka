@@ -3,7 +3,11 @@ import { Animated, View } from "react-native";
 import { CARDS, PEER_PROFILE, bareCard } from "@flocka/domain";
 import { Avatar, C, Icon, S, StrengthCard, T } from "../../components/ui";
 import Svg, { Path, Rect } from "react-native-svg";
-import { tourEasing, useTourMotion } from "./use-tour-motion";
+import {
+  tourEasing,
+  useOwnSizeTranslate,
+  useTourMotion,
+} from "./use-tour-motion";
 
 function TourCard({
   cardKey,
@@ -61,9 +65,11 @@ function TourOption({
   children: React.ReactNode;
 }) {
   const enter = useTourMotion("option", reduced, scene, 500 + index * 150);
+  const own = useOwnSizeTranslate();
   return (
     <Animated.View
       testID={`tour-option-${index}`}
+      onLayout={own.onLayout}
       style={[
         S.fill,
         {
@@ -77,7 +83,7 @@ function TourOption({
               translateY: enter.interpolate({
                 easing: tourEasing.pop,
                 inputRange: [0, 1],
-                outputRange: ["40%", "0%"],
+                outputRange: own.percents("height", [40, 0]),
               }),
             },
             {
@@ -143,6 +149,8 @@ export function TourScene({
 function ExchangeScene({ reduced }: { reduced: boolean }) {
   const players = useTourMotion("players", reduced, "exchange");
   const swap = useTourMotion("swap", reduced, "exchange");
+  // Both player panels share one size, so one measurement converts both.
+  const panel = useOwnSizeTranslate();
   return (
     <Animated.View
       accessible={false}
@@ -154,6 +162,7 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
       ].map(([name, key, id], i) => (
         <Animated.View
           key={key}
+          onLayout={panel.onLayout}
           style={[
             S.panel,
             {
@@ -167,14 +176,18 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
               paddingBottom: 10,
               gap: 6,
               alignItems: "center",
+              // Until native knows the panel width, its offset is unknown;
+              // the panels start off-screen in the source anyway.
+              ...(panel.measured ? {} : { opacity: 0 }),
               transform: [
                 {
                   translateX: players.interpolate({
                     easing: tourEasing.ease,
                     inputRange: [0, 0.25, 0.55, 0.75, 1],
-                    outputRange: i
-                      ? ["120%", "0%", "0%", "-6%", "-6%"]
-                      : ["-120%", "0%", "0%", "6%", "6%"],
+                    outputRange: panel.percents(
+                      "width",
+                      i ? [120, 0, 0, -6, -6] : [-120, 0, 0, 6, 6],
+                    ),
                   }),
                 },
                 {
@@ -394,6 +407,7 @@ function PRScene({ reduced }: { reduced: boolean }) {
   const scene = "pr";
   const flip = useTourMotion("flip", reduced, scene);
   const doc = useTourMotion("option", reduced, scene, 900);
+  const docSize = useOwnSizeTranslate();
 
   return (
     <Animated.View
@@ -426,6 +440,7 @@ function PRScene({ reduced }: { reduced: boolean }) {
       </Animated.View>
       <Animated.View
         testID="tour-document"
+        onLayout={docSize.onLayout}
         style={[
           S.panel,
           {
@@ -448,7 +463,7 @@ function PRScene({ reduced }: { reduced: boolean }) {
                 translateY: doc.interpolate({
                   easing: tourEasing.pop,
                   inputRange: [0, 1],
-                  outputRange: ["40%", "0%"],
+                  outputRange: docSize.percents("height", [40, 0]),
                 }),
               },
               {
