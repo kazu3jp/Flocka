@@ -22,6 +22,7 @@ import React, {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -421,6 +422,7 @@ export function Provider({
     setPreferenceConflict(null);
     setSaveError(null);
   };
+  const derived = useMemo(() => derive(s), [s]);
   const preferencesJson = JSON.stringify(preferencesOf(s));
   useEffect(() => {
     if (!ready || !s.onboarded || preferencesJson === savedPreferences.current)
@@ -525,7 +527,7 @@ export function Provider({
     <Context.Provider
       value={{
         s,
-        d: derive(s),
+        d: derived,
         n,
         nav,
         ready,

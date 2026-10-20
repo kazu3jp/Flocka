@@ -97,7 +97,7 @@ export function Btn({
         <Icon
           name={icon}
           size={iconSize}
-          style={iconStyle}
+          style={[Platform.OS !== "web" && { flexShrink: 0 }, iconStyle]}
           color={danger ? C.white : C.ink}
         />
       )}
@@ -105,7 +105,12 @@ export function Btn({
         display
         size={small ? 13 : 17}
         color={disabled ? C.pale : danger ? C.white : C.ink}
-        style={[{ textAlign: "center" }, textStyle]}
+        style={[
+          { textAlign: "center" },
+          // Native text does not shrink by default; keep long labels inside the button.
+          Platform.OS !== "web" && { flexShrink: 1, minWidth: 0 },
+          textStyle,
+        ]}
       >
         {label}
       </T>

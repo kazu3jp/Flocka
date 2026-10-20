@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useState } from "react";
-import { AccessibilityInfo, Animated, Easing } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 /** The original .gcard .shine: 115 degrees, 400ms delay, two 1.4s passes. */
@@ -35,7 +35,7 @@ export function CardShine() {
           toValue: 120,
           duration: 1400,
           easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-          useNativeDriver: false,
+          useNativeDriver: Platform.OS !== "web",
           isInteraction: false,
         }),
         { iterations: 2 },
@@ -55,10 +55,15 @@ export function CardShine() {
     <Animated.View
       testID="card-shine"
       onLayout={({ nativeEvent }) =>
-        setSize({
-          width: nativeEvent.layout.width,
-          height: nativeEvent.layout.height,
-        })
+        setSize((current) =>
+          current.width === nativeEvent.layout.width &&
+          current.height === nativeEvent.layout.height
+            ? current
+            : {
+                width: nativeEvent.layout.width,
+                height: nativeEvent.layout.height,
+              },
+        )
       }
       pointerEvents="none"
       accessible={false}
@@ -69,7 +74,10 @@ export function CardShine() {
           {
             translateX: position.interpolate({
               inputRange: [-120, 120],
-              outputRange: ["-120%", "120%"],
+              outputRange:
+                Platform.OS === "web"
+                  ? ["-120%", "120%"]
+                  : [-width * 1.2, width * 1.2],
             }),
           },
         ],

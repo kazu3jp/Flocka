@@ -1,5 +1,17 @@
-import React, { useId, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React, {
+  useId,
+  useState,
+  useRef,
+  useLayoutEffect,
+  useCallback,
+} from "react";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  Platform,
+  useWindowDimensions,
+} from "react-native";
 import Svg, {
   Circle,
   Defs,
@@ -39,6 +51,26 @@ export function PlayerSurface({
   footer?: React.ReactNode;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const measuredView = useRef<View>(null);
+  const { width, height, fontScale } = useWindowDimensions();
+  const recordSize = useCallback((width: number, height: number) => {
+    if (width <= 0 || height <= 0) return;
+    setSize((current) =>
+      current.width === width && current.height === height
+        ? current
+        : { width, height },
+    );
+  }, []);
+  useLayoutEffect(() => {
+    if (Platform.OS === "web") return;
+    let active = true;
+    measuredView.current?.measure((_x, _y, width, height) => {
+      if (active) recordSize(width, height);
+    });
+    return () => {
+      active = false;
+    };
+  }, [width, height, fontScale, recordSize]);
   const id = `player-${useId().replace(/:/g, "")}`;
   const contentHeight = size.height;
   const showHand = contentHeight > (compact ? 360 : 520);
@@ -61,12 +93,10 @@ export function PlayerSurface({
     >
       <View
         style={{ flex: 1, minHeight: 0 }}
+        ref={measuredView}
+        collapsable={false}
         onLayout={({ nativeEvent: { layout } }) =>
-          setSize((current) =>
-            current.width === layout.width && current.height === layout.height
-              ? current
-              : { width: layout.width, height: layout.height },
-          )
+          recordSize(layout.width, layout.height)
         }
       >
         <Svg

@@ -39,6 +39,7 @@ export function CardIllustration({
         duration: 1300,
         easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
+        isInteraction: false,
       };
       loop = Animated.loop(
         Animated.sequence([

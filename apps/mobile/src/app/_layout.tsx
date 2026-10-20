@@ -91,7 +91,9 @@ export default function RootLayout() {
                   gestureEnabled: false,
                   contentStyle: { backgroundColor: C.blue },
                 }}
-              />
+              >
+                <Stack.Screen name="[page]" options={{ animation: "none" }} />
+              </Stack>
             </AccountProvider>
           </AuthProvider>
         </AppFrame>
