@@ -1,4 +1,5 @@
 import { useAction } from "../sync/use-action";
+import { useScreenVisit } from "../sync/use-screen-visit";
 import React, { useState } from "react";
 import {
   Board,
@@ -21,7 +22,8 @@ export function Confirm({ cid }: { cid: string }) {
     [context, setContextDraft] = useState(
       c?.context ?? { place: "", trigger: "" },
     ),
-    { busy, error, run } = useAction();
+    { busy, error, run } = useAction(),
+    startVisit = useScreenVisit(cid);
   if (!c)
     return (
       <Board>
@@ -104,10 +106,11 @@ export function Confirm({ cid }: { cid: string }) {
             label="キャンセル"
             onPress={() => {
               void run(async () => {
+                const sameVisit = startVisit();
                 await api.cancelExchange(cid);
                 await refresh();
                 toast("キャンセルしました");
-                nav.pop();
+                if (sameVisit()) nav.pop();
               });
             }}
           />
