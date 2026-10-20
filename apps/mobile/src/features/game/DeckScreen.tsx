@@ -1,8 +1,15 @@
-import React from "react";
-import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import React, { useState } from "react";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import {
   Avatar,
   Board,
+  Btn,
   C,
   Envelope,
   F,
@@ -11,11 +18,56 @@ import {
   LockedCard,
   Panel,
   S,
+  Sheet,
   StrengthCard,
   T,
 } from "../../components/ui";
 
 import { useApp } from "../../store";
+import { usePullRefresh } from "../refresh/use-pull-refresh";
+
+const DECK_SLOTS = 6;
+
+/** The last grid slot opens the full collection once the deck outgrows the grid. */
+function MoreCardsTile({
+  count,
+  onPress,
+}: {
+  count: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      testID="deck-more"
+      accessibilityRole="button"
+      accessibilityLabel={`ほか${count}枚のカードをすべて見る`}
+      onPress={onPress}
+      style={S.fill}
+    >
+      <Panel
+        style={{
+          flex: 1,
+          padding: 10,
+          borderRadius: 14,
+          boxShadow: `3px 3px 0 ${C.ink}`,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+        }}
+      >
+        <T display size={26} color={C.ink} style={{ lineHeight: 32 }}>
+          +{count}枚
+        </T>
+        <View style={[S.row, { gap: 2 }]}>
+          <T size={13} color={C.ink} style={{ fontFamily: F.bold }}>
+            すべて見る
+          </T>
+          <Icon name="chev" size={16} color={C.ink} />
+        </View>
+      </Panel>
+    </Pressable>
+  );
+}
 
 function BannerCaption({ children }: { children: React.ReactNode }) {
   // The source's inline .cap sits on the 15px body text's 24.75px line box.
@@ -30,10 +82,17 @@ function BannerCaption({ children }: { children: React.ReactNode }) {
 
 export function Deck() {
   const { s, d, nav, setOpening } = useApp(),
-    { height, fontScale } = useWindowDimensions();
-  const slots = [
-    ...d.deck.slice(0, 6),
-    ...Array(Math.max(0, 6 - d.deck.length)).fill(null),
+    { height, fontScale } = useWindowDimensions(),
+    pull = usePullRefresh(),
+    [lockedHint, setLockedHint] = useState(false);
+  const overflow = d.deck.length > DECK_SLOTS;
+  // With more cards than slots, the last slot links to the full collection.
+  const shown = overflow ? d.deck.slice(0, DECK_SLOTS - 1) : d.deck;
+  const hidden = d.deck.length - shown.length;
+  const slots: ((typeof d.deck)[number] | "more" | null)[] = [
+    ...shown,
+    ...(overflow ? ["more" as const] : []),
+    ...Array(Math.max(0, DECK_SLOTS - d.deck.length)).fill(null),
   ];
   const unsent = s.connections.filter(
     (c) => c.status === "accepted" && !c.vibe && !s.blocked.includes(c.peerId),
@@ -60,20 +119,32 @@ export function Deck() {
             gap: 10,
           }}
         >
-          {slots
-            .slice(row * 2, row * 2 + 2)
-            .map((c, i) =>
-              c ? (
-                <StrengthCard
-                  key={c.key}
-                  card={c}
-                  style={S.fill}
-                  onPress={() => nav.push("card", { key: c.key })}
-                />
-              ) : (
-                <LockedCard key={i} style={S.fill} />
-              ),
-            )}
+          {slots.slice(row * 2, row * 2 + 2).map((c, i) =>
+            c === "more" ? (
+              <MoreCardsTile
+                key="more"
+                count={hidden}
+                onPress={() => nav.push("collection")}
+              />
+            ) : c ? (
+              <StrengthCard
+                key={c.key}
+                card={c}
+                style={S.fill}
+                onPress={() => nav.push("card", { key: c.key })}
+              />
+            ) : (
+              <Pressable
+                key={i}
+                accessibilityRole="button"
+                accessibilityLabel="未発見のカード・見つけ方を見る"
+                onPress={() => setLockedHint(true)}
+                style={S.fill}
+              >
+                <LockedCard style={S.fill} />
+              </Pressable>
+            ),
+          )}
         </View>
       ))}
     </View>
@@ -201,7 +272,19 @@ export function Deck() {
         </Pressable>
       )}
       {largeText ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: 4 }} style={S.fill}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 4 }}
+          style={S.fill}
+          refreshControl={
+            <RefreshControl
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
+              tintColor={C.yellow}
+              colors={[C.ink]}
+              progressBackgroundColor={C.yellow}
+            />
+          }
+        >
           {grid}
         </ScrollView>
       ) : (
@@ -276,6 +359,21 @@ export function Deck() {
           <Icon name="chev" color={d.prCard ? C.ink : C.white} />
         </Panel>
       </Pressable>
+      {lockedHint && (
+        <Sheet title="未発見のカード" onClose={() => setLockedHint(false)}>
+          <T>
+            仲間の証言で新しいカードが見つかります。交換した人から印象やメモが届くと、封筒を開けたときにカードが加わります。
+          </T>
+          <Btn
+            label="交換する"
+            onPress={() => {
+              setLockedHint(false);
+              nav.goTab("exchange");
+            }}
+          />
+          <Btn plain label="閉じる" onPress={() => setLockedHint(false)} />
+        </Sheet>
+      )}
     </Board>
   );
 }

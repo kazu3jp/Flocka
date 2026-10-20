@@ -1,6 +1,6 @@
 import { useTestimonySend } from "./use-testimony-send";
 import { DeliveryFeedback } from "./delivery-feedback";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Board, Btn, C, Header, Panel, F, T } from "../../components/ui";
 import { CARDS } from "@flocka/domain";
@@ -11,6 +11,9 @@ import {
   MemoStrengths,
 } from "./memo-controls";
 import { useApp } from "../../store";
+import { useConfirmation } from "../../components/pickers";
+import { useBackStep } from "../navigation/use-back-step";
+import { hapticSuccess } from "../haptics/haptics";
 
 export function Memo() {
   const { s, api, refresh, nav, toast, peers } = useApp(),
@@ -31,7 +34,26 @@ export function Memo() {
       story: string;
     }>(refresh, () =>
       toast(`${peers[to]?.profile.name ?? "相手"}に封筒を贈りました`),
-    );
+    ),
+    { ask, dialog } = useConfirmation();
+  // The receipt only exists after the server accepted the memo.
+  useEffect(() => {
+    if (receipt) hapticSuccess();
+  }, [receipt]);
+  const drafted = !receipt && !!story.trim();
+  // Earlier steps keep the typed story; only leaving the screen discards it.
+  const back = () => {
+    if (step > 0) setStep(step - 1);
+    else if (drafted)
+      ask(
+        "書いた場面を破棄する？",
+        "入力した場面のメモは保存されません。",
+        nav.pop,
+        "破棄する",
+      );
+    else nav.pop();
+  };
+  useBackStep(step > 0 || drafted ? 1 : 0, back);
   const members = [
     ...new Set(
       [...s.connections]
@@ -99,11 +121,7 @@ export function Memo() {
     );
   return (
     <Board scroll form>
-      <Header
-        title=""
-        onBack={() => (step ? setStep(step - 1) : nav.pop())}
-        right={<MemoProgress step={step} />}
-      />
+      <Header title="" onBack={back} right={<MemoProgress step={step} />} />
       {error && (
         <T color={C.yellow} accessibilityRole="alert">
           {error}
@@ -167,12 +185,13 @@ export function Memo() {
       <View style={{ flexGrow: 1 }} />
       <Btn
         label={step < 2 ? "次へ" : "封筒で贈る"}
+        loading={busy}
         disabled={
-          busy ||
           ![members.includes(to), !!card, story.trim().length >= 8][step]
         }
         onPress={() => (step < 2 ? setStep(step + 1) : send())}
       />
+      {dialog}
     </Board>
   );
 }

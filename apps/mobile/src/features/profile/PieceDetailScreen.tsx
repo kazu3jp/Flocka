@@ -14,8 +14,16 @@ import {
   StrengthCard,
   T,
 } from "../../components/ui";
-import { CARDS, allPieces, wordsOf } from "@flocka/domain";
+import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
+
+/** Describes the opening guess without calling a skipped guess a miss. */
+function guessResult(p: Piece) {
+  if (!p.guess) return "未開封";
+  if (p.guess === "skip") return "予想なし";
+  const name = CARDS[p.guess]?.name ?? "不明なカード";
+  return p.guess === p.card ? `${name}　的中` : `${name}　外れ`;
+}
 
 export function PieceDetail({ id }: { id: string }) {
   const { s, nav, api, refresh, toast, d, peers, setOpening, offerUndo } =
@@ -23,6 +31,8 @@ export function PieceDetail({ id }: { id: string }) {
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
+  // The server snapshot lists this account's open reports for the piece.
+  const report = s.reports.find((r) => r.pieceId === id && !r.withdrawn);
   const redirected = useRef<string | null>(null);
   const visit = useRef<object | null>(null);
   useFocusEffect(
@@ -80,7 +90,11 @@ export function PieceDetail({ id }: { id: string }) {
   return (
     <Board scroll>
       <Header title="証言" onBack={nav.pop} />
-      {error && <T accessibilityRole="alert" color={C.yellow}>{error}</T>}
+      {error && (
+        <T accessibilityRole="alert" color={C.yellow}>
+          {error}
+        </T>
+      )}
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
           {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
@@ -103,11 +117,7 @@ export function PieceDetail({ id }: { id: string }) {
         card={d.cards[p.card]}
         style={{ height: 280, width: 210, alignSelf: "center" }}
       />
-      <T>
-        予想：
-        {p.guess === "skip" ? "なし" : CARDS[p.guess || ""]?.name || "未開封"}　
-        {p.guess === p.card ? "的中" : "予想外"}
-      </T>
+      <T>予想：{guessResult(p)}</T>
       <T size={13}>
         場面：
         {s.connections.find((c) => c.id === p.exchangeId)?.context.place ||
@@ -128,35 +138,47 @@ export function PieceDetail({ id }: { id: string }) {
           disabled={busy}
           small
           plain={p.visibility !== v}
+          icon={p.visibility === v ? "check" : undefined}
+          iconSize={16}
+          selected={p.visibility === v}
           label={label}
           onPress={() => changeVisibility(v)}
         />
       ))}
       <T display size={18}>
-        通報理由
+        {report ? "通報済み" : "通報理由"}
       </T>
-      <View style={S.wrap}>
-        {["不適切な内容", "嫌がらせ", "個人情報", "その他"].map((reason) => (
-          <LinkButton
-            key={reason}
-            label={reason}
-            onPress={() =>
-              ask(
-                "通報する？",
-                `「${reason}」として運営に送信します。`,
-                () => {
-                  void run(async () => {
-                    await api.requestModeration(id, "report", reason);
-                    await refresh();
-                    toast("通報を受け付けました");
-                  });
-                },
-                "通報する",
-              )
-            }
-          />
-        ))}
-      </View>
+      {report ? (
+        <T size={13}>
+          「{report.reason || "通報"}」として運営に送信しました。
+          {report.status === "pending" ? "確認をお待ちください。" : ""}
+          取り下げは「公開範囲・安全」からできます。
+        </T>
+      ) : (
+        <View style={S.wrap}>
+          {["不適切な内容", "嫌がらせ", "個人情報", "その他"].map((reason) => (
+            <LinkButton
+              key={reason}
+              label={reason}
+              disabled={busy}
+              onPress={() =>
+                ask(
+                  "通報する？",
+                  `「${reason}」として運営に送信します。`,
+                  () => {
+                    void run(async () => {
+                      await api.requestModeration(id, "report", reason);
+                      await refresh();
+                      toast("通報を受け付けました");
+                    });
+                  },
+                  "通報する",
+                )
+              }
+            />
+          ))}
+        </View>
+      )}
       <Btn
         plain
         label="この人をブロック"

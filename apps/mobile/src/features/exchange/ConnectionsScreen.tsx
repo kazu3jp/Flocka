@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, View } from "react-native";
+import type { Connection } from "@flocka/domain";
 import {
   Board,
   Btn,
   C,
+  Choice,
   F,
   Header,
   Icon,
@@ -15,23 +17,89 @@ import {
 import { useApp } from "../../store";
 import { PeerAvatar } from "./player-card";
 import { useConnectionRemoval } from "./use-connection-removal";
+import { usePullRefresh } from "../refresh/use-pull-refresh";
+
+type ConnectionFilter = "all" | "pending" | "unsent";
+
+const FILTERS: [ConnectionFilter, string][] = [
+  ["all", "すべて"],
+  ["pending", "承認待ち"],
+  ["unsent", "未送信"],
+];
+
+const matchesFilter = (connection: Connection, filter: ConnectionFilter) =>
+  filter === "all" ||
+  (filter === "pending"
+    ? connection.status === "pending"
+    : connection.status === "accepted" && !connection.vibe);
+
+// Exchanges still waiting for approval may not have a time yet; they are the newest.
+const exchangedTime = (connection: Connection) =>
+  connection.exchangedAt ?? "\uffff";
+
+function PendingBadge() {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 8,
+        borderRadius: 99,
+        borderWidth: 2,
+        borderColor: C.ink,
+        backgroundColor: C.pink,
+      }}
+    >
+      <T color={C.ink} size={11} style={{ fontFamily: F.bold, lineHeight: 18 }}>
+        承認待ち
+      </T>
+    </View>
+  );
+}
 
 export function Connections() {
   const { s, nav, peers } = useApp();
   const removal = useConnectionRemoval();
-  const connections = [...s.connections]
-    .filter(
-      (connection) =>
-        connection.status !== "cancelled" &&
-        !s.blocked.includes(connection.peerId),
-    )
-    .sort((a, b) => (a.exchangedAt ?? "").localeCompare(b.exchangedAt ?? ""));
+  const pull = usePullRefresh();
+  const [filter, setFilter] = useState<ConnectionFilter>("all");
+  const active = s.connections.filter(
+    (connection) =>
+      connection.status !== "cancelled" &&
+      !s.blocked.includes(connection.peerId),
+  );
+  // Newest exchanges first.
+  const connections = active
+    .filter((connection) => matchesFilter(connection, filter))
+    .sort((a, b) => exchangedTime(b).localeCompare(exchangedTime(a)));
   return (
-    <Board scroll>
+    <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="つながった人" onBack={nav.pop} />
-      {!connections.length ? (
+      {!!active.length && (
+        <View
+          testID="connections-filter"
+          accessibilityRole="tablist"
+          style={[S.row, { gap: 6 }]}
+        >
+          {FILTERS.map(([value, label]) => (
+            <View key={value} style={S.fill}>
+              <Choice
+                accessibilityRole="tab"
+                label={`${label}（${active.filter((connection) => matchesFilter(connection, value)).length}）`}
+                selected={filter === value}
+                onPress={() => setFilter(value)}
+                style={{ alignItems: "center" }}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+      {!active.length ? (
         <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
           まだ交換した人はいません。交換画面から、近くの人やQRで交換できます。
+        </T>
+      ) : !connections.length ? (
+        <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
+          {filter === "pending"
+            ? "承認待ちの交換はありません。"
+            : "印象をまだ贈っていない人はいません。"}
         </T>
       ) : (
         <View
@@ -51,14 +119,16 @@ export function Connections() {
             const sent = s.sentVibes.find(
               (piece) => piece.id === connection.vibe,
             );
-            const description =
-              connection.status === "pending"
-                ? "承認待ち"
-                : sent?.label
-                  ? `「${sent.label}」を贈った`
-                  : connection.vibe
-                    ? "印象を贈りました"
-                    : connection.context.place || "交換済み";
+            const pending = connection.status === "pending";
+            const description = pending
+              ? connection.myApproved
+                ? "相手の承認を待っています"
+                : "交換の確認が必要です"
+              : sent?.label
+                ? `「${sent.label}」を贈った`
+                : connection.vibe
+                  ? "印象を贈りました"
+                  : connection.context.place || "交換済み";
             return (
               <View
                 key={connection.id}
@@ -76,13 +146,20 @@ export function Connections() {
               >
                 <PeerAvatar id={connection.peerId} size={38} />
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <T
-                    color={C.ink}
-                    size={14}
-                    style={{ fontFamily: F.bold, lineHeight: 22.4 }}
-                  >
-                    {name}
-                  </T>
+                  <View style={[S.row, { gap: 6 }]}>
+                    <T
+                      color={C.ink}
+                      size={14}
+                      style={{
+                        fontFamily: F.bold,
+                        lineHeight: 22.4,
+                        flexShrink: 1,
+                      }}
+                    >
+                      {name}
+                    </T>
+                    {pending && <PendingBadge />}
+                  </View>
                   <T color={C.muted} size={12.5} style={{ lineHeight: 24.75 }}>
                     {description}
                   </T>
@@ -91,17 +168,12 @@ export function Connections() {
                   color={C.ink}
                   disabled={removal.busy}
                   label={
-                    connection.status === "pending"
-                      ? "確認"
-                      : connection.vibe
-                        ? "詳細"
-                        : "印象を贈る"
+                    pending ? "確認" : connection.vibe ? "詳細" : "印象を贈る"
                   }
                   onPress={() =>
-                    nav.push(
-                      connection.status === "pending" ? "confirm" : "give",
-                      { cid: connection.id },
-                    )
+                    nav.push(pending ? "confirm" : "give", {
+                      cid: connection.id,
+                    })
                   }
                 />
                 <Pressable
@@ -124,7 +196,7 @@ export function Connections() {
           })}
         </View>
       )}
-      {connections.some((connection) => connection.status === "accepted") && (
+      {active.some((connection) => connection.status === "accepted") && (
         <Btn
           plain
           label="見た場面をメモで贈る"

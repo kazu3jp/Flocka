@@ -2,6 +2,7 @@ import { useAction } from "../sync/use-action";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Animated,
   Modal,
   Pressable,
@@ -32,12 +33,23 @@ import {
   type State,
 } from "@flocka/domain";
 import { useApp } from "../../store";
+import { hapticSuccess } from "../haptics/haptics";
+
+/** The headline after opening; skipping is neither a hit nor a miss. */
+function openingResult(guess: string | null, card: string, self: boolean) {
+  if (!guess || guess === "skip") return "開封！";
+  if (guess === card) return "的中！";
+  return self ? "予想外！" : "新発見！";
+}
+
 function GuessContent({ id }: { id: string }) {
   const { s, d, nav, api, refresh, toast, setOpening, peers } = useApp(),
     { busy, error, run } = useAction(),
     p = allPieces(s).find((p) => p.id === id),
     [wasConfirmed] = useState(p ? d.cards[p.card].confirmed : false),
     [guess, setGuess] = useState<string | null>(null),
+    // The option being saved, shown as chosen before the server answers.
+    [pending, setPending] = useState<string | null>(null),
     [stage, setStage] = useState<"guess" | "opening" | "open">("guess"),
     [reduced, setReduced] = useState(false),
     [scale] = useState(() => new Animated.Value(1)),
@@ -66,11 +78,22 @@ function GuessContent({ id }: { id: string }) {
     // p is re-found on each render; its id and card identify it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, p?.id, p?.card, guess]);
+  const became = !!after?.confirmed && !wasConfirmed,
+    hit = !!p && guess === p.card;
+  // Celebrate only results the server saved: a correct guess or a new confirmed card.
+  useEffect(() => {
+    if (stage === "open" && (hit || became)) hapticSuccess();
+    // Runs once when the result appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
   if (!p || !after) return null;
   const opts = optionsFor(p, s.self),
-    became = after.confirmed && !wasConfirmed;
+    remaining = d.unopened.filter((piece) => piece.id !== p.id),
+    chosen = busy ? pending : stage === "opening" ? guess : null,
+    locked = busy || stage !== "guess";
   const choose = (k: string) => {
-    if (stage !== "guess") return;
+    if (locked) return;
+    setPending(k);
     void run(async () => {
       const saved = await api.openTestimony(p.id, k);
       await refresh();
@@ -138,18 +161,54 @@ function GuessContent({ id }: { id: string }) {
             </T>
             <View style={[S.row, { gap: 8 }]}>
               {opts.map((k) => (
-                <StrengthCard
+                <View
                   key={k}
-                  card={bareCard(k, s.self.includes(k))}
-                  style={{ flex: 1, height: 220 }}
-                  onPress={() => {
-                    if (!busy) choose(k);
+                  accessibilityState={{
+                    selected: chosen === k,
+                    disabled: locked,
+                    busy: busy && chosen === k,
                   }}
-                />
+                  style={{
+                    flex: 1,
+                    height: 220,
+                    opacity: chosen && chosen !== k ? 0.4 : 1,
+                    transform: [{ translateY: chosen === k ? -6 : 0 }],
+                  }}
+                >
+                  <StrengthCard
+                    card={bareCard(k, s.self.includes(k))}
+                    style={{ flex: 1 }}
+                    onPress={locked ? undefined : () => choose(k)}
+                  />
+                  {chosen === k && (
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: "absolute",
+                        left: -4,
+                        right: -4,
+                        top: -4,
+                        bottom: -4,
+                        borderWidth: 3,
+                        borderColor: C.yellow,
+                        borderRadius: 17,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {busy && <ActivityIndicator color={C.yellow} />}
+                    </View>
+                  )}
+                </View>
               ))}
             </View>
             <LinkButton
-              label="予想せずに開ける"
+              label={
+                busy && pending === "skip"
+                  ? "開けています…"
+                  : "予想せずに開ける"
+              }
+              disabled={locked}
               onPress={() => choose("skip")}
             />
           </>
@@ -176,11 +235,7 @@ function GuessContent({ id }: { id: string }) {
                 color={C.yellow}
                 style={{ transform: [{ rotate: "-7deg" }] }}
               >
-                {guess === p.card
-                  ? "的中！"
-                  : s.self.includes(p.card)
-                    ? "予想外！"
-                    : "新発見！"}
+                {openingResult(guess, p.card, s.self.includes(p.card))}
               </T>
               {guess && guess !== "skip" && guess !== p.card && (
                 <T size={13}>予想：{CARDS[guess].name}</T>
@@ -199,8 +254,22 @@ function GuessContent({ id }: { id: string }) {
           </>
         )}
       </ScrollView>
+      {stage === "open" && remaining.length > 0 && (
+        <Btn
+          label={`次の封筒を開ける（残り${remaining.length}通）`}
+          onPress={() => {
+            if (became)
+              toast("確認済みカード誕生！自己PRが書けます", {
+                label: "見る",
+                fn: () => nav.goTab("pr"),
+              });
+            setOpening(remaining[0].id);
+          }}
+        />
+      )}
       {stage === "open" && (
         <Btn
+          plain={remaining.length > 0}
           label="デッキに加える"
           onPress={() => {
             setOpening(null);

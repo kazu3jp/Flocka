@@ -1,7 +1,7 @@
 import { LegalDocument } from "../auth/LegalDocument";
 import { useAuth } from "../auth/provider";
 import type { LegalTitle } from "@flocka/domain";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Switch, View } from "react-native";
 import {
   AvatarPicker,
@@ -25,6 +25,7 @@ import {
 } from "../../components/ui";
 import { CARDS, bareCard } from "@flocka/domain";
 import { useApp } from "../../store";
+import { useBackStep } from "../navigation/use-back-step";
 const STEPS = [
   [
     "ニックネーム",
@@ -64,6 +65,11 @@ export function Onboarding() {
     [sel, setSel] = useState(s.self),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const previousStep = useCallback(
+    () => setStep((current) => Math.max(0, current - 1)),
+    [],
+  );
+  useBackStep(step, previousStep);
   const can =
     step === 0 ? !!profile.name.trim() : step === 3 ? sel.length >= 2 : true;
   const finish = async () => {
@@ -140,13 +146,17 @@ export function Onboarding() {
           <LegalDocument title={legal} />
         </Sheet>
       )}
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && (
+        <T accessibilityRole="alert" color={C.yellow}>
+          {error}
+        </T>
+      )}
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="前のステップに戻る"
-            onPress={() => setStep(step - 1)}
+            onPress={previousStep}
             style={{ padding: 10 }}
           >
             <Icon name="back" />
@@ -277,7 +287,8 @@ export function Onboarding() {
               ? "内容を確認する"
               : "次へ"
         }
-        disabled={!can || busy}
+        disabled={!can}
+        loading={busy}
         onPress={() => (step < 5 ? setStep(step + 1) : void finish())}
       />
     </Board>

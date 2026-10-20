@@ -41,3 +41,13 @@ test("external routes select their tab and preserve valid back history", () => {
   );
   assert.equal(validNav(exchange), true);
 });
+
+test("the card collection opens on the deck tab above the deck", () => {
+  const collection = navigationForRoute(initNav(), { id: "collection" });
+  assert.equal(collection.tab, "find");
+  assert.deepEqual(collection.stacks.find, [
+    { id: "deck" },
+    { id: "collection" },
+  ]);
+  assert.equal(validNav(collection), true);
+});

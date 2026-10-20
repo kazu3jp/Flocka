@@ -13,11 +13,13 @@ import {
   T,
 } from "../../components/ui";
 import { useApp } from "../../store";
+import { usePullRefresh } from "../refresh/use-pull-refresh";
 
 export function Me() {
   const { s, nav, d } = useApp();
+  const pull = usePullRefresh();
   return (
-    <Board scroll>
+    <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="自分" onBack={nav.pop} />
       <Panel>
         <View style={S.row}>
