@@ -29,7 +29,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "../../node_modules/@expo-google-fonts/dela-gothic-one/400Regular/DelaGothicOne_400Regular.ttf",
+            "../../node_modules/@expo-google-fonts/zen-kaku-gothic-new/500Medium/ZenKakuGothicNew_500Medium.ttf",
+            "../../node_modules/@expo-google-fonts/zen-kaku-gothic-new/700Bold/ZenKakuGothicNew_700Bold.ttf"
+          ]
+        }
+      ],
       [
         "expo-camera",
         {
