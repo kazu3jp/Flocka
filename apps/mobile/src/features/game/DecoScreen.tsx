@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { DECO, DECO_COLORS } from "@flocka/domain";
 import {
@@ -28,7 +28,6 @@ export function Deco({ cardKey }: { cardKey: string }) {
     back,
   } = useDecoration(cardKey);
   const { height } = useWindowDimensions();
-  const [optionsWidth, setOptionsWidth] = useState(0);
   const previewHeight =
     height <= 650 ? 150 : Math.max(170, Math.min(260, height * 0.3));
   if (!card)
@@ -37,6 +36,11 @@ export function Deco({ cardKey }: { cardKey: string }) {
         <Header title="カードをデコる" onBack={back} />
       </Board>
     );
+  const options = tab === "color" ? DECO_COLORS : DECO[tab];
+  const optionRows = Array.from(
+    { length: Math.ceil(options.length / 3) },
+    (_, row) => options.slice(row * 3, row * 3 + 3),
+  );
   return (
     <Board contentStyle={{ gap: 8 }}>
       <Header
@@ -126,70 +130,81 @@ export function Deco({ cardKey }: { cardKey: string }) {
         </T>
         <View
           testID="decoration-options"
-          onLayout={({ nativeEvent: { layout } }) =>
-            setOptionsWidth(layout.width)
-          }
           accessibilityLabel="選ぶ"
-          style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+          style={{ gap: 8 }}
         >
-          {(tab === "color" ? DECO_COLORS : DECO[tab]).map(([key, label]) => {
-            const selected =
-              tab === "stickers"
-                ? decoration.stickers.includes(key)
-                : decoration[tab] === key;
-            return (
-              <Pressable
-                key={key}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                aria-pressed={selected}
-                accessibilityState={{ selected }}
-                disabled={busy}
-                onPress={() => select(key)}
-                style={{
-                  width: optionsWidth ? (optionsWidth - 16) / 3 : "31%",
-                  minHeight: tab === "stickers" ? 116 : 86,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  paddingVertical: 8,
-                  paddingHorizontal: 4,
-                  borderRadius: 14,
-                  borderWidth: 2.5,
-                  borderColor: C.ink,
-                  backgroundColor: selected ? C.yellow : C.paper,
-                  boxShadow: `2px 2px 0 ${C.ink}`,
-                  transform:
-                    selected && tab !== "stickers"
-                      ? [{ translateX: -1 }, { translateY: -2 }]
-                      : [],
-                }}
-              >
-                <DecorationSwatch
-                  tab={tab}
-                  option={key}
-                  cardKey={cardKey}
-                  decoration={decoration}
-                />
-                <T
-                  color={C.ink}
-                  size={12.5}
-                  style={{ fontFamily: F.bold, lineHeight: 20.625 }}
-                >
-                  {label}
-                </T>
-                {tab === "stickers" && (
-                  <T
-                    color={C.ink}
-                    size={12.5}
-                    style={{ lineHeight: 19.375, opacity: selected ? 1 : 0 }}
+          {optionRows.map((row, rowIndex) => (
+            <View
+              key={`${tab}-${rowIndex}`}
+              style={{ flexDirection: "row", gap: 8 }}
+            >
+              {row.map(([key, label]) => {
+                const selected =
+                  tab === "stickers"
+                    ? decoration.stickers.includes(key)
+                    : decoration[tab] === key;
+                return (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    aria-pressed={selected}
+                    accessibilityState={{ selected }}
+                    disabled={busy}
+                    onPress={() => select(key)}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      minHeight: tab === "stickers" ? 116 : 86,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      paddingVertical: 8,
+                      paddingHorizontal: 4,
+                      borderRadius: 14,
+                      borderWidth: 2.5,
+                      borderColor: C.ink,
+                      backgroundColor: selected ? C.yellow : C.paper,
+                      boxShadow: `2px 2px 0 ${C.ink}`,
+                      transform:
+                        selected && tab !== "stickers"
+                          ? [{ translateX: -1 }, { translateY: -2 }]
+                          : [],
+                    }}
                   >
-                    貼付済み
-                  </T>
-                )}
-              </Pressable>
-            );
-          })}
+                    <DecorationSwatch
+                      tab={tab}
+                      option={key}
+                      cardKey={cardKey}
+                      decoration={decoration}
+                    />
+                    <T
+                      color={C.ink}
+                      size={12.5}
+                      style={{ fontFamily: F.bold, lineHeight: 20.625 }}
+                    >
+                      {label}
+                    </T>
+                    {tab === "stickers" && (
+                      <T
+                        color={C.ink}
+                        size={12.5}
+                        style={{
+                          lineHeight: 19.375,
+                          opacity: selected ? 1 : 0,
+                        }}
+                      >
+                        貼付済み
+                      </T>
+                    )}
+                  </Pressable>
+                );
+              })}
+              {Array.from({ length: 3 - row.length }, (_, column) => (
+                <View key={`empty-${column}`} style={{ flex: 1 }} />
+              ))}
+            </View>
+          ))}
         </View>
       </ScrollView>
       {error && (

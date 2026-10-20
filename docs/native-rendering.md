@@ -18,6 +18,22 @@
 3. React Native DevToolsのProfilerで同じ操作を記録し、不要な再描画と時間のかかる処理を確認する。
 4. 操作の応答時間は開発ビルドと配布用ビルドを区別して記録する。開発時の検査処理があるため、開発ビルドだけから配布時の速度を判断しない。
 
-Webの画像比較と書き出し成功は、ネイティブの文字欠け・フレーム落ちを検証した証拠にはしない。今回の確認時は `adb devices -l` に実機が表示されず、端末上のProfiler計測・画面操作は実施していない。
+Webの画像比較と書き出し成功は、ネイティブの文字欠け・フレーム落ちを検証した証拠にはしない。初回修正時は `adb devices -l` に実機が表示されず、端末上のProfiler計測・画面操作は実施していない。
 
 参照: [React Native 0.86のレイアウト計測](https://reactnative.dev/docs/0.86/the-new-architecture/layout-measurements)、[Native Driver](https://reactnative.dev/docs/0.86/animations#using-the-native-driver)、[Flexbox](https://reactnative.dev/docs/0.86/flexbox)、[パフォーマンス](https://reactnative.dev/docs/performance)。
+
+
+## Androidエミュレーターでの確認（2026-10-20）
+
+Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.0）へ開発ビルドをインストールし、Android Studio内のRunning Devicesで実際に操作した。CMF Phone 2 Pro実機の検証とは区別する。
+
+ローカルWorkers・D1とBetter Authを使用し、専用QAアカウントと3人の接続・証言を投入した。通信をモックで置き換えず、本番データや外部メール配信は使用していない。QA資格情報はリポジトリへ含めない。
+
+- セッション取得失敗の再試行、ウェルカム、ログイン・新規登録画面、QAログインと同期を確認した。新規登録の規約同意・送信は実施していない。
+- デッキ、カード詳細、装飾、交換、つながり一覧、印象入力、場面メモ3ステップ、自己PRの書き上がりを開いて確認した。印象・場面メモの最終送信は実施していない。
+- 装飾の選択肢がAndroidで2列になり、右側に空白ができる問題を再現した。原本CSSの3列に合わせ、幅の計測と折り返しから、3個ずつの等幅行へ変更した。模様・フレーム・シール・色の全タブと再訪時に3列表示を確認した。初期幅の計測に伴う追加描画も不要になる。
+- 上記で確認した画面では、報告された文字欠けは再現していない。自己PRの途中表示は書き出し演出で、その後に全文表示されることを確認した。
+
+画面遷移中の全フレーム、大きい文字サイズ、キーボード表示中の全画面、CMF実機、配布用ビルドの性能は未検証。Profilerによる速度の改善量も測定していないため、この確認から重さ・文字欠け・配置変化がすべて解消したとは判断しない。
+
+修正後の検証: `npm run validate`（型検査・lint・38テスト）、`npm run build:vrt && npx playwright test`（4画面幅・136件、既存画像の更新なし）、Web/Android/iOSの書き出しと `verify:export` が成功した。
