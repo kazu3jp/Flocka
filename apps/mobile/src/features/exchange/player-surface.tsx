@@ -246,6 +246,7 @@ export function PlayerSurface({
                         { translateY: cardHeight * pose.verticalOffset },
                       ],
                     }}
+                    height={cardHeight}
                   />
                 );
               })}
