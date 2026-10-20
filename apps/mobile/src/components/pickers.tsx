@@ -26,10 +26,11 @@ export function CardPicker({
   return (
     <View style={S.gap}>
       <T size={13}>{selected.length}/3枚選択 · 2〜3枚選ぼう</T>
-      <View style={[S.row, { gap: 4 }]}>
+      <View accessibilityRole="tablist" style={[S.row, { gap: 4 }]}>
         {STRENGTH_GROUPS.map(([, label], i) => (
           <View key={label} style={S.fill}>
             <Choice
+              accessibilityRole="tab"
               label={label}
               selected={group === i}
               onPress={() => setGroup(i)}
@@ -176,10 +177,11 @@ export function AvatarPicker({
       <View style={{ alignItems: "center" }}>
         <Avatar name={name} avatar={avatar} size={80} />
       </View>
-      <View style={S.row}>
+      <View accessibilityRole="radiogroup" style={S.row}>
         {(["initial", "motif", "photo"] as const).map((k, i) => (
           <View style={S.fill} key={k}>
             <Choice
+              accessibilityRole="radio"
               label={["頭文字", "イラスト", "写真"][i]}
               selected={avatar.type === k}
               onPress={() =>

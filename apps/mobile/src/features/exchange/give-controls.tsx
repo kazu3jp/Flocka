@@ -10,12 +10,17 @@ export function GiveMode({
   onChange: (mode: "pick" | "free") => void;
 }) {
   return (
-    <View style={[S.row, { gap: 6 }]} accessibilityLabel="贈り方">
+    <View
+      style={[S.row, { gap: 6 }]}
+      accessibilityRole="tablist"
+      accessibilityLabel="贈り方"
+    >
       {(["pick", "free"] as const).map((value) => (
         <Pressable
           key={value}
-          accessibilityRole="button"
-          aria-pressed={mode === value}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: mode === value }}
+          aria-selected={mode === value}
           onPress={() => onChange(value)}
           style={{
             flex: 1,

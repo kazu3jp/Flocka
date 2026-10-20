@@ -73,9 +73,9 @@ test("email signup, onboarding, logout and password reset", async ({
   await capture(page, "onboarding-interests");
   await page.getByRole("button", { name: "次へ", exact: true }).click();
   await capture(page, "onboarding-strengths");
-  await page.getByRole("button", { name: "動かす", exact: true }).click();
+  await page.getByRole("tab", { name: "動かす", exact: true }).click();
   await page.getByRole("button", { name: "実装力", exact: true }).click();
-  await page.getByRole("button", { name: "自分を育てる", exact: true }).click();
+  await page.getByRole("tab", { name: "自分を育てる", exact: true }).click();
   await page.getByRole("button", { name: "集中力", exact: true }).click();
   await page.getByRole("button", { name: "次へ", exact: true }).click();
   await capture(page, "onboarding-explanation");

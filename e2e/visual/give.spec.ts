@@ -68,7 +68,7 @@ test("impression forms and delivered content follow the original design", async 
   await reference.locator("textarea").fill(reason);
   await capture(page, "give-selected");
   await referenceComparison(page, reference, "give-selected", testInfo);
-  await page.getByRole("button", { name: "自由に書く", exact: true }).click();
+  await page.getByRole("tab", { name: "自由に書く", exact: true }).click();
   await reference
     .getByRole("button", { name: "自由に書く", exact: true })
     .click();
