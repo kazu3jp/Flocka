@@ -229,7 +229,7 @@ export class FlockaApiClient {
   cancelExchange(id: string) {
     return this.json(
       `/v1/exchanges/${encodeURIComponent(id)}/cancel`,
-      remoteExchangeSchema,
+      remoteExchangeSchema.extend({ status: z.literal("cancelled") }),
       "POST",
     );
   }
