@@ -79,6 +79,23 @@ function androidGlyphRoom(style: TextStyle) {
   return Object.keys(room).length ? room : null;
 }
 
+// Without a caller style, the room depends only on the font and its size,
+// so those labels skip flattening and reuse one computed result.
+const PLAIN_GLYPH_ROOM_LIMIT = 200;
+const plainGlyphRooms = new Map<string, TextStyle | null>();
+
+function plainGlyphRoom(style: TextStyle) {
+  const key = `${style.fontFamily}|${style.fontSize}|${style.lineHeight}`;
+  let room = plainGlyphRooms.get(key);
+  if (room === undefined) {
+    room = androidGlyphRoom(style);
+    plainGlyphRooms.set(key, room);
+    if (plainGlyphRooms.size > PLAIN_GLYPH_ROOM_LIMIT)
+      plainGlyphRooms.delete(plainGlyphRooms.keys().next().value!);
+  }
+  return room;
+}
+
 export function T({
   display = false,
   size = 15,
@@ -87,18 +104,18 @@ export function T({
   ...props
 }: TextProps & { display?: boolean; size?: number; color?: string }) {
   const inheritedColor = useContext(ForegroundColor);
-  const textStyle: StyleProp<TextStyle> = [
-    {
-      fontFamily: display ? F.display : F.body,
-      fontSize: size,
-      lineHeight: size * 1.5,
-      color: color ?? inheritedColor,
-    },
-    style,
-  ];
+  const baseStyle: TextStyle = {
+    fontFamily: display ? F.display : F.body,
+    fontSize: size,
+    lineHeight: size * 1.5,
+    color: color ?? inheritedColor,
+  };
+  const textStyle: StyleProp<TextStyle> = [baseStyle, style];
   const glyphRoom =
     Platform.OS === "android"
-      ? androidGlyphRoom(StyleSheet.flatten(textStyle))
+      ? style
+        ? androidGlyphRoom(StyleSheet.flatten(textStyle))
+        : plainGlyphRoom(baseStyle)
       : null;
   return (
     <Text {...props} style={glyphRoom ? [textStyle, glyphRoom] : textStyle} />
