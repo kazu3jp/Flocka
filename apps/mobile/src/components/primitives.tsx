@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useEffect } from "react";
 import {
+  ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
   useWindowDimensions,
+  type AccessibilityRole,
+  type FlatListProps,
   type StyleProp,
   type TextInputProps,
   type ViewProps,
@@ -34,6 +39,7 @@ export function Btn({
   label,
   onPress,
   disabled = false,
+  loading = false,
   plain = false,
   danger = false,
   small = false,
@@ -46,6 +52,8 @@ export function Btn({
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Shows progress while the action runs; the button stays disabled meanwhile. */
+  loading?: boolean;
   plain?: boolean;
   danger?: boolean;
   small?: boolean;
@@ -56,12 +64,15 @@ export function Btn({
   style?: StyleProp<ViewStyle>;
 }) {
   const { height } = useWindowDimensions();
+  const inactive = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      aria-disabled={disabled}
-      disabled={disabled}
+      accessibilityState={{ disabled: inactive, busy: loading }}
+      aria-disabled={inactive}
+      aria-busy={loading}
+      disabled={inactive}
       onPress={onPress}
       style={({ pressed }) => [
         {
@@ -93,13 +104,20 @@ export function Btn({
         style,
       ]}
     >
-      {icon && (
-        <Icon
-          name={icon}
-          size={iconSize}
-          style={[Platform.OS !== "web" && { flexShrink: 0 }, iconStyle]}
-          color={danger ? C.white : C.ink}
+      {loading ? (
+        <ActivityIndicator
+          size="small"
+          color={disabled ? C.pale : danger ? C.white : C.ink}
         />
+      ) : (
+        icon && (
+          <Icon
+            name={icon}
+            size={iconSize}
+            style={[Platform.OS !== "web" && { flexShrink: 0 }, iconStyle]}
+            color={danger ? C.white : C.ink}
+          />
+        )
       )}
       <T
         display
@@ -162,6 +180,7 @@ export function Choice({
   disabled = false,
   children,
   style,
+  accessibilityRole = "button",
 }: {
   label: string;
   selected?: boolean;
@@ -169,13 +188,22 @@ export function Choice({
   disabled?: boolean;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Segmented controls read as tabs or radios instead of toggle buttons. */
+  accessibilityRole?: Extract<AccessibilityRole, "button" | "tab" | "radio">;
 }) {
+  const toggle = accessibilityRole === "button";
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={label}
-      accessibilityState={{ selected: !!selected }}
-      aria-pressed={!!selected}
+      accessibilityState={{
+        selected: !!selected,
+        checked: accessibilityRole === "radio" ? !!selected : undefined,
+        disabled,
+      }}
+      aria-pressed={toggle ? !!selected : undefined}
+      aria-selected={accessibilityRole === "tab" ? !!selected : undefined}
+      aria-checked={accessibilityRole === "radio" ? !!selected : undefined}
       aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
@@ -259,11 +287,57 @@ export function Header({
           <Icon name="back" />
         </Pressable>
       )}
-      <T display size={20} style={{ flex: 1, lineHeight: 26 }}>
+      <T
+        accessibilityRole="header"
+        display
+        size={20}
+        style={{ flex: 1, lineHeight: 26 }}
+      >
         {title}
       </T>
       {right}
     </View>
+  );
+}
+
+/** Pull-to-refresh state is owned by the screen; the board only renders it. */
+type BoardRefresh = { refreshing?: boolean; onRefresh?: () => void };
+
+function boardRefreshControl({ refreshing, onRefresh }: BoardRefresh) {
+  if (!onRefresh) return undefined;
+  return (
+    <RefreshControl
+      refreshing={!!refreshing}
+      onRefresh={onRefresh}
+      tintColor={C.yellow}
+      colors={[C.ink]}
+      progressBackgroundColor={C.yellow}
+    />
+  );
+}
+
+/**
+ * A virtualized list laid out like a scrolling board. Render it as a direct
+ * child of a non-scrolling Board so it never nests inside a ScrollView.
+ */
+export function BoardList<Item>({
+  refreshing,
+  onRefresh,
+  contentContainerStyle,
+  ...props
+}: Omit<FlatListProps<Item>, "refreshControl" | "refreshing" | "onRefresh"> &
+  BoardRefresh) {
+  return (
+    <FlatList
+      {...props}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={boardRefreshControl({ refreshing, onRefresh })}
+      style={[{ flex: 1, marginHorizontal: -14 }, props.style]}
+      contentContainerStyle={[
+        { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 14, gap: 12 },
+        contentContainerStyle,
+      ]}
+    />
   );
 }
 
@@ -278,6 +352,8 @@ export function Board({
   safeTop,
   safeBottom,
   contentStyle,
+  refreshing,
+  onRefresh,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -286,7 +362,7 @@ export function Board({
   safeTop?: boolean;
   safeBottom?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
-}) {
+} & BoardRefresh) {
   const insets = useContext(BoardInsets);
   const firstChild = React.Children.toArray(children)[0];
   const stickyHeader =
@@ -329,6 +405,7 @@ export function Board({
             <ScrollView
               stickyHeaderIndices={stickyHeader && !form ? [0] : undefined}
               keyboardShouldPersistTaps="handled"
+              refreshControl={boardRefreshControl({ refreshing, onRefresh })}
               contentContainerStyle={[
                 {
                   paddingHorizontal: 14,
