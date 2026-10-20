@@ -140,9 +140,12 @@ export function PR() {
             accessibilityLabel="もう一度書き出す"
             onPress={editor.askReset}
             disabled={editor.busy}
+            hitSlop={4}
             style={{
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
+              marginVertical: -4,
+              marginRight: -6,
               flexShrink: 0,
               alignItems: "center",
               justifyContent: "center",
@@ -152,29 +155,48 @@ export function PR() {
           </Pressable>
         </View>
         {editor.editing ? (
-          <TextInput
-            testID="pr-editor"
-            accessibilityLabel="自己PRを編集"
-            autoFocus
-            multiline
-            editable={!editor.busy}
-            maxLength={PR_DRAFT_MAX_LENGTH}
-            value={editor.draft}
-            onChangeText={editor.change}
-            style={{
-              flex: 1,
-              minHeight: 0,
-              borderWidth: 0,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              fontFamily: F.body,
-              fontSize: 15,
-              lineHeight: 29.25,
-              textAlignVertical: "top",
-              color: C.ink,
-              backgroundColor: C.paper,
-            }}
-          />
+          <View style={{ flex: 1, minHeight: 0 }}>
+            <TextInput
+              testID="pr-editor"
+              accessibilityLabel="自己PRを編集"
+              autoFocus
+              multiline
+              editable={!editor.busy}
+              maxLength={PR_DRAFT_MAX_LENGTH}
+              value={editor.draft}
+              onChangeText={editor.change}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                borderWidth: 0,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                fontFamily: F.body,
+                fontSize: 15,
+                lineHeight: 29.25,
+                textAlignVertical: "top",
+                color: C.ink,
+                backgroundColor: C.paper,
+              }}
+            />
+            <T
+              testID="pr-editor-count"
+              accessibilityLiveRegion="polite"
+              color={
+                editor.draft.length >= PR_DRAFT_MAX_LENGTH ? C.danger : C.muted
+              }
+              size={12}
+              style={{
+                fontFamily: F.bold,
+                lineHeight: 18,
+                textAlign: "right",
+                paddingHorizontal: 14,
+                paddingBottom: 6,
+              }}
+            >
+              {editor.draft.length}/{PR_DRAFT_MAX_LENGTH}
+            </T>
+          </View>
         ) : (
           <PRBody
             draft={editor.draft}
@@ -256,7 +278,7 @@ export function PR() {
           }
           icon="edit"
           iconSize={18}
-          disabled={editor.busy}
+          loading={editor.busy && !editor.confirmReset}
           onPress={() => {
             if (editor.editing) void editor.finish();
             else {
@@ -265,6 +287,15 @@ export function PR() {
             }
           }}
         />
+        {editor.canShare && (
+          <Btn
+            plain
+            label="共有"
+            style={{ paddingHorizontal: 14 }}
+            disabled={editor.busy}
+            onPress={editor.share}
+          />
+        )}
         <Btn
           style={S.fill}
           label="コピー"
@@ -286,7 +317,7 @@ export function PR() {
           )}
           <Btn
             label={editor.busy ? "保存中…" : "書き出す"}
-            disabled={editor.busy}
+            loading={editor.busy}
             onPress={editor.regenerate}
           />
           <Btn

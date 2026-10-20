@@ -1,9 +1,15 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
+import { Platform, Share } from "react-native";
 import { copyText } from "../clipboard/copy-text";
 import { resolvePRDocument } from "@flocka/domain";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
+
+// Browsers without the Web Share API cannot open a share sheet.
+const canShare =
+  Platform.OS !== "web" ||
+  (typeof navigator !== "undefined" && typeof navigator.share === "function");
 
 export function usePRDocument() {
   const { s, savePreferences, update, toast } = useApp();
@@ -60,6 +66,14 @@ export function usePRDocument() {
           toast("コピーできませんでした");
       });
   };
+  const share = () => {
+    const sharingVisit = visit.current;
+    // Dismissing the share sheet is not an error; only a failure is reported.
+    void Share.share({ message: draft }).catch(() => {
+      if (sharingVisit && sharingVisit === visit.current)
+        toast("共有できませんでした");
+    });
+  };
   return {
     document,
     sourceKnown,
@@ -84,6 +98,8 @@ export function usePRDocument() {
     change,
     finish,
     copy,
+    share,
+    canShare,
     replay,
     busy,
     error,
