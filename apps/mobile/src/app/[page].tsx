@@ -54,6 +54,40 @@ function AppToast({ focused }: { focused: boolean }) {
   );
 }
 
+/** Save and sync failures stay visible until the user retries them. */
+function ErrorBanner({
+  text,
+  hint,
+  onPress,
+}: {
+  text: string;
+  hint: string;
+  onPress: () => void;
+}) {
+  return (
+    <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={text}
+        accessibilityHint={hint}
+        onPress={onPress}
+        style={{
+          minHeight: 44,
+          justifyContent: "center",
+          backgroundColor: C.danger,
+          borderRadius: 10,
+          borderWidth: 2.5,
+          borderColor: C.ink,
+          padding: 12,
+          boxShadow: `3px 3px 0 ${C.ink}`,
+        }}
+      >
+        <T size={12}>{text}</T>
+      </Pressable>
+    </View>
+  );
+}
+
 const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
   const safeInsets = useSafeAreaInsets();
@@ -258,25 +292,6 @@ export default function Screen() {
           </View>
         </SafeAreaView>
       )}
-      {saveError && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            preferenceConflict ? setResolvingConflict(true) : retrySave()
-          }
-          style={{
-            position: "absolute",
-            top: 30,
-            left: 14,
-            right: 14,
-            backgroundColor: C.danger,
-            borderRadius: 10,
-            padding: 12,
-          }}
-        >
-          <T size={12}>{saveError} · タップして再試行</T>
-        </Pressable>
-      )}
       <GuessOverlay />
       {resolvingConflict && preferenceConflict && (
         <Sheet
@@ -309,21 +324,35 @@ export default function Screen() {
           />
         </Sheet>
       )}
-      {syncError && (
-        <Pressable
-          onPress={() => void refresh().catch(() => {})}
+      {(saveError || syncError) && (
+        <View
+          pointerEvents="box-none"
           style={{
             position: "absolute",
-            top: 30,
+            // Below the 48pt screen header so its back button stays reachable.
+            top: safeInsets.top + 56,
             left: 14,
             right: 14,
-            backgroundColor: C.danger,
-            padding: 12,
-            borderRadius: 10,
+            gap: 8,
           }}
         >
-          <T size={12}>{syncError} · タップして再同期</T>
-        </Pressable>
+          {saveError && (
+            <ErrorBanner
+              text={`${saveError} · タップして再試行`}
+              hint="保存を再試行します"
+              onPress={() =>
+                preferenceConflict ? setResolvingConflict(true) : retrySave()
+              }
+            />
+          )}
+          {syncError && (
+            <ErrorBanner
+              text={`${syncError} · タップして再同期`}
+              hint="サーバーと再同期します"
+              onPress={() => void refresh().catch(() => {})}
+            />
+          )}
+        </View>
       )}
     </ScreenFeedback>
   );
