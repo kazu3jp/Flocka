@@ -40,6 +40,7 @@ export function Btn({
   onPress,
   disabled = false,
   loading = false,
+  selected,
   plain = false,
   danger = false,
   small = false,
@@ -54,6 +55,8 @@ export function Btn({
   disabled?: boolean;
   /** Shows progress while the action runs; the button stays disabled meanwhile. */
   loading?: boolean;
+  /** Marks the current option when buttons act as a choice group. */
+  selected?: boolean;
   plain?: boolean;
   danger?: boolean;
   small?: boolean;
@@ -69,7 +72,7 @@ export function Btn({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy: loading }}
+      accessibilityState={{ disabled: inactive, busy: loading, selected }}
       aria-disabled={inactive}
       aria-busy={loading}
       disabled={inactive}

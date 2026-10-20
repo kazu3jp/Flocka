@@ -1,6 +1,6 @@
 import { useTestimonySend } from "./use-testimony-send";
 import { DeliveryFeedback } from "./delivery-feedback";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import {
   Board,
@@ -15,6 +15,9 @@ import {
 } from "../../components/ui";
 import { VIBE_CARD, summarize } from "@flocka/domain";
 import { useApp } from "../../store";
+import { useConfirmation } from "../../components/pickers";
+import { useBackStep } from "../navigation/use-back-step";
+import { hapticSuccess } from "../haptics/haptics";
 import { GiveReason, ImpressionLabel, ImpressionSummary } from "./give-content";
 import { GiveMode, VibeOptions } from "./give-controls";
 import { PeerAvatar } from "./player-card";
@@ -38,7 +41,24 @@ export function Give({ cid }: { cid: string }) {
         toast(
           `${peers[c?.peerId ?? ""]?.profile.name ?? "相手"}に印象を贈りました`,
         ),
-    );
+    ),
+    { ask, dialog } = useConfirmation();
+  // The receipt only exists after the server accepted the impression.
+  useEffect(() => {
+    if (receipt) hapticSuccess();
+  }, [receipt]);
+  const drafting = !!c && !c.vibe && !receipt && (!!sel || !!text.trim());
+  // Leaving with a chosen word or typed reason asks before discarding it.
+  const leave = (after: () => void) =>
+    drafting
+      ? ask(
+          "入力した印象を破棄する？",
+          "選んだ言葉と書いた理由は保存されません。",
+          after,
+          "破棄する",
+        )
+      : after();
+  useBackStep(drafting ? 1 : 0, () => leave(nav.pop));
   if (!c)
     return (
       <Board>
@@ -123,7 +143,7 @@ export function Give({ cid }: { cid: string }) {
     <Board scroll form>
       <Header
         title="印象を贈る"
-        onBack={nav.pop}
+        onBack={() => leave(nav.pop)}
         right={
           <View style={[S.row, { gap: 8 }]}>
             <PeerAvatar id={c.peerId} size={32} />
@@ -228,24 +248,26 @@ export function Give({ cid }: { cid: string }) {
       </T>
       <Btn
         label="この印象を贈る"
+        loading={busy}
         disabled={
-          !ready ||
-          busy ||
-          c.status !== "accepted" ||
-          s.blocked.includes(c.peerId)
+          !ready || c.status !== "accepted" || s.blocked.includes(c.peerId)
         }
         onPress={send}
       />
       <LinkButton
         label="あとで"
-        onPress={() => {
-          update((x) => {
-            const cc = x.connections.find((v) => v.id === cid);
-            if (cc) cc.later = true;
-          });
-          nav.pop();
-        }}
+        disabled={busy}
+        onPress={() =>
+          leave(() => {
+            update((x) => {
+              const cc = x.connections.find((v) => v.id === cid);
+              if (cc) cc.later = true;
+            });
+            nav.pop();
+          })
+        }
       />
+      {dialog}
     </Board>
   );
 }

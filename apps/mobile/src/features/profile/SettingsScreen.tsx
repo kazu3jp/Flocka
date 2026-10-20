@@ -17,6 +17,10 @@ import {
   Sheet,
 } from "../../components/ui";
 import { useApp, useAppStatus } from "../../store";
+import { usePullRefresh } from "../refresh/use-pull-refresh";
+
+type SettingsAction =
+  "sync" | "save" | `unblock:${string}` | `withdraw:${string}`;
 
 export function Settings() {
   const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
@@ -24,9 +28,16 @@ export function Settings() {
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [settings, setSettings] = useState(s.settings),
     { busy, error, run } = useAction(),
-    { ask, dialog } = useConfirmation();
+    { ask, dialog } = useConfirmation(),
+    pull = usePullRefresh(),
+    // Which action is running, so only its button shows progress.
+    [active, setActive] = useState<SettingsAction | null>(null);
+  const runAction = (action: SettingsAction, task: () => Promise<void>) => {
+    setActive(action);
+    void run(task).finally(() => setActive(null));
+  };
   return (
-    <Board scroll>
+    <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="公開範囲・安全" onBack={nav.pop} />
       <View style={S.row}>
         <LinkButton label="利用規約" onPress={() => setLegal("利用規約")} />
@@ -45,15 +56,20 @@ export function Settings() {
         plain
         small
         label={syncing ? "同期中…" : "サーバーと同期"}
+        loading={active === "sync"}
         disabled={syncing || busy}
         onPress={() =>
-          void run(async () => {
+          runAction("sync", async () => {
             await refresh();
             toast("サーバーと同期しました");
           })
         }
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error && (
+        <T accessibilityRole="alert" color={C.yellow}>
+          {error}
+        </T>
+      )}
       <Panel style={S.gap}>
         {(
           [
@@ -77,18 +93,18 @@ export function Settings() {
       </Panel>
       <Btn
         label="設定を保存"
+        loading={active === "save"}
         disabled={busy}
         onPress={() =>
           ask(
             "受け取り設定を変更する？",
             "変更は今後届く封筒に適用します。",
-            () => {
-              void run(async () => {
+            () =>
+              runAction("save", async () => {
                 await api.saveSettings(settings);
                 await refresh();
                 toast("設定を保存しました");
-              });
-            },
+              }),
             "保存する",
           )
         }
@@ -97,20 +113,31 @@ export function Settings() {
         ブロック中
       </T>
       {s.blocked.length ? (
-        s.blocked.map((id) => (
-          <Btn
-            key={id}
-            plain
-            label={`${peers[id]?.profile.name || id}のブロックを解除`}
-            onPress={() => {
-              void run(async () => {
-                await api.unblock(id);
-                await refresh();
-                toast("ブロックを解除しました");
-              });
-            }}
-          />
-        ))
+        s.blocked.map((id) => {
+          const name = peers[id]?.profile.name || id;
+          return (
+            <Btn
+              key={id}
+              plain
+              label={`${name}のブロックを解除`}
+              loading={active === `unblock:${id}`}
+              disabled={busy}
+              onPress={() =>
+                ask(
+                  "ブロックを解除する？",
+                  `${name}の証言が、デッキ・自己PR・交換一覧に戻ります。`,
+                  () =>
+                    runAction(`unblock:${id}`, async () => {
+                      await api.unblock(id);
+                      await refresh();
+                      toast("ブロックを解除しました");
+                    }),
+                  "解除する",
+                )
+              }
+            />
+          );
+        })
       ) : (
         <T size={13}>ブロックしている人はいません。</T>
       )}
@@ -141,15 +168,26 @@ export function Settings() {
             {!r.withdrawn && r.status === "pending" && (
               <LinkButton
                 color={C.ink}
-                label="取り下げる"
-                onPress={() => {
-                  void run(async () => {
-                    if (!r.id) throw new Error("依頼が見つかりません");
-                    await api.withdrawRequest(r.id);
-                    await refresh();
-                    toast("取り下げました");
-                  });
-                }}
+                label={
+                  active === `withdraw:${r.id}` ? "取り下げ中…" : "取り下げる"
+                }
+                disabled={busy}
+                onPress={() =>
+                  ask(
+                    k === "reports"
+                      ? "通報を取り下げる？"
+                      : "削除依頼を取り下げる？",
+                    "運営への依頼を取り消します。",
+                    () =>
+                      runAction(`withdraw:${r.id}`, async () => {
+                        if (!r.id) throw new Error("依頼が見つかりません");
+                        await api.withdrawRequest(r.id);
+                        await refresh();
+                        toast("取り下げました");
+                      }),
+                    "取り下げる",
+                  )
+                }
               />
             )}
           </Panel>
