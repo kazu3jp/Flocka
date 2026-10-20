@@ -75,3 +75,12 @@ export function restoreState(raw: string | null): State {
     connections: v.connections,
   });
 }
+
+/** The device cache is never authoritative; unreadable data starts fresh instead of blocking startup. */
+export function restoreCachedState(raw: string | null): State {
+  try {
+    return restoreState(raw);
+  } catch {
+    return fresh();
+  }
+}

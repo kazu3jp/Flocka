@@ -43,23 +43,45 @@ export function validNav(v: unknown): v is NavState {
   if (!v || typeof v !== "object") return false;
   const n = v as NavState;
   return (
-    n.tab in ROOTS &&
+    typeof n.tab === "string" &&
+    Object.hasOwn(ROOTS, n.tab) &&
+    !!n.stacks &&
+    typeof n.stacks === "object" &&
     Object.keys(ROOTS).every((k) => {
-      const a = n.stacks?.[k as Tab];
+      const a: unknown = n.stacks[k as Tab];
       return (
         Array.isArray(a) &&
         a.length > 0 &&
         a.length < 50 &&
-        a[0].id === ROOTS[k as Tab] &&
-        a.every(
-          (e) =>
-            SCREENS.includes(e.id) &&
-            (!e.params ||
-              Object.values(e.params).every((v) => typeof v === "string")),
-        )
+        a.every(validEntry) &&
+        a[0].id === ROOTS[k as Tab]
       );
     })
   );
+}
+
+function validEntry(v: unknown): v is Entry {
+  if (!v || typeof v !== "object") return false;
+  const e = v as Entry;
+  return (
+    SCREENS.includes(e.id) &&
+    (e.params === undefined ||
+      (!!e.params &&
+        typeof e.params === "object" &&
+        !Array.isArray(e.params) &&
+        Object.values(e.params).every((value) => typeof value === "string")))
+  );
+}
+
+/** The navigation cache is a convenience; unreadable data restarts at the tab roots. */
+export function restoreCachedNav(raw: string | null): NavState {
+  if (!raw) return initNav();
+  try {
+    const cached: unknown = JSON.parse(raw);
+    return validNav(cached) ? cached : initNav();
+  } catch {
+    return initNav();
+  }
 }
 
 const EXCHANGE_SCREENS = new Set<ScreenId>([
