@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 import { COLORS } from "@flocka/domain";
 
@@ -26,11 +26,20 @@ export const C = {
   danger: COLORS.danger,
 };
 
-export const F = {
-  display: "DelaGothicOne_400Regular",
-  body: "ZenKakuGothicNew_500Medium",
-  bold: "ZenKakuGothicNew_700Bold",
-};
+// Native builds embed the fonts (app.json expo-font plugin). Android names them by
+// file name, iOS by the PostScript name inside each file; the web loads them at runtime.
+export const F = Platform.select({
+  ios: {
+    display: "DelaGothicOne-Regular",
+    body: "ZenKakuGothicNew-Medium",
+    bold: "ZenKakuGothicNew-Bold",
+  },
+  default: {
+    display: "DelaGothicOne_400Regular",
+    body: "ZenKakuGothicNew_500Medium",
+    bold: "ZenKakuGothicNew_700Bold",
+  },
+});
 
 export const S = StyleSheet.create({
   fill: { flex: 1 },

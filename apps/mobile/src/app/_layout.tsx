@@ -18,12 +18,18 @@ import { Provider } from "../store";
 import { C, T } from "../components/ui";
 import { AppFrame } from "../components/app-frame";
 
+const WEB_FONTS = {
+  DelaGothicOne_400Regular,
+  ZenKakuGothicNew_500Medium,
+  ZenKakuGothicNew_700Bold,
+};
+const EMBEDDED_FONTS: ReturnType<typeof useFonts> = [true, null];
+// Native builds embed the fonts at build time, so the first frame does not wait for them.
+const useAppFonts =
+  Platform.OS === "web" ? () => useFonts(WEB_FONTS) : () => EMBEDDED_FONTS;
+
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-      DelaGothicOne_400Regular,
-      ZenKakuGothicNew_500Medium,
-      ZenKakuGothicNew_700Bold,
-    }),
+  const [loaded, error] = useAppFonts(),
     { width, height } = useWindowDimensions(),
     desktop = Platform.OS === "web" && width > 760,
     framed = Platform.OS === "web" && width > 500;
