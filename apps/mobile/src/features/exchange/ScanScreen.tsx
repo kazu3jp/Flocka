@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useIsFocused } from "expo-router";
@@ -18,23 +18,47 @@ import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
+import { useScreenVisit } from "../sync/use-screen-visit";
+
+const RESCAN_DELAY_MS = 2000;
 export function Scan() {
   const { s, api, refresh, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
     [permission, requestPermission] = useCameraPermissions(),
     focused = useIsFocused(),
     scanned = useRef(false),
+    rescanTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    startVisit = useScreenVisit(),
     { invite, error: inviteError, busy: creating, renew } = useInvite(),
     { busy, error, run } = useAction();
+  useEffect(
+    () => () => {
+      if (rescanTimer.current) clearTimeout(rescanTimer.current);
+    },
+    [],
+  );
   const receive = (value: string) => {
     if (scanned.current) return;
     scanned.current = true;
+    let opened = false;
     void run(async () => {
+      const sameVisit = startVisit();
       const code = parseInviteQR(value);
       if (!code) throw new Error("Flockaの交換用QRを読み取ってください");
       const exchange = await api.startExchange(code);
       await refresh();
+      // A late response must not replace a later visit or another screen.
+      if (!sameVisit()) return;
+      opened = true;
       nav.replace("confirm", { cid: exchange.id });
+    }).finally(() => {
+      if (opened) return;
+      // Reopen the camera after the error has been on screen long enough to read,
+      // so the same code in view is not resent on every frame.
+      if (rescanTimer.current) clearTimeout(rescanTimer.current);
+      rescanTimer.current = setTimeout(() => {
+        scanned.current = false;
+      }, RESCAN_DELAY_MS);
     });
   };
   return (
