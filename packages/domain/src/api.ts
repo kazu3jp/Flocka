@@ -291,8 +291,14 @@ export const pendingModerationSchema = z.object({
   pieceKind: z.enum(["vibe", "proof"]),
   excerpt: z.string(),
 });
+/** Keyset position: resolving earlier requests never shifts the following page. */
+export const moderationCursorSchema = z.object({
+  at: z.string().min(1).max(64),
+  id: z.string().uuid(),
+});
+export type ModerationCursor = z.infer<typeof moderationCursorSchema>;
 export const pendingModerationPageSchema = z.object({
   items: z.array(pendingModerationSchema),
-  nextPage: z.number().int().nullable(),
+  next: moderationCursorSchema.nullable(),
 });
 export type PendingModeration = z.infer<typeof pendingModerationSchema>;

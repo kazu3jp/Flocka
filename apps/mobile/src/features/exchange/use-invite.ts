@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useIsFocused } from "expo-router";
 import { useApp } from "../../store";
+import { userFacingError } from "../sync/user-facing-error";
 export function useInvite() {
   const { api, refresh, nav } = useApp(),
     focused = useIsFocused(),
@@ -22,11 +23,7 @@ export function useInvite() {
       if (mounted.current) setInvite(next);
     } catch (error) {
       if (mounted.current)
-        setError(
-          error instanceof Error
-            ? error.message
-            : "交換コードを作成できませんでした",
-        );
+        setError(userFacingError(error, "交換コードを作成できませんでした"));
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);
@@ -42,11 +39,7 @@ export function useInvite() {
       })
       .catch((error) => {
         if (mounted.current)
-          setError(
-            error instanceof Error
-              ? error.message
-              : "交換コードを作成できませんでした",
-          );
+          setError(userFacingError(error, "交換コードを作成できませんでした"));
       })
       .finally(() => {
         running.current = false;
@@ -69,17 +62,17 @@ export function useInvite() {
       checking = true;
       try {
         const status = await api.getInviteStatus(invite.code);
-        if (status.exchange && active) {
-          active = false;
-          await refresh();
-          if (mounted.current)
-            nav.replace("confirm", { cid: status.exchange.id });
-        }
+        if (!status.exchange || !active) return;
+        // The exchange exists on the server, but the confirm screen reads it from the
+        // synced state. A failed refresh keeps polling so the next tick retries it.
+        await refresh();
+        if (!active || !mounted.current) return;
+        active = false;
+        setError(null);
+        nav.replace("confirm", { cid: status.exchange.id });
       } catch (error) {
         if (active)
-          setError(
-            error instanceof Error ? error.message : "交換の確認に失敗しました",
-          );
+          setError(userFacingError(error, "交換の確認に失敗しました"));
       } finally {
         checking = false;
       }

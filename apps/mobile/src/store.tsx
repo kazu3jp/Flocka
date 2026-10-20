@@ -1,5 +1,7 @@
 import { createUndoAction } from "./features/sync/undo-action";
 import { keepIfSame } from "./features/sync/same-data";
+import { forEachWithLimit } from "./features/sync/limited-concurrency";
+import { userFacingError } from "./features/sync/user-facing-error";
 import {
   useNotificationResponse,
   type NoticeKind,
@@ -35,8 +37,8 @@ import {
   derive,
   fresh,
   initNav,
-  restoreState,
-  validNav,
+  restoreCachedNav,
+  restoreCachedState,
   navigationForRoute,
   SCREENS,
   type Entry,
@@ -53,6 +55,10 @@ export const routeFor = (entry: Entry): Href => ({
   pathname: "/[page]",
   params: { page: entry.id, ...entry.params },
 });
+const CONFLICT_MESSAGE =
+  "別の端末で更新されています。編集を比較して選択してください";
+/** Photo downloads per sync; enough to overlap latency without flooding the API. */
+const PEER_AVATAR_CONCURRENCY = 4;
 export const currentEntry = (n: NavState) =>
   n.stacks[n.tab][n.stacks[n.tab].length - 1];
 type Toast = { text: string; action?: { label: string; fn: () => void } };
@@ -152,7 +158,13 @@ export function Provider({
     ownAvatar = useRef<{ version?: string | null; photo: string } | null>(null),
     peerPhotos = useRef(
       new Map<string, { version?: string | null; photo: string }>(),
-    );
+    ),
+    preferenceConflictRef = useRef<{
+      data: Preferences;
+      revision: number;
+    } | null>(null),
+    resolvingPreferences = useRef<Promise<void> | null>(null),
+    cachedPreferences = useRef<Preferences | null>(null);
   useLayoutEffect(() => {
     if (!ready || !s.onboarded) return;
     const screen = pathname.slice(1) as ScreenId;
@@ -184,6 +196,8 @@ export function Provider({
   const synchronize = useCallback(async () => {
     const snapshot = await api.getSnapshot();
     if (!mounted.current) return;
+    // Photos are decoration: a missing or slow image keeps the previous photo
+    // (or none) and never fails the sync of testimonies and exchanges.
     if (
       snapshot.player.profile.avatar.type === "photo" &&
       snapshot.player.avatarAvailable
@@ -191,45 +205,49 @@ export function Provider({
       if (
         ownAvatar.current?.version !== snapshot.player.avatarVersion ||
         !ownAvatar.current
-      )
-        ownAvatar.current = {
-          version: snapshot.player.avatarVersion,
-          photo: await api.getAvatar(),
-        };
-      snapshot.player.profile.avatar.photo = ownAvatar.current.photo;
-    }
-    for (const peer of snapshot.peers) {
-      if (
-        peer.profile.avatar.type !== "photo" ||
-        !peer.avatarAvailable ||
-        snapshot.blocked.includes(peer.id)
-      )
-        continue;
-      let photo = peerPhotos.current.get(peer.id);
-      if (!photo || photo.version !== peer.avatarVersion) {
-        try {
-          photo = {
-            version: peer.avatarVersion,
-            photo: await api.peerAvatar(peer.id),
+      ) {
+        const photo = await api.getAvatar().catch(() => null);
+        if (photo !== null)
+          ownAvatar.current = {
+            version: snapshot.player.avatarVersion,
+            photo,
           };
-          peerPhotos.current.set(peer.id, photo);
-        } catch (error) {
-          if (!(error instanceof ApiClientError && error.status === 404))
-            throw error;
-        }
       }
-      if (photo) peer.profile.avatar.photo = photo.photo;
+      if (ownAvatar.current)
+        snapshot.player.profile.avatar.photo = ownAvatar.current.photo;
     }
+    const visiblePeers = snapshot.peers.filter(
+      (peer) => !snapshot.blocked.includes(peer.id),
+    );
+    for (const id of peerPhotos.current.keys())
+      if (!visiblePeers.some((peer) => peer.id === id))
+        peerPhotos.current.delete(id);
+    await forEachWithLimit(
+      visiblePeers.filter(
+        (peer) => peer.profile.avatar.type === "photo" && peer.avatarAvailable,
+      ),
+      PEER_AVATAR_CONCURRENCY,
+      async (peer) => {
+        let photo = peerPhotos.current.get(peer.id);
+        if (!photo || photo.version !== peer.avatarVersion) {
+          const loaded = await api.peerAvatar(peer.id).catch(() => null);
+          if (loaded !== null) {
+            photo = { version: peer.avatarVersion, photo: loaded };
+            peerPhotos.current.set(peer.id, photo);
+          }
+        }
+        if (photo) peer.profile.avatar.photo = photo.photo;
+      },
+    );
     if (!mounted.current) return;
     const dirty =
       JSON.stringify(preferencesOf(stateRef.current)) !==
       savedPreferences.current;
     const next = applySnapshot(snapshot, stateRef.current, dirty);
     if (dirty && snapshot.preferences.revision !== prefsRevision.current) {
+      preferenceConflictRef.current = snapshot.preferences;
       setPreferenceConflict(snapshot.preferences);
-      setSaveError(
-        "別の端末で更新されています。編集を比較して選択してください",
-      );
+      setSaveError(CONFLICT_MESSAGE);
     } else prefsRevision.current = snapshot.preferences.revision;
     if (!dirty)
       savedPreferences.current = JSON.stringify(snapshot.preferences.data);
@@ -253,9 +271,7 @@ export function Provider({
           if (mounted.current) setSyncError(null);
         } catch (error) {
           if (mounted.current)
-            setSyncError(
-              error instanceof Error ? error.message : "同期に失敗しました",
-            );
+            setSyncError(userFacingError(error, "同期に失敗しました"));
           throw error;
         } finally {
           if (mounted.current) setSyncing(false);
@@ -280,6 +296,60 @@ export function Provider({
     },
     [refresh, toast],
   );
+  /**
+   * Preferences left on this device before sign-in are offered to an empty server
+   * record once. Failing to send them is reported but never blocks startup.
+   */
+  const uploadCachedPreferences = useCallback(async () => {
+    const cached = cachedPreferences.current;
+    if (!cached) return;
+    if (
+      JSON.stringify(preferencesOf(stateRef.current)) !==
+      savedPreferences.current
+    ) {
+      // Edits made since startup are newer than the cache and are saved by the normal flush.
+      cachedPreferences.current = null;
+      return;
+    }
+    try {
+      let saved: Awaited<ReturnType<typeof api.savePreferences>>;
+      try {
+        saved = await api.savePreferences(cached, 1);
+      } catch (error) {
+        if (!(
+          error instanceof ApiClientError &&
+          error.code === "PR_SOURCE_UNAVAILABLE" &&
+          cached.prDraftSource
+        ))
+          throw error;
+        // Keep the draft text, but stop attributing it to testimonies the server cannot verify.
+        saved = await api.savePreferences(
+          { ...cached, prDraftSource: null },
+          1,
+        );
+      }
+      cachedPreferences.current = null;
+      if (!mounted.current) return;
+      prefsRevision.current = saved.revision;
+      savedPreferences.current = JSON.stringify(saved.data);
+      stateRef.current = withPreferences(stateRef.current, saved.data);
+      setS(stateRef.current);
+      setSaveError(null);
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 409) {
+        // Another device saved first; its server copy supersedes this stale cache.
+        cachedPreferences.current = null;
+        if (!mounted.current) return;
+        setSaveError(null);
+        toast("別の端末で保存された設定を使います");
+        return;
+      }
+      if (mounted.current)
+        setSaveError(
+          "この端末に残っていた設定をサーバーへ保存できませんでした。表示中の内容はサーバーのものです",
+        );
+    }
+  }, [api, toast]);
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -290,33 +360,22 @@ export function Provider({
         ]);
         if (!active) return;
         // Cached remote evidence is never used as authoritative data after sign-in.
-        const cached = restoreState(raw),
-          navigation = rawNav ? JSON.parse(rawNav) : null;
+        // An unreadable cache starts fresh because the server holds the real data.
+        const cached = restoreCachedState(raw);
         stateRef.current = fresh();
-        navRef.current = validNav(navigation) ? navigation : initNav();
+        navRef.current = restoreCachedNav(rawNav);
         setN(navRef.current);
         if (storageScope !== "signed-out") {
+          let registered = true;
           try {
             await synchronize();
-            if (
-              cached.onboarded &&
-              prefsRevision.current === 1 &&
-              savedPreferences.current ===
-                JSON.stringify(preferencesOf(fresh())) &&
-              JSON.stringify(preferencesOf(cached)) !== savedPreferences.current
-            ) {
-              const saved = await api.savePreferences(preferencesOf(cached), 1);
-              prefsRevision.current = saved.revision;
-              savedPreferences.current = JSON.stringify(saved.data);
-              stateRef.current = withPreferences(stateRef.current, saved.data);
-              setS(stateRef.current);
-            }
           } catch (error) {
             if (!(
               error instanceof ApiClientError &&
               error.code === "PLAYER_NOT_FOUND"
             ))
               throw error;
+            registered = false;
             stateRef.current = {
               ...fresh(),
               profile: cached.profile,
@@ -324,19 +383,35 @@ export function Provider({
             };
             setS(stateRef.current);
           }
+          if (
+            active &&
+            registered &&
+            cached.onboarded &&
+            prefsRevision.current === 1 &&
+            savedPreferences.current ===
+              JSON.stringify(preferencesOf(fresh())) &&
+            JSON.stringify(preferencesOf(cached)) !== savedPreferences.current
+          ) {
+            cachedPreferences.current = preferencesOf(cached);
+            await uploadCachedPreferences();
+          }
         }
         if (active) setReady(true);
       } catch (error) {
-        if (active)
-          setError(
-            error instanceof Error ? error.message : "読み込みに失敗しました",
-          );
+        if (active) setError(userFacingError(error, "読み込みに失敗しました"));
       }
     })();
     return () => {
       active = false;
     };
-  }, [api, navKey, reloadKey, stateKey, storageScope, synchronize]);
+  }, [
+    navKey,
+    reloadKey,
+    stateKey,
+    storageScope,
+    synchronize,
+    uploadCachedPreferences,
+  ]);
   useEffect(() => {
     if (!ready || !s.onboarded || storageScope === "signed-out") return;
     const interval = setInterval(() => {
@@ -360,10 +435,11 @@ export function Provider({
     if (persistenceStopped.current) return;
     saveQueue.current = saveQueue.current
       .then(() => AsyncStorage.multiSet(entries))
-      .catch((error) => {
+      .catch(() => {
+        // Storage errors carry native details; the user only needs what to do next.
         if (mounted.current)
           setSaveError(
-            `端末へ保存できませんでした：${String(error.message || error)}`,
+            "端末へ保存できませんでした。空き容量を確認して、もう一度お試しください",
           );
       });
   }, []);
@@ -394,18 +470,20 @@ export function Provider({
           !stateRef.current.onboarded
         )
           return;
+        // Saving over an unresolved conflict would overwrite the other device's edit.
+        if (preferenceConflictRef.current) throw new Error(CONFLICT_MESSAGE);
         try {
           const saved = await api.savePreferences(data, prefsRevision.current);
           if (!mounted.current) return;
           prefsRevision.current = saved.revision;
           savedPreferences.current = json;
+          // Newer local edits supersede preferences cached before sign-in.
+          cachedPreferences.current = null;
           setSaveError(null);
         } catch (error) {
           if (mounted.current)
             setSaveError(
-              error instanceof Error
-                ? error.message
-                : "サーバーへ保存できませんでした",
+              userFacingError(error, "サーバーへ保存できませんでした"),
             );
           if (error instanceof ApiClientError && error.status === 409) {
             // Fetch the conflicting revision before offering the comparison UI.
@@ -418,38 +496,71 @@ export function Provider({
     return task;
   }, [api, synchronize]);
   const resolvePreferences = useCallback(
-    async (choice: "server" | "local") => {
-      if (!preferenceConflict) return;
-      if (choice === "server") {
-        stateRef.current = withPreferences(
-          stateRef.current,
-          preferenceConflict.data,
-        );
-        setS(stateRef.current);
-        prefsRevision.current = preferenceConflict.revision;
-        savedPreferences.current = JSON.stringify(preferenceConflict.data);
-      } else {
-        const data = preferencesOf(stateRef.current),
-          saved = await api.savePreferences(data, preferenceConflict.revision);
-        prefsRevision.current = saved.revision;
-        savedPreferences.current = JSON.stringify(data);
-      }
-      setPreferenceConflict(null);
-      setSaveError(null);
+    (choice: "server" | "local") => {
+      // A second tap while saving joins the running resolution instead of saving twice.
+      if (resolvingPreferences.current) return resolvingPreferences.current;
+      const task = syncQueue.current
+        .catch(() => {})
+        .then(async () => {
+          const conflict = preferenceConflictRef.current;
+          if (!conflict || !mounted.current) return;
+          if (choice === "server") {
+            stateRef.current = withPreferences(stateRef.current, conflict.data);
+            setS(stateRef.current);
+            prefsRevision.current = conflict.revision;
+            savedPreferences.current = JSON.stringify(conflict.data);
+          } else {
+            const data = preferencesOf(stateRef.current);
+            try {
+              const saved = await api.savePreferences(data, conflict.revision);
+              prefsRevision.current = saved.revision;
+              savedPreferences.current = JSON.stringify(data);
+            } catch (error) {
+              if (error instanceof ApiClientError && error.status === 409)
+                // The server changed again; refresh the comparison before the next choice.
+                await synchronize().catch(() => {});
+              throw new Error(
+                userFacingError(error, "サーバーへ保存できませんでした"),
+              );
+            }
+          }
+          if (!mounted.current) return;
+          preferenceConflictRef.current = null;
+          setPreferenceConflict(null);
+          setSaveError(null);
+        })
+        .finally(() => {
+          resolvingPreferences.current = null;
+        });
+      resolvingPreferences.current = task;
+      syncQueue.current = task;
+      return task;
     },
-    [api, preferenceConflict],
+    [api, synchronize],
   );
   const derived = useMemo(() => derive(s), [s]);
   const preferencesJson = useMemo(() => JSON.stringify(preferencesOf(s)), [s]);
   useEffect(() => {
-    if (!ready || !s.onboarded || preferencesJson === savedPreferences.current)
+    // Automatic saving waits while the user compares a conflicting edit.
+    if (
+      !ready ||
+      !s.onboarded ||
+      preferenceConflict ||
+      preferencesJson === savedPreferences.current
+    )
       return;
     const timer = setTimeout(
       () => void flushPreferences().catch(() => {}),
       700,
     );
     return () => clearTimeout(timer);
-  }, [ready, s.onboarded, preferencesJson, flushPreferences]);
+  }, [
+    ready,
+    s.onboarded,
+    preferenceConflict,
+    preferencesJson,
+    flushPreferences,
+  ]);
   const update = useCallback(<R,>(recipe: (draft: State) => R): R => {
     const next = JSON.parse(JSON.stringify(stateRef.current)) as State;
     const result = recipe(next);
@@ -560,13 +671,18 @@ export function Provider({
     await AsyncStorage.multiRemove([stateKey, navKey]);
     ownAvatar.current = null;
     peerPhotos.current.clear();
+    cachedPreferences.current = null;
     stateRef.current = fresh();
     navRef.current = initNav();
   }, [navKey, stateKey, storageScope]);
   const retrySave = useCallback(() => {
     persist();
+    if (cachedPreferences.current)
+      syncQueue.current = syncQueue.current
+        .catch(() => {})
+        .then(uploadCachedPreferences);
     void flushPreferences().catch(() => {});
-  }, [flushPreferences, persist]);
+  }, [flushPreferences, persist, uploadCachedPreferences]);
   const dismissToast = useCallback(() => setNotification(null), []);
   const value = useMemo<ContextValue>(
     () => ({

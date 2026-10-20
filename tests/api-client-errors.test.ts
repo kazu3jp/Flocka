@@ -191,3 +191,25 @@ test(
     }
   },
 );
+
+test("public testimony paging stops when the server repeats a page", async () => {
+  let requests = 0;
+  const service = await serve((_request, response) => {
+    requests++;
+    response
+      .writeHead(200, { "Content-Type": "application/json" })
+      .end(JSON.stringify({ items: [], nextPage: 0 }));
+  });
+  try {
+    const client = new FlockaApiClient(service.base, {}, true);
+    await rejects(
+      client.publicTestimonies("player"),
+      0,
+      "PAGINATION_STALLED",
+      "証言の一覧を読み込めませんでした。もう一度お試しください",
+    );
+    assert.equal(requests, 1);
+  } finally {
+    await service.close();
+  }
+});

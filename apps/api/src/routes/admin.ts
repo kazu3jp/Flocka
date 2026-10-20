@@ -1,6 +1,9 @@
 import { Hono } from "hono";
-import { z } from "zod";
-import { resolveModerationSchema } from "@flocka/domain";
+import {
+  moderationCursorSchema,
+  resolveModerationSchema,
+  type ModerationCursor,
+} from "@flocka/domain";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { isAdmin } from "../services/admin";
 
@@ -23,20 +26,33 @@ adminRoutes.use("/admin/*", async (c, next) => {
   await next();
 });
 adminRoutes.get("/admin/moderation", async (c) => {
-  const page = z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(100000)
-    .parse(c.req.query("page") || "0");
+  const afterAt = c.req.query("afterAt"),
+    afterId = c.req.query("afterId");
+  let after: ModerationCursor | null = null;
+  if (afterAt !== undefined || afterId !== undefined) {
+    const parsed = moderationCursorSchema.safeParse({
+      at: afterAt,
+      id: afterId,
+    });
+    if (!parsed.success)
+      throw new ApiError(
+        422,
+        "INVALID_INPUT",
+        "読み込み位置を確認できませんでした",
+      );
+    after = parsed.data;
+  }
+  // Keyset paging: resolved requests leave the list without shifting later ones.
   const rows = await c.env.DB.prepare(
     `SELECT m.id, m.testimony_id, m.kind, m.reason, m.created_at, t.kind AS kind_of_testimony, t.label, t.text, t.story
     FROM moderation_requests m JOIN testimonies t ON t.id = m.testimony_id
     WHERE m.status = 'pending' AND m.withdrawn_at IS NULL
-    ORDER BY m.created_at, m.id LIMIT 51 OFFSET ?`,
+      AND (?1 IS NULL OR m.created_at > ?1 OR (m.created_at = ?1 AND m.id > ?2))
+    ORDER BY m.created_at, m.id LIMIT 51`,
   )
-    .bind(page * 50)
+    .bind(after?.at ?? null, after?.id ?? null)
     .all<PendingRow>();
+  const last = rows.results[49];
   return c.json({
     items: rows.results.slice(0, 50).map((row) => ({
       id: row.id,
@@ -47,7 +63,8 @@ adminRoutes.get("/admin/moderation", async (c) => {
       pieceKind: row.kind_of_testimony,
       excerpt: row.label ?? row.text ?? row.story ?? "",
     })),
-    nextPage: rows.results.length > 50 ? page + 1 : null,
+    next:
+      rows.results.length > 50 ? { at: last.created_at, id: last.id } : null,
   });
 });
 adminRoutes.post("/admin/moderation/:id/resolve", async (c) => {

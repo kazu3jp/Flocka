@@ -18,7 +18,9 @@ export function AccountPanel() {
     setBusy(true);
     setError(null);
     try {
-      if (data?.user.id) await disablePush(api, data.user.id);
+      // Leaving this device must not depend on the server forgetting it. A failed
+      // unregister keeps the stored token, so nothing reports notifications as stopped.
+      if (data?.user.id) await disablePush(api, data.user.id).catch(() => {});
       assertAuthResult(await getAuthClient().signOut());
       await refetch();
       setAsk(false);

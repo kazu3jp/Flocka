@@ -1,4 +1,5 @@
 import { useAction } from "../sync/use-action";
+import { useScreenVisit } from "../sync/use-screen-visit";
 import { useState } from "react";
 import { CardPicker, InterestsPicker } from "../../components/pickers";
 import { Board, Btn, C, Field, Header, T } from "../../components/ui";
@@ -8,7 +9,8 @@ export function SelfEdit() {
   const { s, saveProfile, nav, toast } = useApp(),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
-    { busy, error, run } = useAction();
+    { busy, error, run } = useAction(),
+    startVisit = useScreenVisit();
   return (
     <Board scroll>
       <Header title="プロフィール" onBack={nav.pop} />
@@ -37,6 +39,7 @@ export function SelfEdit() {
         }
         onPress={() => {
           void run(async () => {
+            const sameVisit = startVisit();
             await saveProfile(
               {
                 ...profile,
@@ -46,7 +49,8 @@ export function SelfEdit() {
               sel,
             );
             toast("プロフィールを保存しました");
-            nav.pop();
+            // A completed save must not pop a later visit or another screen's history.
+            if (sameVisit()) nav.pop();
           });
         }}
       />

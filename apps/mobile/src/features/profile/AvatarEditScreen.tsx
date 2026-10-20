@@ -3,10 +3,12 @@ import { AvatarPicker } from "../../components/pickers";
 import { Board, Btn, C, Header, T } from "../../components/ui";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
+import { useScreenVisit } from "../sync/use-screen-visit";
 export function AvatarEdit() {
   const { s, saveProfile, nav, toast } = useApp(),
     [avatar, setAvatar] = useState(s.profile.avatar),
-    { busy, error, run } = useAction();
+    { busy, error, run } = useAction(),
+    startVisit = useScreenVisit();
   return (
     <Board scroll>
       <Header title="アイコン" onBack={nav.pop} />
@@ -25,9 +27,11 @@ export function AvatarEdit() {
         disabled={busy}
         onPress={() =>
           void run(async () => {
+            const sameVisit = startVisit();
             await saveProfile({ ...s.profile, avatar }, s.self);
             toast("アイコンを保存しました");
-            nav.pop();
+            // A completed save must not pop a later visit or another screen's history.
+            if (sameVisit()) nav.pop();
           })
         }
       />

@@ -8,6 +8,7 @@ import {
   backupRecordSchema,
   inviteSchema,
   pendingModerationPageSchema,
+  type ModerationCursor,
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
@@ -302,9 +303,12 @@ export class FlockaApiClient {
       { token },
     );
   }
-  pendingModeration(page = 0) {
+  pendingModeration(after: ModerationCursor | null = null) {
+    const query = after
+      ? `?${new URLSearchParams({ afterAt: after.at, afterId: after.id })}`
+      : "";
     return this.json(
-      `/v1/admin/moderation?page=${page}`,
+      `/v1/admin/moderation${query}`,
       pendingModerationPageSchema,
     );
   }
@@ -334,6 +338,13 @@ export class FlockaApiClient {
           nextPage: z.number().int().nonnegative().nullable(),
         }),
       );
+      // A repeated or earlier page would loop forever on a misbehaving server.
+      if (result.nextPage !== null && result.nextPage <= page)
+        throw new ApiClientError(
+          0,
+          "PAGINATION_STALLED",
+          "証言の一覧を読み込めませんでした。もう一度お試しください",
+        );
       items.push(...result.items);
       page = result.nextPage;
     }

@@ -33,7 +33,7 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 | `GET/PUT /v1/me/avatar`                                    | 本人のR2写真を保存・取得                                             |
 | `GET /v1/me/backup/avatar`                                 | 保存済みバックアップに対応する写真を取得                             |
 
-`GET /v1/sync` は100件ずつページ送りします。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
+`GET /v1/sync` は100件ずつページ送りします。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します。未対応一覧は `(created_at, id)` のカーソル（`afterAt` / `afterId`、応答の `next`）でページ送りし、対応済みが抜けても次ページの項目を飛ばしません（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
 
 ## D1
 
