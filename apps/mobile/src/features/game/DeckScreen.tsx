@@ -137,8 +137,7 @@ export function Deck() {
               <Pressable
                 key={i}
                 accessibilityRole="button"
-                accessibilityLabel="未発見のカード"
-                accessibilityHint="カードの見つけ方を表示します"
+                accessibilityLabel="未発見のカード・見つけ方を見る"
                 onPress={() => setLockedHint(true)}
                 style={S.fill}
               >
