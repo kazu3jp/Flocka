@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { PendingModeration } from "@flocka/domain";
+import type { ModerationCursor, PendingModeration } from "@flocka/domain";
 import { Board, Btn, C, Header, Panel, S, T } from "../../components/ui";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
@@ -13,17 +13,19 @@ const OUTCOMES = [
 export function Moderation() {
   const { api, nav, toast, isAdmin } = useApp(),
     [items, setItems] = useState<PendingModeration[]>([]),
-    [nextPage, setNextPage] = useState<number | null>(null),
+    [next, setNext] = useState<ModerationCursor | null>(null),
     [loaded, setLoaded] = useState(false),
     { busy, error, run } = useAction();
   const load = useCallback(
-    (page: number) =>
+    (after: ModerationCursor | null) =>
       run(async () => {
-        const result = await api.pendingModeration(page);
+        // The cursor follows the last loaded request, so resolving shown items
+        // never skips the requests after them.
+        const result = await api.pendingModeration(after);
         setItems((current) =>
-          page ? [...current, ...result.items] : result.items,
+          after ? [...current, ...result.items] : result.items,
         );
-        setNextPage(result.nextPage);
+        setNext(result.next);
         setLoaded(true);
       }),
     // `run` is stable for the lifetime of the screen.
@@ -31,7 +33,7 @@ export function Moderation() {
     [api],
   );
   useEffect(() => {
-    if (isAdmin) void load(0);
+    if (isAdmin) void load(null);
   }, [isAdmin, load]);
   if (!isAdmin)
     return (
@@ -71,12 +73,12 @@ export function Moderation() {
           ))}
         </Panel>
       ))}
-      {nextPage !== null && (
+      {next !== null && (
         <Btn
           plain
           label="さらに読み込む"
           disabled={busy}
-          onPress={() => void load(nextPage)}
+          onPress={() => void load(next)}
         />
       )}
     </Board>

@@ -309,3 +309,57 @@ test("saved PR evidence survives stronger cards and becomes unverified when with
     await runtime.runtime.dispose();
   }
 });
+
+test("moderation paging does not skip requests after earlier ones are resolved", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const owner = await f.register("ハル"),
+      sender = await f.register("ソラ"),
+      admin = await f.register("ミナト");
+    const invite = await owner.api.createInvite();
+    const exchange = await sender.api.startExchange(invite.code);
+    await owner.api.approveExchange(exchange.id, "発表会", "同じチーム");
+    await sender.api.approveExchange(exchange.id, "発表会", "同じチーム");
+    const piece = await sender.api.sendScene(
+      exchange.id,
+      "impl",
+      "動くアプリを最後まで作ってくれた",
+    );
+    const ids = Array.from({ length: 52 }, () => crypto.randomUUID()).sort();
+    // Equal timestamps for the first pair exercise the id tie-breaker.
+    const at = (index: number) =>
+      new Date(
+        Date.UTC(2026, 0, 1, 0, 0, Math.max(0, index - 1)),
+      ).toISOString();
+    await f.db.batch(
+      ids.map((id, index) =>
+        f.db
+          .prepare(
+            "INSERT INTO moderation_requests(id, account_id, testimony_id, kind, reason, created_at) VALUES (?, ?, ?, 'report', ?, ?)",
+          )
+          .bind(id, owner.player.id, piece.id, `理由${index}`, at(index)),
+      ),
+    );
+    // Changing admins restarts the runtime, so it follows the direct inserts.
+    await f.setAdmins([admin.player.id]);
+    const first = await admin.api.pendingModeration();
+    assert.deepEqual(
+      first.items.map((item) => item.id),
+      ids.slice(0, 50),
+    );
+    assert.deepEqual(first.next, { at: at(49), id: ids[49] });
+    await admin.api.resolveModeration(ids[0], "reviewed", "確認しました");
+    const second = await admin.api.pendingModeration(first.next);
+    assert.deepEqual(
+      second.items.map((item) => item.id),
+      ids.slice(50),
+    );
+    assert.equal(second.next, null);
+    await assert.rejects(
+      admin.api.pendingModeration({ at: at(1), id: "not-a-uuid" }),
+      (error) => error instanceof ApiClientError && error.status === 422,
+    );
+  } finally {
+    await f.runtime.dispose();
+  }
+});

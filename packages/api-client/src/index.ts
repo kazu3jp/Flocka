@@ -8,6 +8,7 @@ import {
   backupRecordSchema,
   inviteSchema,
   pendingModerationPageSchema,
+  type ModerationCursor,
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
@@ -302,9 +303,12 @@ export class FlockaApiClient {
       { token },
     );
   }
-  pendingModeration(page = 0) {
+  pendingModeration(after: ModerationCursor | null = null) {
+    const query = after
+      ? `?${new URLSearchParams({ afterAt: after.at, afterId: after.id })}`
+      : "";
     return this.json(
-      `/v1/admin/moderation?page=${page}`,
+      `/v1/admin/moderation${query}`,
       pendingModerationPageSchema,
     );
   }
