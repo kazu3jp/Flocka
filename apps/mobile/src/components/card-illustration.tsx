@@ -1,21 +1,24 @@
 import { C } from "./theme";
 import { selfClaimColor } from "./card-colors";
-import React, { useEffect, useState, useId, useMemo } from "react";
+import React, { memo, useEffect, useState, useId, useMemo } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
 import { CachedSvgXml } from "./cached-svg-xml";
 import vectors from "../vectors.json";
 
-export function CardIllustration({
+/** `artHeight` is the art box the card already measures; this view is 84% of it. */
+export const CardIllustration = memo(function CardIllustration({
   cardKey,
   confirmed,
   selfOnly = false,
+  artHeight,
 }: {
   cardKey: string;
   confirmed: boolean;
   selfOnly?: boolean;
+  artHeight: number;
 }) {
-  const [progress] = useState(() => new Animated.Value(0)),
-    [height, setHeight] = useState(100);
+  const [progress] = useState(() => new Animated.Value(0));
+  const floatDistance = artHeight * 0.84 * 0.05;
   const instanceId = useId().replace(/:/g, "");
   // Native SVG roots scope their own filters, so identical artwork can share one parse.
   const filterId = "artShadow" + (Platform.OS === "web" ? instanceId : "");
@@ -62,9 +65,28 @@ export function CardIllustration({
       listener.remove();
     };
   }, [confirmed, progress]);
+  const transform = useMemo(
+    () =>
+      confirmed
+        ? [
+            {
+              rotate: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["-3deg", "2deg"],
+              }),
+            },
+            {
+              translateY: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -floatDistance],
+              }),
+            },
+          ]
+        : [{ rotate: "-3deg" }],
+    [confirmed, progress, floatDistance],
+  );
   return (
     <Animated.View
-      onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
       style={{
         position: "absolute",
         width: "74%",
@@ -72,25 +94,10 @@ export function CardIllustration({
         maxWidth: 150,
         alignSelf: "center",
         top: "8%",
-        transform: confirmed
-          ? [
-              {
-                rotate: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["-3deg", "2deg"],
-                }),
-              },
-              {
-                translateY: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -height * 0.05],
-                }),
-              },
-            ]
-          : [{ rotate: "-3deg" }],
+        transform,
       }}
     >
       <CachedSvgXml xml={xml} width="100%" height="100%" />
     </Animated.View>
   );
-}
+});
