@@ -4,6 +4,7 @@ import type { State } from "@flocka/domain";
 import { Btn, C, Panel, S, T } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
+import { UserFacingError, userFacingError } from "./user-facing-error";
 
 export function BackupPanel() {
   const { s, update, toast, api, refresh } = useApp(),
@@ -28,7 +29,7 @@ export function BackupPanel() {
       await action();
     } catch (error) {
       if (mounted.current)
-        setError(error instanceof Error ? error.message : String(error));
+        setError(userFacingError(error, "バックアップを処理できませんでした"));
     } finally {
       inFlight.current = false;
       if (mounted.current) setBusy(false);
@@ -58,7 +59,9 @@ export function BackupPanel() {
       let avatarKey: string | null = null;
       if (s.profile.avatar.type === "photo") {
         if (!s.profile.avatar.photo)
-          throw new Error("写真データがないためバックアップできません");
+          throw new UserFacingError(
+            "写真データがないためバックアップできません",
+          );
         avatarKey = await api.uploadAvatar(s.profile.avatar.photo);
       }
       const saved = await api.saveBackup(s, revision, avatarKey);

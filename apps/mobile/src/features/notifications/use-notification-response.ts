@@ -32,18 +32,24 @@ export function useNotificationResponse(
       )
         return;
       lastId = id;
-      void onOpen(payload.data.kind)
-        .then(() => {
-          if (active) return Notifications.clearLastNotificationResponseAsync();
-        })
-        .catch(() => {
+      void onOpen(payload.data.kind).then(
+        () => {
+          // The screen already opened; failing to clear the stored response only
+          // means it may be offered again, which `lastId` ignores in this session.
+          if (active)
+            void Notifications.clearLastNotificationResponseAsync().catch(
+              () => {},
+            );
+        },
+        () => {
           if (active) {
             lastId = null;
             onError(
               "通知の内容を読み込めませんでした。通信を確認してください。",
             );
           }
-        });
+        },
+      );
     };
     const subscription =
       Notifications.addNotificationResponseReceivedListener(receive);

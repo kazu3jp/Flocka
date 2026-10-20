@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import type { FlockaApiClient } from "@flocka/api-client";
+import { UserFacingError, userFacingError } from "../sync/user-facing-error";
 
 const deviceKey = (accountId: string) => `flocka:push-device:${accountId}`;
 Notifications.setNotificationHandler({
@@ -24,11 +25,12 @@ async function registerPush(
   requestPermission = true,
 ) {
   if (Platform.OS === "web" || !Device.isDevice)
-    throw new Error("通知はスマートフォンのアプリで設定できます。");
+    throw new UserFacingError("通知はスマートフォンのアプリで設定できます。");
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ??
     Constants.easConfig?.projectId;
-  if (!projectId) throw new Error("このアプリではまだ通知を利用できません。");
+  if (!projectId)
+    throw new UserFacingError("このアプリではまだ通知を利用できません。");
   // Android must create a channel before displaying the permission dialog.
   if (Platform.OS === "android")
     await Notifications.setNotificationChannelAsync("default", {
@@ -40,7 +42,9 @@ async function registerPush(
     permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted) {
     await unregisterPush(api, accountId);
-    throw new Error("通知が許可されていません。端末の設定から変更できます。");
+    throw new UserFacingError(
+      "通知が許可されていません。端末の設定から変更できます。",
+    );
   }
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   const previous = await storedPushToken(accountId);
@@ -106,10 +110,7 @@ export function usePushRegistration(
           if (active) await enablePush(api, accountId, false);
         }
       } catch (error) {
-        if (active)
-          onError(
-            error instanceof Error ? error.message : "通知の登録に失敗しました",
-          );
+        if (active) onError(userFacingError(error, "通知の登録に失敗しました"));
       }
     })();
     return () => {

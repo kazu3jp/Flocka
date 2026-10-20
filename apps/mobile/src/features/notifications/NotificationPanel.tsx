@@ -3,6 +3,7 @@ import { Btn, C, Panel, S, T } from "../../components/ui";
 import { useAuth } from "../auth/provider";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
+import { userFacingError } from "../sync/user-facing-error";
 import {
   disablePush,
   enablePush,
@@ -14,13 +15,19 @@ export function NotificationPanel() {
   const { data } = useAuth();
   const accountId = data?.user.id;
   const [registered, setRegistered] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { busy, error, run } = useAction();
   useEffect(() => {
     if (!accountId) return;
     let active = true;
-    void storedPushToken(accountId).then((token) => {
-      if (active) setRegistered(!!token);
-    });
+    void storedPushToken(accountId).then(
+      (token) => {
+        if (active) setRegistered(!!token);
+      },
+      () => {
+        if (active) setLoadError("この端末の通知設定を読み込めませんでした");
+      },
+    );
     return () => {
       active = false;
     };
@@ -33,9 +40,9 @@ export function NotificationPanel() {
       <T color={C.muted} size={13}>
         封筒の到着、交換の成立、通報への対応をこの端末へお知らせします。
       </T>
-      {error && (
+      {(error || loadError) && (
         <T accessibilityRole="alert" color={C.danger}>
-          {error}
+          {error || loadError}
         </T>
       )}
       <Btn
@@ -50,9 +57,16 @@ export function NotificationPanel() {
         onPress={() =>
           void run(async () => {
             if (!accountId) return;
-            if (registered) await disablePush(api, accountId);
-            else await enablePush(api, accountId);
+            try {
+              if (registered) await disablePush(api, accountId);
+              else await enablePush(api, accountId);
+            } catch (error) {
+              throw new Error(
+                userFacingError(error, "通知を設定できませんでした"),
+              );
+            }
             setRegistered(!registered);
+            setLoadError(null);
           })
         }
       />
