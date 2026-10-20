@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { SvgXml } from "react-native-svg";
+import { CachedSvgXml } from "../../components/cached-svg-xml";
 import { CARDS, SELF_OPTIONS } from "@flocka/domain";
 import vectors from "../../vectors.json";
 import { C, F, S, T } from "../../components/ui";
@@ -115,7 +115,7 @@ export function MemoStrengths({
             gap: 6,
           }}
         >
-          <SvgXml
+          <CachedSvgXml
             xml={(vectors.cards as Record<string, string>)[key]}
             width={26}
             height={26}

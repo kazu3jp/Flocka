@@ -1,5 +1,6 @@
 import React, { useId, useMemo } from "react";
-import { SvgXml } from "react-native-svg";
+import { Platform } from "react-native";
+import { CachedSvgXml } from "./cached-svg-xml";
 import vectors from "../vectors.json";
 import { C } from "./theme";
 
@@ -11,7 +12,9 @@ export function StickerArtwork({
   stickerKey: string;
   shadow?: boolean;
 }) {
-  const filterId = "stickerShadow" + useId().replace(/:/g, "");
+  const instanceId = useId().replace(/:/g, "");
+  // Native SVG roots scope their own filters, so identical stickers can share one parse.
+  const filterId = "stickerShadow" + (Platform.OS === "web" ? instanceId : "");
   const xml = useMemo(() => {
     const source = (vectors.stickers as Record<string, string>)[stickerKey];
     if (!shadow) return source;
@@ -23,5 +26,5 @@ export function StickerArtwork({
       )
       .replace("</svg>", "</g></svg>");
   }, [stickerKey, shadow, filterId]);
-  return <SvgXml xml={xml} width="100%" height="100%" />;
+  return <CachedSvgXml xml={xml} width="100%" height="100%" />;
 }

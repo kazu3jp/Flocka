@@ -39,7 +39,19 @@ import {
   T,
 } from "../components/ui";
 import { SCREENS, type ScreenId, type Tab } from "@flocka/domain";
-import { useApp } from "../store";
+import { useApp, useAppStatus } from "../store";
+
+/** Toasts read their own status so showing one does not redraw the screen. */
+function AppToast({ focused }: { focused: boolean }) {
+  const { notification, dismissToast } = useAppStatus();
+  return (
+    <ToastBanner
+      notification={notification}
+      dismiss={dismissToast}
+      focused={focused}
+    />
+  );
+}
 
 const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
@@ -70,8 +82,6 @@ export default function Screen() {
       refresh,
       preferenceConflict,
       resolvePreferences,
-      notification,
-      dismissToast,
       saveError,
       retrySave,
     } = useApp();
@@ -165,13 +175,7 @@ export default function Screen() {
   return (
     <ScreenFeedback
       style={{ flex: 1, backgroundColor: C.blue }}
-      feedback={
-        <ToastBanner
-          notification={notification}
-          dismiss={dismissToast}
-          focused={focused}
-        />
-      }
+      feedback={<AppToast focused={focused} />}
     >
       <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
       <BoardInsets.Provider value={{ top: false, bottom: focused }}>

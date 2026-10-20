@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import { SvgXml } from "react-native-svg";
+import { CachedSvgXml } from "./cached-svg-xml";
 import vectors from "../vectors.json";
 import {
   AV_COLORS,
@@ -53,7 +53,7 @@ export function CardPicker({
               }
             >
               <View style={S.row}>
-                <SvgXml
+                <CachedSvgXml
                   xml={(vectors.cards as Record<string, string>)[k]}
                   width={40}
                   height={40}
@@ -200,7 +200,7 @@ export function AvatarPicker({
               selected={avatar.motif === k}
               onPress={() => onChange({ ...avatar, motif: k })}
             >
-              <SvgXml
+              <CachedSvgXml
                 xml={(vectors.motifs as Record<string, string>)[k]}
                 width={32}
                 height={32}

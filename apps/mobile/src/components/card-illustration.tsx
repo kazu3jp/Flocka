@@ -1,8 +1,8 @@
 import { C } from "./theme";
 import { selfClaimColor } from "./card-colors";
 import React, { useEffect, useState, useId, useMemo } from "react";
-import { AccessibilityInfo, Animated, Easing } from "react-native";
-import { SvgXml } from "react-native-svg";
+import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
+import { CachedSvgXml } from "./cached-svg-xml";
 import vectors from "../vectors.json";
 
 export function CardIllustration({
@@ -16,7 +16,9 @@ export function CardIllustration({
 }) {
   const [progress] = useState(() => new Animated.Value(0)),
     [height, setHeight] = useState(100);
-  const filterId = "artShadow" + useId().replace(/:/g, "");
+  const instanceId = useId().replace(/:/g, "");
+  // Native SVG roots scope their own filters, so identical artwork can share one parse.
+  const filterId = "artShadow" + (Platform.OS === "web" ? instanceId : "");
   const xml = useMemo(() => {
     let source = (vectors.cards as Record<string, string>)[cardKey];
     if (selfOnly) source = source.replace(/#[0-9a-f]{6}/gi, selfClaimColor);
@@ -88,7 +90,7 @@ export function CardIllustration({
           : [{ rotate: "-3deg" }],
       }}
     >
-      <SvgXml xml={xml} width="100%" height="100%" />
+      <CachedSvgXml xml={xml} width="100%" height="100%" />
     </Animated.View>
   );
 }

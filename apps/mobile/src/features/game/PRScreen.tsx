@@ -22,7 +22,7 @@ import { PRBody } from "./pr-body";
 export function PR() {
   const { d, nav, setOpening, peers } = useApp();
   const editor = usePRDocument();
-  const { shown, reveal } = useTypedPR(
+  const { progress, reveal } = useTypedPR(
     editor.draft,
     editor.manual,
     editor.replay,
@@ -180,7 +180,7 @@ export function PR() {
             draft={editor.draft}
             manual={editor.manual}
             segments={document.segments}
-            shown={shown}
+            progress={progress}
             reveal={reveal}
           />
         )}

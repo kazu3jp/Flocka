@@ -1,6 +1,7 @@
 import React from "react";
 import { View, type ViewStyle } from "react-native";
-import Svg, { Path, SvgXml } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
+import { CachedSvgXml } from "../../components/cached-svg-xml";
 import { bareCard, type DecoData } from "@flocka/domain";
 import { C, T } from "../../components/ui";
 import { CardPattern } from "../../components/cards";
@@ -115,7 +116,7 @@ export function DecorationSwatch({
       }}
     >
       {tab === "stickers" ? (
-        <SvgXml
+        <CachedSvgXml
           xml={(vectors.stickers as Record<string, string>)[option]}
           width="100%"
           height="100%"

@@ -1,5 +1,5 @@
 import { useAction } from "../sync/use-action";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -57,11 +57,17 @@ function GuessContent({ id }: { id: string }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
-  if (!p) return null;
+  // Opening animation re-renders often; the projected card only depends on state and guess.
+  const after = useMemo(() => {
+    if (!p) return null;
+    const preview = JSON.parse(JSON.stringify(s)) as State;
+    openPiece(preview, p.id, guess || "skip");
+    return derive(preview).cards[p.card];
+    // p is re-found on each render; its id and card identify it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s, p?.id, p?.card, guess]);
+  if (!p || !after) return null;
   const opts = optionsFor(p, s.self),
-    preview = JSON.parse(JSON.stringify(s)) as State;
-  openPiece(preview, p.id, guess || "skip");
-  const after = derive(preview).cards[p.card],
     became = after.confirmed && !wasConfirmed;
   const choose = (k: string) => {
     if (stage !== "guess") return;

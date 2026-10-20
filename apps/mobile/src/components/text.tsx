@@ -1,18 +1,83 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, memo, useContext } from "react";
 import {
   Image,
+  Platform,
+  StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
   type TextProps,
+  type TextStyle,
 } from "react-native";
-import { SvgXml } from "react-native-svg";
 import { AV_COLORS, IC, type AvatarData } from "@flocka/domain";
 import vectors from "../vectors.json";
+import { CachedSvgXml } from "./cached-svg-xml";
 import { C, F } from "./theme";
 
 export const ForegroundColor = createContext<string>(C.white);
+
+// Both bundled families use hhea ascent 1.16em and descent 0.288em.
+const FONT_ASCENT = 1.16,
+  FONT_DESCENT = 0.288;
+// Measured extents of the kana, kanji, punctuation and Latin descenders in each font.
+const GLYPH_EXTENTS: Record<string, { top: number; bottom: number }> = {
+  [F.display]: { top: 0.93, bottom: 0.27 },
+  [F.body]: { top: 0.87, bottom: 0.21 },
+  [F.bold]: { top: 0.87, bottom: 0.21 },
+};
+
+const numeric = (...values: unknown[]) => {
+  for (const value of values)
+    if (value !== undefined) return typeof value === "number" ? value : null;
+  return 0;
+};
+
+/**
+ * Android TextView clips glyphs to its own box. When the source CSS uses a
+ * line-height tighter than the font, extend the box with padding and pull the
+ * layout back with the same negative margin, so only the drawable area grows.
+ */
+function androidGlyphRoom(style: TextStyle) {
+  const { fontSize, lineHeight, fontFamily } = style;
+  const extents = fontFamily && GLYPH_EXTENTS[fontFamily];
+  if (!fontSize || !lineHeight || !extents) return null;
+  // Padding would visibly grow a painted label or move text inside a fixed box.
+  if (
+    style.height !== undefined ||
+    style.minHeight !== undefined ||
+    style.backgroundColor ||
+    style.borderWidth ||
+    style.borderTopWidth ||
+    style.borderBottomWidth
+  )
+    return null;
+  const halfLeading =
+    (lineHeight - fontSize * (FONT_ASCENT + FONT_DESCENT)) / 2;
+  const sides = {
+    Top: fontSize * (extents.top - FONT_ASCENT) - halfLeading,
+    Bottom: fontSize * (extents.bottom - FONT_DESCENT) - halfLeading,
+  };
+  const room: TextStyle = {};
+  for (const side of ["Top", "Bottom"] as const) {
+    const padding = numeric(
+      style[`padding${side}`],
+      style.paddingVertical,
+      style.padding,
+    );
+    const margin = numeric(
+      style[`margin${side}`],
+      style.marginVertical,
+      style.margin,
+    );
+    if (padding === null || margin === null) continue;
+    const missing = Math.ceil(sides[side] - padding);
+    if (missing <= 0) continue;
+    room[`padding${side}`] = padding + missing;
+    room[`margin${side}`] = margin - missing;
+  }
+  return Object.keys(room).length ? room : null;
+}
 
 export function T({
   display = false,
@@ -22,23 +87,25 @@ export function T({
   ...props
 }: TextProps & { display?: boolean; size?: number; color?: string }) {
   const inheritedColor = useContext(ForegroundColor);
+  const textStyle: StyleProp<TextStyle> = [
+    {
+      fontFamily: display ? F.display : F.body,
+      fontSize: size,
+      lineHeight: size * 1.5,
+      color: color ?? inheritedColor,
+    },
+    style,
+  ];
+  const glyphRoom =
+    Platform.OS === "android"
+      ? androidGlyphRoom(StyleSheet.flatten(textStyle))
+      : null;
   return (
-    <Text
-      {...props}
-      style={[
-        {
-          fontFamily: display ? F.display : F.body,
-          fontSize: size,
-          lineHeight: size * 1.5,
-          color: color ?? inheritedColor,
-        },
-        style,
-      ]}
-    />
+    <Text {...props} style={glyphRoom ? [textStyle, glyphRoom] : textStyle} />
   );
 }
 
-export function Icon({
+export const Icon = memo(function Icon({
   name,
   size = 22,
   style,
@@ -51,14 +118,14 @@ export function Icon({
 }) {
   const inheritedColor = useContext(ForegroundColor);
   return (
-    <SvgXml
+    <CachedSvgXml
       xml={`<svg viewBox="0 0 24 24" fill="none" stroke="${color ?? inheritedColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${IC[name] || IC.spark}</svg>`}
       style={style}
       width={size}
       height={size}
     />
   );
-}
+});
 
 export function Brand({ size = 40 }: { size?: number }) {
   return (
@@ -71,7 +138,7 @@ export function Brand({ size = 40 }: { size?: number }) {
       }}
     >
       <View style={{ borderRadius: size * 0.224, overflow: "hidden" }}>
-        <SvgXml xml={vectors.icon} width={size} height={size} />
+        <CachedSvgXml xml={vectors.icon} width={size} height={size} />
       </View>
     </View>
   );
@@ -110,7 +177,7 @@ export function Avatar({
           accessibilityLabel="プロフィール写真"
         />
       ) : avatar?.type === "motif" ? (
-        <SvgXml xml={motif} width="75%" height="75%" />
+        <CachedSvgXml xml={motif} width="75%" height="75%" />
       ) : (
         <T display size={size * 0.4} color={C.ink}>
           {name.slice(0, 1) || "?"}

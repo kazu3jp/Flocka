@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { PRSegment } from "@flocka/domain";
 import { PRCaret } from "./pr-caret";
+import { useTypedShown, type TypedProgress } from "./use-typed-pr";
 import { C, F, T } from "../../components/ui";
 
 function visiblePRSegments(segments: PRSegment[], shown: number) {
@@ -23,15 +24,16 @@ export function PRBody({
   draft,
   manual,
   segments,
-  shown,
+  progress,
   reveal,
 }: {
   draft: string;
   manual: boolean;
   segments: PRSegment[];
-  shown: number;
+  progress: TypedProgress;
   reveal: () => void;
 }) {
+  const shown = useTypedShown(progress);
   const visible = visiblePRSegments(segments, shown);
   return (
     <ScrollView

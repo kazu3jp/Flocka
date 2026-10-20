@@ -16,10 +16,11 @@ import {
   T,
   Sheet,
 } from "../../components/ui";
-import { useApp } from "../../store";
+import { useApp, useAppStatus } from "../../store";
 
 export function Settings() {
-  const { s, api, refresh, syncing, nav, toast, peers, isAdmin } = useApp(),
+  const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
+    { syncing } = useAppStatus(),
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [settings, setSettings] = useState(s.settings),
     { busy, error, run } = useAction(),

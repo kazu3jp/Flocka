@@ -1,4 +1,5 @@
 import { createUndoAction } from "./features/sync/undo-action";
+import { keepIfSame } from "./features/sync/same-data";
 import {
   useNotificationResponse,
   type NoticeKind,
@@ -72,7 +73,6 @@ type ContextValue = {
   error: string | null;
   saveError: string | null;
   syncError: string | null;
-  syncing: boolean;
   peers: Record<string, RemotePlayer>;
   isAdmin: boolean;
   preferenceConflict: { data: Preferences; revision: number } | null;
@@ -93,10 +93,15 @@ type ContextValue = {
     undo: () => Promise<unknown>,
     successMessage: string,
   ) => void;
+};
+/** Status that changes on its own timer, kept apart so screens do not redraw with it. */
+type StatusValue = {
+  syncing: boolean;
   notification: Toast | null;
   dismissToast: () => void;
 };
 const Context = createContext<ContextValue | null>(null);
+const StatusContext = createContext<StatusValue | null>(null);
 export function Provider({
   children,
   storageScope,
@@ -228,9 +233,13 @@ export function Provider({
     } else prefsRevision.current = snapshot.preferences.revision;
     if (!dirty)
       savedPreferences.current = JSON.stringify(snapshot.preferences.data);
-    stateRef.current = next;
-    setS(next);
-    setPeers(Object.fromEntries(snapshot.peers.map((peer) => [peer.id, peer])));
+    // Polling usually returns the same data; keep references so screens skip redrawing.
+    stateRef.current = keepIfSame(stateRef.current, next);
+    setS(stateRef.current);
+    const nextPeers = Object.fromEntries(
+      snapshot.peers.map((peer) => [peer.id, peer]),
+    );
+    setPeers((current) => keepIfSame(current, nextPeers));
     setIsAdmin(snapshot.isAdmin);
   }, [api]);
   const refresh = useCallback(() => {
@@ -347,27 +356,32 @@ export function Provider({
     ready && s.onboarded && storageScope !== "signed-out",
     toast,
   );
-  const persist = useCallback(() => {
+  const writeStorage = useCallback((entries: [string, string][]) => {
     if (persistenceStopped.current) return;
-    const state = JSON.stringify(stateRef.current),
-      navigation = JSON.stringify(navRef.current);
     saveQueue.current = saveQueue.current
-      .then(() =>
-        AsyncStorage.multiSet([
-          [stateKey, state],
-          [navKey, navigation],
-        ]),
-      )
+      .then(() => AsyncStorage.multiSet(entries))
       .catch((error) => {
         if (mounted.current)
           setSaveError(
             `端末へ保存できませんでした：${String(error.message || error)}`,
           );
       });
-  }, [navKey, stateKey]);
+  }, []);
+  const persist = useCallback(
+    () =>
+      writeStorage([
+        [stateKey, JSON.stringify(stateRef.current)],
+        [navKey, JSON.stringify(navRef.current)],
+      ]),
+    [navKey, stateKey, writeStorage],
+  );
+  // Screen changes only rewrite navigation, not the whole state with its photos.
   useEffect(() => {
-    if (ready) persist();
-  }, [s, n, ready, persist]);
+    if (ready) writeStorage([[stateKey, JSON.stringify(s)]]);
+  }, [s, ready, stateKey, writeStorage]);
+  useEffect(() => {
+    if (ready) writeStorage([[navKey, JSON.stringify(n)]]);
+  }, [n, ready, navKey, writeStorage]);
   const flushPreferences = useCallback(() => {
     const task = syncQueue.current
       .catch(() => {})
@@ -403,27 +417,30 @@ export function Provider({
     syncQueue.current = task;
     return task;
   }, [api, synchronize]);
-  const resolvePreferences = async (choice: "server" | "local") => {
-    if (!preferenceConflict) return;
-    if (choice === "server") {
-      stateRef.current = withPreferences(
-        stateRef.current,
-        preferenceConflict.data,
-      );
-      setS(stateRef.current);
-      prefsRevision.current = preferenceConflict.revision;
-      savedPreferences.current = JSON.stringify(preferenceConflict.data);
-    } else {
-      const data = preferencesOf(stateRef.current),
-        saved = await api.savePreferences(data, preferenceConflict.revision);
-      prefsRevision.current = saved.revision;
-      savedPreferences.current = JSON.stringify(data);
-    }
-    setPreferenceConflict(null);
-    setSaveError(null);
-  };
+  const resolvePreferences = useCallback(
+    async (choice: "server" | "local") => {
+      if (!preferenceConflict) return;
+      if (choice === "server") {
+        stateRef.current = withPreferences(
+          stateRef.current,
+          preferenceConflict.data,
+        );
+        setS(stateRef.current);
+        prefsRevision.current = preferenceConflict.revision;
+        savedPreferences.current = JSON.stringify(preferenceConflict.data);
+      } else {
+        const data = preferencesOf(stateRef.current),
+          saved = await api.savePreferences(data, preferenceConflict.revision);
+        prefsRevision.current = saved.revision;
+        savedPreferences.current = JSON.stringify(data);
+      }
+      setPreferenceConflict(null);
+      setSaveError(null);
+    },
+    [api, preferenceConflict],
+  );
   const derived = useMemo(() => derive(s), [s]);
-  const preferencesJson = JSON.stringify(preferencesOf(s));
+  const preferencesJson = useMemo(() => JSON.stringify(preferencesOf(s)), [s]);
   useEffect(() => {
     if (!ready || !s.onboarded || preferencesJson === savedPreferences.current)
       return;
@@ -433,19 +450,22 @@ export function Provider({
     );
     return () => clearTimeout(timer);
   }, [ready, s.onboarded, preferencesJson, flushPreferences]);
-  const update = <R,>(recipe: (draft: State) => R): R => {
+  const update = useCallback(<R,>(recipe: (draft: State) => R): R => {
     const next = JSON.parse(JSON.stringify(stateRef.current)) as State;
     const result = recipe(next);
     stateRef.current = next;
     setS(next);
     return result;
-  };
-  const saveProfile = async (profile: Profile, self: string[]) => {
-    if (profile.avatar.type === "photo" && profile.avatar.photo)
-      await api.uploadAvatar(profile.avatar.photo);
-    await api.updateProfile(profile, self);
-    await refresh();
-  };
+  }, []);
+  const saveProfile = useCallback(
+    async (profile: Profile, self: string[]) => {
+      if (profile.avatar.type === "photo" && profile.avatar.photo)
+        await api.uploadAvatar(profile.avatar.photo);
+      await api.updateProfile(profile, self);
+      await refresh();
+    },
+    [api, refresh],
+  );
   const openNotification = useCallback(
     async (kind: NoticeKind) => {
       await refresh();
@@ -471,39 +491,44 @@ export function Provider({
     openNotification,
     toast,
   );
-  const commitNav = (next: NavState) => {
-    navRef.current = next;
-    setN(next);
-    router.replace(routeFor(currentEntry(next)));
-  };
-  const mutateNav = (recipe: (next: NavState) => void) => {
-    const next = JSON.parse(JSON.stringify(navRef.current)) as NavState;
-    recipe(next);
-    commitNav(next);
-  };
-  const nav: Navigation = {
-    push: (id, params) =>
-      mutateNav((v) => v.stacks[v.tab].push({ id, params })),
-    replace: (id, params) =>
-      mutateNav((v) => {
-        v.stacks[v.tab][v.stacks[v.tab].length - 1] = { id, params };
-      }),
-    pop: () =>
-      mutateNav((v) => {
-        if (v.stacks[v.tab].length > 1) v.stacks[v.tab].pop();
-      }),
-    goTab: (tab, entry, reset = false) =>
-      mutateNav((v) => {
-        if (reset || entry) v.stacks[tab] = initNav().stacks[tab];
-        v.tab = tab;
-        if (entry) v.stacks[tab].push(entry);
-      }),
-    root: () =>
-      mutateNav((v) => {
-        v.stacks[v.tab] = initNav().stacks[v.tab];
-      }),
-    reset: () => commitNav(initNav()),
-  };
+  const commitNav = useCallback(
+    (next: NavState) => {
+      navRef.current = next;
+      setN(next);
+      router.replace(routeFor(currentEntry(next)));
+    },
+    [router],
+  );
+  const nav = useMemo<Navigation>(() => {
+    const mutateNav = (recipe: (next: NavState) => void) => {
+      const next = JSON.parse(JSON.stringify(navRef.current)) as NavState;
+      recipe(next);
+      commitNav(next);
+    };
+    return {
+      push: (id, params) =>
+        mutateNav((v) => v.stacks[v.tab].push({ id, params })),
+      replace: (id, params) =>
+        mutateNav((v) => {
+          v.stacks[v.tab][v.stacks[v.tab].length - 1] = { id, params };
+        }),
+      pop: () =>
+        mutateNav((v) => {
+          if (v.stacks[v.tab].length > 1) v.stacks[v.tab].pop();
+        }),
+      goTab: (tab, entry, reset = false) =>
+        mutateNav((v) => {
+          if (reset || entry) v.stacks[tab] = initNav().stacks[tab];
+          v.tab = tab;
+          if (entry) v.stacks[tab].push(entry);
+        }),
+      root: () =>
+        mutateNav((v) => {
+          v.stacks[v.tab] = initNav().stacks[v.tab];
+        }),
+      reset: () => commitNav(initNav()),
+    };
+  }, [commitNav]);
   useEffect(() => {
     if (Platform.OS === "web") return;
     const listener = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -523,60 +548,96 @@ export function Provider({
     // The listener reads the current navigation through its ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opening]);
+  const reload = useCallback(() => {
+    setReady(false);
+    setError(null);
+    setReloadKey((key) => key + 1);
+  }, []);
+  const clearDeletedAccount = useCallback(async () => {
+    persistenceStopped.current = true;
+    await saveQueue.current;
+    await forgetDeletedPushDevice(storageScope);
+    await AsyncStorage.multiRemove([stateKey, navKey]);
+    ownAvatar.current = null;
+    peerPhotos.current.clear();
+    stateRef.current = fresh();
+    navRef.current = initNav();
+  }, [navKey, stateKey, storageScope]);
+  const retrySave = useCallback(() => {
+    persist();
+    void flushPreferences().catch(() => {});
+  }, [flushPreferences, persist]);
+  const dismissToast = useCallback(() => setNotification(null), []);
+  const value = useMemo<ContextValue>(
+    () => ({
+      s,
+      d: derived,
+      n,
+      nav,
+      ready,
+      error,
+      saveError,
+      syncError,
+      peers,
+      isAdmin,
+      preferenceConflict,
+      resolvePreferences,
+      api,
+      refresh,
+      savePreferences: flushPreferences,
+      saveProfile,
+      update,
+      reload,
+      clearDeletedAccount,
+      retrySave,
+      opening,
+      setOpening,
+      toast,
+      offerUndo,
+    }),
+    [
+      s,
+      derived,
+      n,
+      nav,
+      ready,
+      error,
+      saveError,
+      syncError,
+      peers,
+      isAdmin,
+      preferenceConflict,
+      resolvePreferences,
+      api,
+      refresh,
+      flushPreferences,
+      saveProfile,
+      update,
+      reload,
+      clearDeletedAccount,
+      retrySave,
+      opening,
+      toast,
+      offerUndo,
+    ],
+  );
+  const status = useMemo<StatusValue>(
+    () => ({ syncing, notification, dismissToast }),
+    [syncing, notification, dismissToast],
+  );
   return (
-    <Context.Provider
-      value={{
-        s,
-        d: derived,
-        n,
-        nav,
-        ready,
-        error,
-        saveError,
-        syncError,
-        syncing,
-        peers,
-        isAdmin,
-        preferenceConflict,
-        resolvePreferences,
-        api,
-        refresh,
-        savePreferences: flushPreferences,
-        saveProfile,
-        update,
-        reload: () => {
-          setReady(false);
-          setError(null);
-          setReloadKey((key) => key + 1);
-        },
-        clearDeletedAccount: async () => {
-          persistenceStopped.current = true;
-          await saveQueue.current;
-          await forgetDeletedPushDevice(storageScope);
-          await AsyncStorage.multiRemove([stateKey, navKey]);
-          ownAvatar.current = null;
-          peerPhotos.current.clear();
-          stateRef.current = fresh();
-          navRef.current = initNav();
-        },
-        retrySave: () => {
-          persist();
-          void flushPreferences().catch(() => {});
-        },
-        opening,
-        setOpening,
-        toast,
-        offerUndo,
-        notification,
-        dismissToast: () => setNotification(null),
-      }}
-    >
-      {children}
+    <Context.Provider value={value}>
+      <StatusContext.Provider value={status}>{children}</StatusContext.Provider>
     </Context.Provider>
   );
 }
 export function useApp() {
   const context = useContext(Context);
+  if (!context) throw new Error("Flocka Provider is missing");
+  return context;
+}
+export function useAppStatus() {
+  const context = useContext(StatusContext);
   if (!context) throw new Error("Flocka Provider is missing");
   return context;
 }

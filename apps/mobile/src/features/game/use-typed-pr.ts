@@ -1,8 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AccessibilityInfo } from "react-native";
 
+/** Typing progress lives outside the screen so each tick redraws only the text. */
+export type TypedProgress = {
+  get: () => number;
+  set: (shown: number) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+function createTypedProgress(): TypedProgress {
+  let shown = 0;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => shown,
+    set: (next) => {
+      if (next === shown) return;
+      shown = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+export function useTypedShown(progress: TypedProgress) {
+  return useSyncExternalStore(progress.subscribe, progress.get);
+}
+
 export function useTypedPR(text: string, manual: boolean, replay: number) {
-  const [shown, setShown] = useState(0);
+  const [progress] = useState(createTypedProgress);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stop = useCallback(() => {
     if (timer.current !== null) clearInterval(timer.current);
@@ -13,7 +47,7 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
     const showAll = () => {
       if (active) {
         stop();
-        setShown(text.length);
+        progress.set(text.length);
       }
     };
     const subscription = AccessibilityInfo.addEventListener(
@@ -29,12 +63,12 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
           showAll();
           return;
         }
-        setShown(0);
+        progress.set(0);
         let cursor = 0;
         timer.current = setInterval(() => {
           if (!active) return;
           cursor = Math.min(text.length, cursor + 2);
-          setShown(cursor);
+          progress.set(cursor);
           if (cursor === text.length) stop();
         }, 22);
       })
@@ -44,12 +78,10 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
       stop();
       subscription?.remove();
     };
-  }, [text, manual, replay, stop]);
-  return {
-    shown,
-    reveal: () => {
-      stop();
-      setShown(text.length);
-    },
-  };
+  }, [text, manual, replay, stop, progress]);
+  const reveal = useCallback(() => {
+    stop();
+    progress.set(text.length);
+  }, [progress, stop, text.length]);
+  return { progress, reveal };
 }
