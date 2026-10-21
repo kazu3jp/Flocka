@@ -1,4 +1,8 @@
 import { backupWithLiveReferences } from "./backup-references";
+import { invalidPRSource } from "./pr-draft-references";
+
+/** Audit rows outlive an erased administrator, without the name or free-text note. */
+export const ERASED_ADMIN_ID = "erased-account";
 
 /** All predicates use the same bound ID. The batch preserves FK ordering atomically. */
 export async function eraseAccountRows(
@@ -17,9 +21,12 @@ export async function eraseAccountRows(
       WHERE account_id != ?1 AND (snapshot_json LIKE '%' || ?1 || '%'
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.reports') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces}))
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.deletions') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces})))`,
+    // Only drafts quoting the erased player's testimonies lose their text; other drafts stay.
     `UPDATE player_preferences SET data_json = json_remove(json_set(data_json, '$.prDraft', NULL), '$.prDraftSource'), revision = revision + 1
-      WHERE account_id IN (SELECT player_a FROM exchanges WHERE player_b = ?1 UNION SELECT player_b FROM exchanges WHERE player_a = ?1)`,
-    `DELETE FROM moderation_audit WHERE admin_id = ?1 OR request_id IN (${requests})`,
+      WHERE account_id IN (SELECT recipient_id FROM testimonies WHERE sender_id = ?1)
+        AND ${invalidPRSource("player_preferences.data_json", "player_preferences.account_id", "?1")}`,
+    `DELETE FROM moderation_audit WHERE request_id IN (${requests})`,
+    `UPDATE moderation_audit SET admin_id = '${ERASED_ADMIN_ID}', note = '' WHERE admin_id = ?1`,
     `DELETE FROM moderation_requests WHERE account_id = ?1 OR testimony_id IN (${pieces})`,
     // A deleted administrator's name/notes must not remain on unrelated reports.
     "UPDATE moderation_requests SET resolved_by = NULL, resolution = NULL WHERE resolved_by = ?1",
