@@ -13,7 +13,8 @@ import { testimonyRoutes } from "./routes/testimonies";
 import { adminRoutes } from "./routes/admin";
 import { deviceRoutes } from "./routes/devices";
 import { dispatchNotifications, checkPushReceipts } from "./services/push";
-import { runMaintenance } from "./services/maintenance";
+import { maintenanceTasks } from "./services/maintenance";
+import { allowedOrigins } from "./origins";
 
 const app = new Hono<ApiContext>();
 app.use("*", async (c, next) => {
@@ -25,7 +26,7 @@ app.use("*", async (c, next) => {
 });
 app.use("*", async (c, next) => {
   const origin = c.req.header("Origin"),
-    allowed = c.env.ALLOWED_ORIGINS.split(",");
+    allowed = allowedOrigins(c.env);
   const appleCallback =
     c.req.path === "/api/auth/callback/apple" &&
     origin === "https://appleid.apple.com" &&
@@ -47,7 +48,7 @@ app.use(
   "*",
   cors({
     origin: (origin, c) =>
-      c.env.ALLOWED_ORIGINS.split(",").includes(origin) ? origin : undefined,
+      allowedOrigins(c.env).includes(origin) ? origin : undefined,
     credentials: true,
     allowHeaders: [
       "Content-Type",
@@ -128,12 +129,31 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ) {
+    // Independent jobs: one failure must not stop or hide the others.
+    const tasks: [string, () => Promise<unknown>][] = [
+      [
+        "push.dispatch",
+        () => dispatchNotifications(env.DB, env.EXPO_ACCESS_TOKEN),
+      ],
+      ["push.receipts", () => checkPushReceipts(env.DB, env.EXPO_ACCESS_TOKEN)],
+      ...maintenanceTasks(env),
+    ];
     ctx.waitUntil(
-      Promise.all([
-        dispatchNotifications(env.DB, env.EXPO_ACCESS_TOKEN),
-        checkPushReceipts(env.DB, env.EXPO_ACCESS_TOKEN),
-        runMaintenance(env),
-      ]),
+      Promise.allSettled(tasks.map(([, run]) => run())).then((results) =>
+        results.forEach((result, index) => {
+          if (result.status === "rejected")
+            console.error(
+              JSON.stringify({
+                event: "cron.task_failed",
+                task: tasks[index][0],
+                name:
+                  result.reason instanceof Error
+                    ? result.reason.name
+                    : "UnknownError",
+              }),
+            );
+        }),
+      ),
     );
   },
 } satisfies ExportedHandler<Env>;
