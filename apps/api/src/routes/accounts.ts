@@ -10,6 +10,7 @@ import {
 } from "@flocka/domain";
 import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
+import { NEW_AVATAR_REFERENCE_MS } from "../services/avatar-retention";
 
 export const accountRoutes = new Hono<ApiContext>();
 accountRoutes.post("/me/terms", async (c) => {
@@ -107,37 +108,65 @@ accountRoutes.put("/me/backup", async (c) => {
     accountId = c.get("accountId");
   const avatarKey =
     snapshot.profile.avatar.type === "photo" ? requestedAvatarKey : null;
-  if (
-    snapshot.profile.avatar.type === "photo" &&
-    (!avatarKey ||
-      !avatarKey.startsWith(`avatars/${accountId}/`) ||
-      !(await c.env.AVATARS.head(avatarKey)))
-  )
-    throw new ApiError(
+  const avatarRequired = () =>
+    new ApiError(
       422,
       "AVATAR_REQUIRED",
       "本人の写真をR2へ保存してからバックアップしてください",
     );
+  const avatarObject =
+    avatarKey && avatarKey.startsWith(`avatars/${accountId}/`)
+      ? await c.env.AVATARS.head(avatarKey)
+      : null;
+  if (snapshot.profile.avatar.type === "photo" && !avatarObject)
+    throw avatarRequired();
+  // An older object is accepted only while D1 still references it (checked in
+  // the write itself), which closes the race with the orphan avatar sweep.
+  const newAvatar =
+    avatarObject !== null &&
+    Date.now() - avatarObject.uploaded.getTime() < NEW_AVATAR_REFERENCE_MS;
+  const avatarStillReferenced = (key: string, owner: string, fresh: string) =>
+    `(${key} IS NULL OR ${fresh} = 1
+      OR EXISTS(SELECT 1 FROM accounts WHERE id = ${owner} AND avatar_key = ${key})
+      OR EXISTS(SELECT 1 FROM backups WHERE account_id = ${owner} AND avatar_key = ${key}))`;
   // Photo bytes belong to R2. Private snapshots hold only the avatar settings.
   delete snapshot.profile.avatar.photo;
   const statement =
     revision === null
       ? c.env.DB.prepare(
-          `INSERT INTO backups(account_id, snapshot_json, revision, updated_at, avatar_key) VALUES(?1, ${backupWithLiveReferences("?2", "?1")}, 1, ?3, ?4) ON CONFLICT(account_id) DO NOTHING RETURNING revision, snapshot_json`,
-        ).bind(accountId, JSON.stringify(snapshot), at, avatarKey || null)
+          `INSERT INTO backups(account_id, snapshot_json, revision, updated_at, avatar_key)
+          SELECT ?1, ${backupWithLiveReferences("?2", "?1")}, 1, ?3, ?4 WHERE ${avatarStillReferenced("?4", "?1", "?5")}
+          ON CONFLICT(account_id) DO NOTHING RETURNING revision, snapshot_json`,
+        ).bind(
+          accountId,
+          JSON.stringify(snapshot),
+          at,
+          avatarKey || null,
+          newAvatar ? 1 : 0,
+        )
       : c.env.DB.prepare(
-          `UPDATE backups SET snapshot_json = ${backupWithLiveReferences("?1", "?4")}, revision = revision + 1, updated_at = ?2, avatar_key = ?3 WHERE account_id = ?4 AND revision = ?5 RETURNING revision, snapshot_json`,
+          `UPDATE backups SET snapshot_json = ${backupWithLiveReferences("?1", "?4")}, revision = revision + 1, updated_at = ?2, avatar_key = ?3
+          WHERE account_id = ?4 AND revision = ?5 AND ${avatarStillReferenced("?3", "?4", "?6")} RETURNING revision, snapshot_json`,
         ).bind(
           JSON.stringify(snapshot),
           at,
           avatarKey || null,
           accountId,
           revision,
+          newAvatar ? 1 : 0,
         );
   const result = await statement.first<{
     revision: number;
     snapshot_json: string;
   }>();
+  if (!result && avatarKey && !newAvatar) {
+    const referenced = await c.env.DB.prepare(
+      `SELECT 1 WHERE ${avatarStillReferenced("?1", "?2", "0")}`,
+    )
+      .bind(avatarKey, accountId)
+      .first();
+    if (!referenced) throw avatarRequired();
+  }
   if (!result)
     throw new ApiError(
       409,
