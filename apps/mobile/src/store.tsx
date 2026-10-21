@@ -10,8 +10,14 @@ import {
   forgetDeletedPushDevice,
   usePushRegistration,
 } from "./features/notifications/use-push-registration";
+import {
+  planCachedPreferences,
+  readPreferenceSyncMark,
+  type PreferenceSyncMark,
+} from "./features/sync/cached-preferences";
 import { getApiClient } from "./features/auth/client";
-import { ApiClientError } from "@flocka/api-client";
+import { useAuth } from "./features/auth/provider";
+import { ApiClientError, sessionFailureKind } from "@flocka/api-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useGlobalSearchParams,
@@ -57,11 +63,25 @@ export const routeFor = (entry: Entry): Href => ({
 });
 const CONFLICT_MESSAGE =
   "別の端末で更新されています。編集を比較して選択してください";
+const DELETING_CLEANUP_FAILED =
+  "このアカウントは削除を処理中ですが、この端末の保存データを消去できませんでした。アプリを再起動すると、もう一度消去します";
+/** Typing in an editor changes the state on every key; coalesce the device writes. */
+const STATE_WRITE_DELAY = 500;
 /** Photo downloads per sync; enough to overlap latency without flooding the API. */
 const PEER_AVATAR_CONCURRENCY = 4;
 export const currentEntry = (n: NavState) =>
   n.stacks[n.tab][n.stacks[n.tab].length - 1];
 type Toast = { text: string; action?: { label: string; fn: () => void } };
+/** Forwards API session failures to whichever handler the provider set last. */
+function createSessionFailureRelay() {
+  let handler: (error: ApiClientError) => void = () => {};
+  return {
+    report: (error: ApiClientError) => handler(error),
+    handleWith: (next: (error: ApiClientError) => void) => {
+      handler = next;
+    },
+  };
+}
 type Navigation = {
   push: (id: ScreenId, params?: Record<string, string>) => void;
   replace: (id: ScreenId, params?: Record<string, string>) => void;
@@ -124,12 +144,19 @@ export function Provider({
         .sort(([left], [right]) => left.localeCompare(right)),
     ),
   );
+  const auth = useAuth();
+  // The client lives as long as this scope; it reports to the latest handler.
+  const [sessionFailures] = useState(createSessionFailureRelay);
   const router = useRouter(),
     [api] = useState(() =>
-      getApiClient(storageScope === "signed-out" ? undefined : storageScope),
+      getApiClient(
+        storageScope === "signed-out" ? undefined : storageScope,
+        sessionFailures.report,
+      ),
     ),
     stateKey = `flocka-expo-state-v1:${storageScope}`,
     navKey = `flocka-expo-nav-v1:${storageScope}`,
+    preferenceMarkKey = `flocka-expo-preferences-v1:${storageScope}`,
     [s, setS] = useState(fresh),
     [n, setN] = useState(initNav),
     [ready, setReady] = useState(false),
@@ -164,11 +191,24 @@ export function Provider({
       revision: number;
     } | null>(null),
     resolvingPreferences = useRef<Promise<void> | null>(null),
-    cachedPreferences = useRef<Preferences | null>(null);
+    cachedPreferences = useRef<{
+      data: Preferences;
+      revision: number;
+      legacy: boolean;
+    } | null>(null),
+    stateWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    pathnameRef = useRef(pathname),
+    openingRef = useRef(opening),
+    checkingSession = useRef(false);
+  useLayoutEffect(() => {
+    pathnameRef.current = pathname;
+    openingRef.current = opening;
+  }, [pathname, opening]);
   useLayoutEffect(() => {
     if (!ready || !s.onboarded) return;
     const screen = pathname.slice(1) as ScreenId;
-    if (!SCREENS.includes(screen)) return;
+    // Onboarding is a one-time route, never an entry that a later launch reopens.
+    if (!SCREENS.includes(screen) || screen === "onboarding") return;
     const next = navigationForRoute(navRef.current, {
       id: screen,
       params: JSON.parse(routeParams),
@@ -245,12 +285,28 @@ export function Provider({
       savedPreferences.current;
     const next = applySnapshot(snapshot, stateRef.current, dirty);
     if (dirty && snapshot.preferences.revision !== prefsRevision.current) {
-      preferenceConflictRef.current = snapshot.preferences;
-      setPreferenceConflict(snapshot.preferences);
+      // Polling repeats the same conflict; keep it so the app does not redraw.
+      const conflict = keepIfSame(
+        preferenceConflictRef.current,
+        snapshot.preferences,
+      );
+      if (conflict !== preferenceConflictRef.current) {
+        preferenceConflictRef.current = conflict;
+        setPreferenceConflict(conflict);
+      }
       setSaveError(CONFLICT_MESSAGE);
     } else prefsRevision.current = snapshot.preferences.revision;
-    if (!dirty)
+    if (!dirty) {
       savedPreferences.current = JSON.stringify(snapshot.preferences.data);
+      // Nothing is left to compare once local edits match the server copy.
+      if (preferenceConflictRef.current) {
+        preferenceConflictRef.current = null;
+        setPreferenceConflict(null);
+        setSaveError((current) =>
+          current === CONFLICT_MESSAGE ? null : current,
+        );
+      }
+    }
     // Polling usually returns the same data; keep references so screens skip redrawing.
     stateRef.current = keepIfSame(stateRef.current, next);
     setS(stateRef.current);
@@ -297,12 +353,14 @@ export function Provider({
     [refresh, toast],
   );
   /**
-   * Preferences left on this device before sign-in are offered to an empty server
-   * record once. Failing to send them is reported but never blocks startup.
+   * Preferences left unsaved on this device (before sign-in, or when a session
+   * ended) are sent on the server revision they were based on. Failing to send
+   * them is reported but never blocks startup.
    */
   const uploadCachedPreferences = useCallback(async () => {
-    const cached = cachedPreferences.current;
-    if (!cached) return;
+    const pending = cachedPreferences.current;
+    if (!pending) return;
+    const cached = pending.data;
     if (
       JSON.stringify(preferencesOf(stateRef.current)) !==
       savedPreferences.current
@@ -314,7 +372,7 @@ export function Provider({
     try {
       let saved: Awaited<ReturnType<typeof api.savePreferences>>;
       try {
-        saved = await api.savePreferences(cached, 1);
+        saved = await api.savePreferences(cached, pending.revision);
       } catch (error) {
         if (!(
           error instanceof ApiClientError &&
@@ -325,7 +383,7 @@ export function Provider({
         // Keep the draft text, but stop attributing it to testimonies the server cannot verify.
         saved = await api.savePreferences(
           { ...cached, prDraftSource: null },
-          1,
+          pending.revision,
         );
       }
       cachedPreferences.current = null;
@@ -337,11 +395,19 @@ export function Provider({
       setSaveError(null);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 409) {
-        // Another device saved first; its server copy supersedes this stale cache.
         cachedPreferences.current = null;
         if (!mounted.current) return;
-        setSaveError(null);
-        toast("別の端末で保存された設定を使います");
+        if (pending.legacy) {
+          // Another device saved first; its server copy supersedes this stale cache.
+          setSaveError(null);
+          toast("別の端末で保存された設定を使います");
+          return;
+        }
+        // These are the user's own unsaved edits: keep them and offer the comparison.
+        stateRef.current = withPreferences(stateRef.current, cached);
+        setS(stateRef.current);
+        prefsRevision.current = pending.revision;
+        await synchronize().catch(() => {});
         return;
       }
       if (mounted.current)
@@ -349,14 +415,15 @@ export function Provider({
           "この端末に残っていた設定をサーバーへ保存できませんでした。表示中の内容はサーバーのものです",
         );
     }
-  }, [api, toast]);
+  }, [api, synchronize, toast]);
   useEffect(() => {
     let active = true;
     void (async () => {
       try {
-        const [raw, rawNav] = await Promise.all([
+        const [raw, rawNav, rawMark] = await Promise.all([
           AsyncStorage.getItem(stateKey),
           AsyncStorage.getItem(navKey),
+          AsyncStorage.getItem(preferenceMarkKey),
         ]);
         if (!active) return;
         // Cached remote evidence is never used as authoritative data after sign-in.
@@ -383,17 +450,32 @@ export function Provider({
             };
             setS(stateRef.current);
           }
-          if (
-            active &&
-            registered &&
-            cached.onboarded &&
-            prefsRevision.current === 1 &&
-            savedPreferences.current ===
-              JSON.stringify(preferencesOf(fresh())) &&
-            JSON.stringify(preferencesOf(cached)) !== savedPreferences.current
-          ) {
-            cachedPreferences.current = preferencesOf(cached);
+          const plan =
+            active && registered
+              ? planCachedPreferences({
+                  cached: preferencesOf(cached),
+                  onboarded: cached.onboarded,
+                  mark: readPreferenceSyncMark(rawMark),
+                  server: {
+                    data: preferencesOf(stateRef.current),
+                    revision: prefsRevision.current,
+                  },
+                  defaults: preferencesOf(fresh()),
+                })
+              : ({ kind: "none" } as const);
+          if (plan.kind === "upload") {
+            cachedPreferences.current = plan;
             await uploadCachedPreferences();
+          } else if (plan.kind === "conflict") {
+            // Unsaved edits from an earlier session meet a newer server copy.
+            preferenceConflictRef.current = {
+              data: preferencesOf(stateRef.current),
+              revision: prefsRevision.current,
+            };
+            setPreferenceConflict(preferenceConflictRef.current);
+            stateRef.current = withPreferences(stateRef.current, plan.local);
+            setS(stateRef.current);
+            setSaveError(CONFLICT_MESSAGE);
           }
         }
         if (active) setReady(true);
@@ -406,6 +488,7 @@ export function Provider({
     };
   }, [
     navKey,
+    preferenceMarkKey,
     reloadKey,
     stateKey,
     storageScope,
@@ -443,18 +526,44 @@ export function Provider({
           );
       });
   }, []);
-  const persist = useCallback(
-    () =>
-      writeStorage([
-        [stateKey, JSON.stringify(stateRef.current)],
-        [navKey, JSON.stringify(navRef.current)],
-      ]),
-    [navKey, stateKey, writeStorage],
-  );
+  /** The state and the last server-confirmed preferences, so unsaved edits survive a sign-out. */
+  const stateEntries = useCallback((): [string, string][] => {
+    const mark: PreferenceSyncMark = {
+      revision: prefsRevision.current,
+      saved: JSON.parse(savedPreferences.current) as Preferences,
+    };
+    return [
+      [stateKey, JSON.stringify(stateRef.current)],
+      [preferenceMarkKey, JSON.stringify(mark)],
+    ];
+  }, [preferenceMarkKey, stateKey]);
+  const writeStateNow = useCallback(() => {
+    if (stateWriteTimer.current) clearTimeout(stateWriteTimer.current);
+    stateWriteTimer.current = null;
+    writeStorage(stateEntries());
+  }, [stateEntries, writeStorage]);
+  const persist = useCallback(() => {
+    if (stateWriteTimer.current) clearTimeout(stateWriteTimer.current);
+    stateWriteTimer.current = null;
+    writeStorage([...stateEntries(), [navKey, JSON.stringify(navRef.current)]]);
+  }, [navKey, stateEntries, writeStorage]);
   // Screen changes only rewrite navigation, not the whole state with its photos.
   useEffect(() => {
-    if (ready) writeStorage([[stateKey, JSON.stringify(s)]]);
-  }, [s, ready, stateKey, writeStorage]);
+    if (!ready) return;
+    if (stateWriteTimer.current) clearTimeout(stateWriteTimer.current);
+    stateWriteTimer.current = setTimeout(writeStateNow, STATE_WRITE_DELAY);
+  }, [s, ready, writeStateNow]);
+  useEffect(() => {
+    // A waiting write reaches the device before the app is suspended, or before
+    // this provider unmounts when the account signs out or switches.
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state !== "active" && stateWriteTimer.current) writeStateNow();
+    });
+    return () => {
+      listener.remove();
+      if (stateWriteTimer.current) writeStateNow();
+    };
+  }, [writeStateNow]);
   useEffect(() => {
     if (ready) writeStorage([[navKey, JSON.stringify(n)]]);
   }, [n, ready, navKey, writeStorage]);
@@ -480,6 +589,7 @@ export function Provider({
           // Newer local edits supersede preferences cached before sign-in.
           cachedPreferences.current = null;
           setSaveError(null);
+          writeStateNow();
         } catch (error) {
           if (mounted.current)
             setSaveError(
@@ -494,7 +604,7 @@ export function Provider({
       });
     syncQueue.current = task;
     return task;
-  }, [api, synchronize]);
+  }, [api, synchronize, writeStateNow]);
   const resolvePreferences = useCallback(
     (choice: "server" | "local") => {
       // A second tap while saving joins the running resolution instead of saving twice.
@@ -570,8 +680,15 @@ export function Provider({
   }, []);
   const saveProfile = useCallback(
     async (profile: Profile, self: string[]) => {
-      if (profile.avatar.type === "photo" && profile.avatar.photo)
+      // Profile edits keep the synced photo; only a changed photo is uploaded.
+      if (
+        profile.avatar.type === "photo" &&
+        profile.avatar.photo &&
+        profile.avatar.photo !== ownAvatar.current?.photo
+      ) {
         await api.uploadAvatar(profile.avatar.photo);
+        ownAvatar.current = { version: null, photo: profile.avatar.photo };
+      }
       await api.updateProfile(profile, self);
       await refresh();
     },
@@ -640,10 +757,14 @@ export function Provider({
       reset: () => commitNav(initNav()),
     };
   }, [commitNav]);
+  // Registered once, so screen-level back steps added later are asked first.
   useEffect(() => {
     if (Platform.OS === "web") return;
     const listener = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (opening) {
+      // Auth and account routes outside the tab screens handle back themselves.
+      if (!SCREENS.includes(pathnameRef.current.slice(1) as ScreenId))
+        return false;
+      if (openingRef.current) {
         setOpening(null);
         return true;
       }
@@ -656,9 +777,7 @@ export function Provider({
       return false;
     });
     return () => listener.remove();
-    // The listener reads the current navigation through its ref.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opening]);
+  }, [commitNav]);
   const reload = useCallback(() => {
     setReady(false);
     setError(null);
@@ -666,15 +785,36 @@ export function Provider({
   }, []);
   const clearDeletedAccount = useCallback(async () => {
     persistenceStopped.current = true;
+    if (stateWriteTimer.current) clearTimeout(stateWriteTimer.current);
+    stateWriteTimer.current = null;
     await saveQueue.current;
     await forgetDeletedPushDevice(storageScope);
-    await AsyncStorage.multiRemove([stateKey, navKey]);
+    await AsyncStorage.multiRemove([stateKey, navKey, preferenceMarkKey]);
     ownAvatar.current = null;
     peerPhotos.current.clear();
     cachedPreferences.current = null;
     stateRef.current = fresh();
     navRef.current = initNav();
-  }, [navKey, stateKey, storageScope]);
+  }, [navKey, preferenceMarkKey, stateKey, storageScope]);
+  // The server rejected this session: re-check it, so a signed-out or switched
+  // account leaves this scope. Unsaved edits stay on the device for that account.
+  useEffect(() => {
+    sessionFailures.handleWith((failure) => {
+      if (
+        sessionFailureKind(failure) === "account-deleting" &&
+        !persistenceStopped.current
+      )
+        // Another device deleted this account; nothing here is kept for it.
+        void clearDeletedAccount().catch(() => {
+          if (mounted.current) setError(DELETING_CLEANUP_FAILED);
+        });
+      if (checkingSession.current) return;
+      checkingSession.current = true;
+      void auth.refetch().finally(() => {
+        checkingSession.current = false;
+      });
+    });
+  }, [auth, clearDeletedAccount, sessionFailures]);
   const retrySave = useCallback(() => {
     persist();
     if (cachedPreferences.current)

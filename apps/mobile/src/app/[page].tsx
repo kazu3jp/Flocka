@@ -1,5 +1,6 @@
 import { ScreenFeedback, ToastBanner } from "../components/feedback";
 import { useAuth, SessionStatus } from "../features/auth/provider";
+import { SignOutAction } from "../features/auth/SignOutAction";
 import React, { useEffect, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
@@ -129,14 +130,20 @@ export default function Screen() {
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [setOpening]);
-  if (auth.isPending || auth.error) return <SessionStatus />;
-  if (!auth.data) return <Redirect href="/auth" />;
+  // A failed background re-check keeps the signed-in screen and its input.
+  if (!auth.data)
+    return auth.isPending || auth.error ? (
+      <SessionStatus />
+    ) : (
+      <Redirect href="/auth" />
+    );
   if (error)
     return (
       <Board>
         <T>{error}</T>
         <T size={13}>保存データは上書きしていません。</T>
         <Btn label="もう一度読み込む" onPress={reload} />
+        <SignOutAction />
       </Board>
     );
   // Keep the requested URL while the account snapshot is loading.
@@ -324,7 +331,7 @@ export default function Screen() {
           />
         </Sheet>
       )}
-      {(saveError || syncError) && (
+      {(saveError || syncError || auth.error) && (
         <View
           pointerEvents="box-none"
           style={{
@@ -350,6 +357,13 @@ export default function Screen() {
               text={`${syncError} · タップして再同期`}
               hint="サーバーと再同期します"
               onPress={() => void refresh().catch(() => {})}
+            />
+          )}
+          {auth.error && (
+            <ErrorBanner
+              text="ログイン状態を確認できませんでした · タップして再確認"
+              hint="ログイン状態をもう一度確認します"
+              onPress={() => void auth.refetch()}
             />
           )}
         </View>
