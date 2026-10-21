@@ -34,6 +34,24 @@ export class AccountsRepository {
       avatarVersion: row.avatar_key,
     });
   }
+  /**
+   * Profiles for one sync page in a single query. A player who blocked the
+   * viewer is left out; the viewer's own block list still names its players.
+   */
+  async listVisiblePlayers(
+    ids: string[],
+    viewerId: string,
+  ): Promise<RemotePlayer[]> {
+    if (!ids.length) return [];
+    const rows = await this.db
+      .prepare(
+        `SELECT * FROM accounts AS account WHERE id IN (SELECT value FROM json_each(?1))
+        AND NOT EXISTS(SELECT 1 FROM blocks WHERE account_id = account.id AND blocked_id = ?2)`,
+      )
+      .bind(JSON.stringify(ids), viewerId)
+      .all<AccountRow>();
+    return rows.results.map((row) => this.toPlayer(row));
+  }
   async getPlayer(id: string): Promise<RemotePlayer> {
     return this.toPlayer(await this.find(id));
   }

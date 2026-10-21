@@ -12,6 +12,8 @@ import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
 
 import {
+  PROOF_LIMIT_PER_PAIR,
+  PROOF_LIMIT_WINDOW_HOURS,
   toTestimony,
   TestimoniesRepository,
   type TestimonyRow,
@@ -20,69 +22,67 @@ export const testimonyRoutes = new Hono<ApiContext>();
 testimonyRoutes.post("/testimonies", async (c) => {
   const input = await readJson(c, createTestimonySchema),
     sender = c.get("accountId"),
-    repository = new ExchangesRepository(c.env.DB),
-    exchange = await repository.requireParticipant(input.exchangeId, sender);
-  if (exchange.status !== "accepted")
-    throw new ApiError(
-      409,
-      "EXCHANGE_NOT_ACCEPTED",
-      "双方が交換を承認してから贈れます",
+    exchanges = new ExchangesRepository(c.env.DB),
+    testimonies = new TestimoniesRepository(c.env.DB);
+  // The same checks run before the write for clear errors, and after a refused
+  // write to explain which concurrent change (cancel, block, setting) won.
+  const assertSendable = async () => {
+    const exchange = await exchanges.requireParticipant(
+      input.exchangeId,
+      sender,
     );
-  const recipient =
-    exchange.player_a === sender ? exchange.player_b : exchange.player_a;
-  if (await repository.isBlocked(sender, recipient))
-    throw new ApiError(
-      403,
-      "RECIPIENT_BLOCKED",
-      "このプレイヤーには贈れません",
-    );
-  const account = await new AccountsRepository(c.env.DB).find(recipient),
-    settings = settingsSchema.parse(JSON.parse(account.settings_json));
-  if (
-    (input.kind === "vibe" && !settings.allowVibe) ||
-    (input.kind === "proof" && !settings.allowProof)
-  )
-    throw new ApiError(
-      403,
-      "RECEIVING_DISABLED",
-      "相手はこの種類の証言を受け取らない設定です",
-    );
-  const id = crypto.randomUUID(),
-    at = new Date().toISOString();
-  const insert = c.env.DB.prepare(
-    `INSERT OR IGNORE INTO testimonies(id, exchange_id, sender_id, recipient_id, kind, card, label, text, story, created_at)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM exchanges WHERE id = ? AND status = 'accepted'
-    AND NOT EXISTS(SELECT 1 FROM blocks WHERE (account_id = ? AND blocked_id = ?) OR (account_id = ? AND blocked_id = ?))`,
-  ).bind(
-    id,
-    input.exchangeId,
+    if (exchange.status !== "accepted")
+      throw new ApiError(
+        409,
+        "EXCHANGE_NOT_ACCEPTED",
+        "双方が交換を承認してから贈れます",
+      );
+    const recipient =
+      exchange.player_a === sender ? exchange.player_b : exchange.player_a;
+    if (await exchanges.isBlocked(sender, recipient))
+      throw new ApiError(
+        403,
+        "RECIPIENT_BLOCKED",
+        "このプレイヤーには贈れません",
+      );
+    const account = await new AccountsRepository(c.env.DB).find(recipient),
+      settings = settingsSchema.parse(JSON.parse(account.settings_json));
+    if (
+      (input.kind === "vibe" && !settings.allowVibe) ||
+      (input.kind === "proof" && !settings.allowProof)
+    )
+      throw new ApiError(
+        403,
+        "RECEIVING_DISABLED",
+        "相手はこの種類の証言を受け取らない設定です",
+      );
+    if (
+      input.kind === "proof" &&
+      (await testimonies.recentProofCount(sender, recipient, new Date())) >=
+        PROOF_LIMIT_PER_PAIR
+    )
+      throw new ApiError(
+        429,
+        "PROOF_LIMIT",
+        `同じ相手に贈れる場面のメモは${PROOF_LIMIT_WINDOW_HOURS}時間に${PROOF_LIMIT_PER_PAIR}通までです。時間をおいて贈ってください`,
+      );
+    return recipient;
+  };
+  const recipient = await assertSendable();
+  const id = await testimonies.create({
+    ...input,
     sender,
     recipient,
-    input.kind,
-    input.card,
-    input.kind === "vibe" ? input.label : null,
-    input.kind === "vibe" ? input.text : null,
-    input.kind === "proof" ? input.story : null,
-    at,
-    input.exchangeId,
-    sender,
-    recipient,
-    recipient,
-    sender,
-  );
-  const [result] = await c.env.DB.batch([
-    insert,
-    c.env.DB.prepare(
-      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
-      SELECT ?, recipient_id, 'testimony', id, ?, ? FROM testimonies WHERE id = ?`,
-    ).bind(crypto.randomUUID(), at, at, id),
-  ]);
-  if (!result.meta.changes)
+    at: new Date(),
+  });
+  if (id === null) {
+    await assertSendable();
     throw new ApiError(
       409,
       "TESTIMONY_CONFLICT",
       "印象は1人に1つまでです。交換やブロックの状態も確認してください",
     );
+  }
   return c.json({ id }, 201);
 });
 testimonyRoutes.get("/testimonies", async (c) => {
