@@ -9,3 +9,10 @@ GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 APPLE_CLIENT_ID=""
 APPLE_CLIENT_SECRET=""
+# Comma-separated origins allowed to call the API locally (no spaces). Overrides the
+# production value in wrangler.jsonc. Add http://<LAN address>:8081 for a physical device.
+ALLOWED_ORIGINS="http://localhost:8081,http://127.0.0.1:8081"
+# Optional: Expo push access token, needed only when Enhanced Push Security is enabled.
+# EXPO_ACCESS_TOKEN=""
+# Optional: comma-separated account IDs allowed to use the moderation endpoints.
+# ADMIN_USER_IDS=""
