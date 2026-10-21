@@ -58,6 +58,8 @@ app.use(
       "X-Flocka-Account",
     ],
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    // Lets the web app read Better Auth's rate-limit wait time.
+    exposeHeaders: ["X-Retry-After"],
   }),
 );
 app.get("/health", async (c) => {
