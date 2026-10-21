@@ -5,12 +5,27 @@ import { Btn, C, Panel, S, T } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
 import { UserFacingError, userFacingError } from "./user-facing-error";
+import { backupSnapshotOf, withRestoredPreferences } from "./backup-snapshot";
+
+type BackupVersion = { revision: number; updatedAt: string };
+
+/** Run one restore step and name it in the error, so a partial restore is never silent. */
+async function restoreStep<T>(failure: string, step: () => Promise<T>) {
+  try {
+    return await step();
+  } catch (error) {
+    throw new UserFacingError(
+      `${failure}（${userFacingError(error, "通信を確認してください")}）`,
+    );
+  }
+}
 
 export function BackupPanel() {
   const { s, update, toast, api, refresh } = useApp(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
-    [revision, setRevision] = useState<number | null>(null),
+    // undefined: not checked yet; null: the server has no backup.
+    [latest, setLatest] = useState<BackupVersion | null | undefined>(undefined),
     { ask, dialog } = useConfirmation();
   const mounted = useRef(false),
     inFlight = useRef(false);
@@ -36,9 +51,12 @@ export function BackupPanel() {
     }
   };
   const client = () => api;
-  const getRevision = async (api: FlockaApiClient) => {
+  const getLatest = async (
+    api: FlockaApiClient,
+  ): Promise<BackupVersion | null> => {
     try {
-      return (await api.getBackup()).revision;
+      const { revision, updatedAt } = await api.getBackup();
+      return { revision, updatedAt };
     } catch (error) {
       if (error instanceof ApiClientError && error.code === "BACKUP_NOT_FOUND")
         return null;
@@ -48,11 +66,11 @@ export function BackupPanel() {
   const connect = () =>
     run(async () => {
       await client().getMe();
-      const revision = await getRevision(client());
-      if (mounted.current) setRevision(revision);
+      const current = await getLatest(client());
+      if (mounted.current) setLatest(current);
       toast("APIへの接続を確認しました");
     });
-  const upload = () =>
+  const upload = (base: BackupVersion | null) =>
     run(async () => {
       const api = client();
       await api.updateProfile(s.profile, s.self);
@@ -64,36 +82,85 @@ export function BackupPanel() {
           );
         avatarKey = await api.uploadAvatar(s.profile.avatar.photo);
       }
-      const saved = await api.saveBackup(s, revision, avatarKey);
-      if (mounted.current) setRevision(saved.revision);
+      try {
+        const saved = await api.saveBackup(
+          backupSnapshotOf(s),
+          base?.revision ?? null,
+          avatarKey,
+        );
+        if (mounted.current)
+          setLatest({ revision: saved.revision, updatedAt: saved.updatedAt });
+      } catch (error) {
+        if (!(error instanceof ApiClientError && error.status === 409))
+          throw error;
+        // Another device saved in between; show its version before any overwrite.
+        const current = await getLatest(api).catch(() => undefined);
+        if (mounted.current) setLatest(current);
+        throw new UserFacingError(
+          "別の端末でバックアップが更新されました。上書きする場合は、もう一度「バックアップを保存」を押してください",
+        );
+      }
       toast(
         avatarKey
           ? "デッキと写真をバックアップしました"
           : "デッキをバックアップしました",
       );
     });
+  const confirmUpload = () =>
+    run(async () => {
+      const current = await getLatest(client());
+      if (!mounted.current) return;
+      setLatest(current);
+      ask(
+        "サーバーに保存する？",
+        current
+          ? `この端末のデッキと写真で、${new Date(current.updatedAt).toLocaleString("ja-JP")}のバックアップを上書きします。`
+          : "この端末のデッキと写真を、設定されたAPIに保存します。",
+        () => {
+          void upload(current);
+        },
+        "保存する",
+      );
+    });
   const download = () =>
     run(async () => {
-      const api = client(),
-        saved = await api.getBackup(),
+      const api = client();
+      // Read everything first; nothing changes until the backup is fully loaded.
+      const saved = await restoreStep(
+          "バックアップを読み込めませんでした。何も変更していません",
+          () => api.getBackup(),
+        ),
         snapshot: State = saved.snapshot;
       if (snapshot.profile.avatar.type === "photo")
-        snapshot.profile.avatar.photo = await api.getAvatar(true);
+        snapshot.profile.avatar.photo = await restoreStep(
+          "バックアップの写真を読み込めませんでした。何も変更していません",
+          () => api.getAvatar(true),
+        );
       if (!mounted.current) return;
-      await api.updateProfile(snapshot.profile, snapshot.self);
       if (
         snapshot.profile.avatar.type === "photo" &&
         snapshot.profile.avatar.photo
-      )
-        await api.uploadAvatar(snapshot.profile.avatar.photo);
+      ) {
+        const photo = snapshot.profile.avatar.photo;
+        await restoreStep(
+          "写真を復元できませんでした。プロフィールと下書きは変更していません",
+          () => api.uploadAvatar(photo),
+        );
+      }
+      await restoreStep(
+        "プロフィールを復元できませんでした。写真以外は変更していません",
+        () => api.updateProfile(snapshot.profile, snapshot.self),
+      );
+      // Preferences are saved to the server by the regular preference sync.
       update((state) => {
-        state.showcase = snapshot.showcase;
-        state.resp = snapshot.resp;
-        state.deco = snapshot.deco;
-        state.prDraft = snapshot.prDraft;
+        Object.assign(state, withRestoredPreferences(state, snapshot));
       });
-      await refresh();
-      if (mounted.current) setRevision(saved.revision);
+      if (mounted.current)
+        setLatest({ revision: saved.revision, updatedAt: saved.updatedAt });
+      await restoreStep(
+        "バックアップを復元しましたが、最新の状態を読み込めませんでした",
+        () => refresh(),
+      );
       toast("バックアップを復元しました");
     });
   return (
@@ -105,6 +172,13 @@ export function BackupPanel() {
         <T color={C.muted} size={12}>
           プロフィールとデッキ、写真をサーバーに保存します。操作したときだけ送信します。
         </T>
+        {latest !== undefined && (
+          <T color={C.muted} size={12}>
+            {latest
+              ? `前回のバックアップ：${new Date(latest.updatedAt).toLocaleString("ja-JP")}`
+              : "サーバーにバックアップはまだありません"}
+          </T>
+        )}
         <>
           <Btn
             small
@@ -118,16 +192,7 @@ export function BackupPanel() {
                 small
                 label="バックアップを保存"
                 disabled={busy}
-                onPress={() =>
-                  ask(
-                    "サーバーに保存する？",
-                    "この端末のデッキと写真を、設定されたAPIに保存します。",
-                    () => {
-                      void upload();
-                    },
-                    "保存する",
-                  )
-                }
+                onPress={() => void confirmUpload()}
               />
               <Btn
                 small
