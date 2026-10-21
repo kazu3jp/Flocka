@@ -220,3 +220,11 @@ Expo SDK 57の[対応表](https://docs.expo.dev/versions/v57.0.0/)と、React Na
 運営の通報一覧は `page`/OFFSETから `afterAt`/`afterId`（作成日時とID）による続き読み込みへ変更し、対応済みにした依頼の後ろが飛ばされないことを結合テストで確認しています。APIの応答は `nextPage` から `next` に変わるため、APIとアプリを同時に更新する必要があります。
 
 `npm run typecheck`、`npm run lint -w @flocka/mobile`、API・ドメイン・APIクライアント・テストのESLint、`npm test`（47件）、`npm run export:native`、`npm run export:web` が通過しました。Windowsではルートの `npm run lint` のglobが展開されないため、ESLintは対象を個別に指定して実行しています。VRT・実機での確認と本番デプロイは実施していません。
+
+## 近距離交換のBluetooth状態への追従（2026-10-21）
+
+Bluetooth（Android 11以下では位置情報も）が途中でオフになると、ネイティブ側は広告・探索・接続・GATTサービスを片付けて `onError`（`BLUETOOTH_OFF` / `LOCATION_OFF`）を送り、画面が開いている間はセッションを保持します。オンに戻ると自動で設定し直し、探索が実際に始まった時点で `onReady` を送ります。開始時点でオフの場合も `start()` はそのコードで失敗し、同じく `onReady` で復帰します。権限なし（`PERMISSION_DENIED`）・非対応（`UNSUPPORTED`）・その他の失敗（`BLUETOOTH_FAILED`）はセッションを終了します。画面はコードごとの日本語文と「設定を開く」（権限はアプリ設定、AndroidのBluetooth・位置情報は各設定画面）を表示します。
+
+アプリが `inactive`（iOSの権限ダイアログ・コントロールセンター）になっても停止せず、`background` でだけ停止し、戻ったときに再開します。自分の `stop()` による `CANCELLED` は表示しません。Androidは30秒に5回を超える `startScan` を黙って無視するため、超える開始は空きができるまで遅らせます（その間 `start()` は完了しません）。
+
+`npm run typecheck`、`npm run lint -w @flocka/mobile`、`npm test`、`npm run export:native` に加え、Windows上で `expo prebuild --platform android --no-install` 後に `./gradlew :flocka-nearby:compileDebugKotlin -Pandroid.overridePathCheck=true` が通過しました（作業パスに非ASCII文字があるためAGPのパス確認だけを外しています）。SwiftはWindowsではコンパイルできず未検証です。Bluetooth・位置情報の切り替え、権限ダイアログ、スキャン回数制限の実機確認も未検証です。
