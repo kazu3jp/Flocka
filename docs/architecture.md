@@ -24,7 +24,7 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 | `GET/POST /v1/exchanges`                                   | 自分の交換一覧・コードから交換開始                                   |
 | `GET /v1/exchanges/:id`                                    | 参加者だけが交換を取得                                               |
 | `POST /v1/exchanges/:id/approve`                           | 自分の出会いのメモと承認を保存                                       |
-| `POST /v1/exchanges/:id/cancel`                            | 参加者が交換を取り消す                                               |
+| `POST /v1/exchanges/:id/cancel`                            | 参加者が有効な交換を取り消す（解除済みは409、ブロック中は403）       |
 | `GET/POST /v1/testimonies`                                 | 届いた証言取得・承認済み相手へ贈る                                   |
 | `PATCH /v1/testimonies/:id`                                | 受信者だけが開封・予想・公開範囲を更新                               |
 | `POST /v1/blocks` / `DELETE /v1/blocks/:id`                | ブロック・解除                                                       |
@@ -33,7 +33,7 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 | `GET/PUT /v1/me/avatar`                                    | 本人のR2写真を保存・取得                                             |
 | `GET /v1/me/backup/avatar`                                 | 保存済みバックアップに対応する写真を取得                             |
 
-`GET /v1/sync` は100件ずつページ送りします。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します。未対応一覧は `(created_at, id)` のカーソル（`afterAt` / `afterId`、応答の `next`）でページ送りし、対応済みが抜けても次ページの項目を飛ばしません（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
+`GET /v1/sync` は100件ずつページ送りします。応答の `nextCursor` は一覧ごとの `(created_at, id)`（ブロック一覧は相手ID）を持つ読み込み位置で、`?cursor=` で続きを取得すると途中で行が消えても後続を飛ばしません。`nextCursor` を返さない旧APIと、`?page=` を使う旧アプリには従来のページ番号も返します（ページ番号では途中の削除で行がずれる既知の制約があります）。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します。未対応一覧は `(created_at, id)` のカーソル（`afterAt` / `afterId`、応答の `next`）でページ送りし、対応済みが抜けても次ページの項目を飛ばしません（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
 
 ## D1
 
@@ -67,6 +67,23 @@ Cron（5分ごと）が、24時間以上前に保存された未参照の画像�
 
 Wranglerローカル開発・D1・R2の扱いは [Cloudflareの開発ドキュメント](https://developers.cloudflare.com/workers/local-development/) と [D1のWorker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)、[R2のWorker API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/) に基づいています。
 
+## 相手の情報を共有する範囲（0010）
+
+相手のプロフィール・写真・公開証言は、成立した交換があり、どちらの方向にもブロックがない間だけ返します。`/v1/sync`、`GET /v1/exchanges`、`GET /v1/exchanges/:id`、`/v1/invites/status` は解除済みの交換とブロック中の交換を返しません。同期の `peers` は1回のクエリで読み込み、自分をブロックした相手を含めません。自分がブロックした相手は、ブロック一覧に名前を表示するために含めます。解除の応答だけは、解除前に読んだ交換を一度だけ返します。解除済みの交換に結び付いた出会いのメモ（場所）は同期に含まれなくなります。
+
+`GET /v1/players/:id/public` は公開用のスキーマ（`id`、`kind`、`card`、`label`、`text`、`story`、`createdAt`、`giver`）を返し、送り主ID・交換ID・受信者の予想を含めません。`giver` は同じ一覧の中で同じ送り主を数えるための番号です。閲覧者と送り主の間にどちらかのブロックがある証言は含めません。旧アプリは公開証言のシートで読み込み失敗を表示します。
+
+承認・解除・証言の送信は、交換の状態とブロック、受信設定（`allowVibe` / `allowProof`）を書き込みのSQL内で再確認し、同時に起きた解除・ブロック・設定変更を優先します。場面のメモは仕様上1人1件ではないため一意制約を設けず、同じ相手へ24時間に5件までに制限します（超過は429 `PROOF_LIMIT`）。
+
+0010は参加者別の交換、送信済み証言、通報（依頼者・証言・未対応一覧）、写真キー（NULL以外の部分インデックス）の索引を追加します。運営の未対応一覧は初回と続きのSQLを分け、`(created_at, id)` の範囲で索引を使います。
+
+バックアップは、アップロードから12時間以内の写真か、保存と同じSQL文でD1のアカウントまたは自分のバックアップが参照している写真だけを参照できます。未参照のまま24時間を過ぎた写真は再び参照されないため、Cronの未参照画像削除（削除直前に参照を再確認）と保存が競合して写真を失うことはありません。
+
+Cronの通知送信・受信結果照会・削除再試行・期限切れ行削除・未参照画像削除は互いに独立して実行し、失敗したタスク名を記録します。Better Authの `auth_rate_limits` は1時間より古い行を削除します。管理者のアカウントを削除しても監査記録は残し、運営者IDを `erased-account` に置き換えてメモを消去します。
+
+`ALLOWED_ORIGINS` は各値の前後の空白を除き、空の値を無視します。Better Auth 1.7.7のレート制限はIPとパスごとに数え、ルールで回数と期間を変えられてもキーは変えられません。そのため `/sign-in/email` をIPごとに1分5回へ強めましたが、メールアドレス単位の制限はありません。複数のIPから同じアドレスを狙う試行は、IP単位の制限と確認コードの試行回数・有効期限だけで抑えています。
+
+0010は本番D1へ未適用です。この変更のAPIを配布する前に本番へ適用する必要があります（この作業では適用していません）。
 
 ## 公開範囲とブロックの取り消し
 
