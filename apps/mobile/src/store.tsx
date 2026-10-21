@@ -198,12 +198,14 @@ export function Provider({
     } | null>(null),
     stateWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     pathnameRef = useRef(pathname),
+    routeParamsRef = useRef(routeParams),
     openingRef = useRef(opening),
     checkingSession = useRef(false);
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
+    routeParamsRef.current = routeParams;
     openingRef.current = opening;
-  }, [pathname, opening]);
+  }, [pathname, routeParams, opening]);
   useLayoutEffect(() => {
     if (!ready || !s.onboarded) return;
     const screen = pathname.slice(1) as ScreenId;
@@ -694,6 +696,25 @@ export function Provider({
     },
     [api, refresh],
   );
+  // Tab screens share the one [page] route and stay mounted, so moving between
+  // them only rewrites that route's params (the URL). Replacing the route would
+  // remount every screen. From auth or account routes, navigate normally.
+  const showEntry = useCallback(
+    (entry: Entry) => {
+      if (!SCREENS.includes(pathnameRef.current.slice(1) as ScreenId)) {
+        router.replace(routeFor(entry));
+        return;
+      }
+      const stale = Object.fromEntries(
+        Object.keys(JSON.parse(routeParamsRef.current)).map((key) => [
+          key,
+          undefined,
+        ]),
+      );
+      router.setParams({ ...stale, ...entry.params, page: entry.id });
+    },
+    [router],
+  );
   const openNotification = useCallback(
     async (kind: NoticeKind) => {
       await refresh();
@@ -709,9 +730,9 @@ export function Provider({
       }
       navRef.current = next;
       setN(next);
-      router.replace(routeFor(currentEntry(next)));
+      showEntry(currentEntry(next));
     },
-    [refresh, router],
+    [refresh, showEntry],
   );
   useNotificationResponse(
     storageScope,
@@ -723,9 +744,9 @@ export function Provider({
     (next: NavState) => {
       navRef.current = next;
       setN(next);
-      router.replace(routeFor(currentEntry(next)));
+      showEntry(currentEntry(next));
     },
-    [router],
+    [showEntry],
   );
   const nav = useMemo<Navigation>(() => {
     const mutateNav = (recipe: (next: NavState) => void) => {

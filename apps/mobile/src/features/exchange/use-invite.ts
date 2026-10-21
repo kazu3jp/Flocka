@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
-import { useIsFocused } from "expo-router";
+import { useScreenFocused } from "../../components/screen-focus";
 import { INVITE_LIFETIME_MS } from "@flocka/domain";
 import { useApp } from "../../store";
 import { userFacingError } from "../sync/user-facing-error";
@@ -21,7 +21,7 @@ function withLocalExpiry<Invite extends { code: string }>(invite: Invite) {
 
 export function useInvite() {
   const { api, refresh, nav } = useApp(),
-    focused = useIsFocused(),
+    focused = useScreenFocused(),
     [invite, setInvite] = useState<ReturnType<
       typeof withLocalExpiry<Awaited<ReturnType<typeof api.createInvite>>>
     > | null>(null),

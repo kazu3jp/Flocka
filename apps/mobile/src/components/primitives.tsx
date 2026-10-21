@@ -30,6 +30,7 @@ import { C, F, S } from "./theme";
 import { T, Icon, ForegroundColor } from "./text";
 import { useModalFrame } from "./app-frame";
 import { useSheetFeedback } from "./feedback";
+import { ScreenVisible } from "./screen-focus";
 
 export function Panel(props: ViewProps) {
   return <View {...props} style={[S.panel, props.style]} />;
@@ -457,7 +458,11 @@ export function Sheet({
   const frame = useModalFrame();
   const insets = useSafeAreaInsets();
   const { content: feedback, register } = useSheetFeedback();
+  const screenVisible = useContext(ScreenVisible);
   useEffect(() => register?.(), [register]);
+  // A modal opens its own window; a screen kept mounted out of view must not
+  // leave its sheet on top. The sheet comes back when the screen does.
+  if (!screenVisible) return null;
   return (
     <Modal
       transparent

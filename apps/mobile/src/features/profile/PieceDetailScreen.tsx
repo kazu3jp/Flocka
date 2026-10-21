@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useEffect, useRef } from "react";
 import { useAction } from "../sync/use-action";
 import { View } from "react-native";
@@ -39,7 +39,7 @@ export function PieceDetail({ id }: { id: string }) {
     : reports.find((r) => r.status === "reviewed" || r.status === "rejected");
   const redirected = useRef<string | null>(null);
   const visit = useRef<object | null>(null);
-  useFocusEffect(
+  useScreenFocusEffect(
     useCallback(() => {
       visit.current = {};
       return () => {

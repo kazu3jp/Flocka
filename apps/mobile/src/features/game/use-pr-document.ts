@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useRef, useState } from "react";
 import { Platform, Share } from "react-native";
 import { copyText } from "../clipboard/copy-text";
@@ -20,7 +20,7 @@ export function usePRDocument() {
   const [replay, setReplay] = useState(0);
   const { busy, error, run } = useAction();
   const visit = useRef<object | null>(null);
-  useFocusEffect(
+  useScreenFocusEffect(
     useCallback(() => {
       visit.current = {};
       return () => {
