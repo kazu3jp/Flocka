@@ -93,13 +93,86 @@ test("guess choices remain fixed, distinct, and include the actual card", () => 
     assert.deepEqual(optionsFor(p, s.self), a);
   }
 });
-test("new discovery follows the original missed-guess rule", () => {
+test("guess options never single out an unexpected answer", () => {
+  const self = ["impl", "focus"];
+  for (let index = 0; index < 200; index += 1) {
+    const options = optionsFor(
+      { ...makePiece("mock-a", false, "bridge"), id: `piece-${index}` },
+      self,
+    );
+    assert.equal(options.length, 3);
+    assert.equal(new Set(options).size, 3);
+    assert.ok(options.includes("bridge"));
+    // The answer is not one of the self-claimed cards, so it must share that trait.
+    assert.ok(options.filter((key) => !self.includes(key)).length >= 2);
+  }
+  const positions = new Set(
+    Array.from({ length: 30 }, (_, index) =>
+      optionsFor(
+        { ...makePiece("mock-a", false, "bridge"), id: `order-${index}` },
+        self,
+      ).indexOf("bridge"),
+    ),
+  );
+  assert.equal(positions.size, 3);
+});
+test("guess options work without self cards and ignore duplicate self cards", () => {
+  for (const self of [[], ["impl", "impl", "focus", "focus"], ["unknown"]])
+    for (const card of Object.keys(CARDS)) {
+      const piece = makePiece("mock-a", false, card);
+      const options = optionsFor(piece, self);
+      assert.equal(options.length, 3);
+      assert.equal(new Set(options).size, 3);
+      assert.ok(options.includes(card));
+      assert.ok(options.every((key) => Object.hasOwn(CARDS, key)));
+    }
+});
+test("guess options are fixed per testimony across reloads", () => {
+  const piece = makePiece("mock-a", false, "warm");
+  const first = optionsFor(piece, ["impl", "focus"]);
+  assert.deepEqual(
+    optionsFor(JSON.parse(JSON.stringify(piece)), ["impl", "focus"]),
+    first,
+  );
+});
+test("new discovery follows the missed-guess rule, but a skip is not a miss", () => {
   const s = fresh();
   s.self = ["impl", "focus"];
   s.vibes = [makePiece("mock-a")];
   assert.equal(derive(s).cards.bridge.discovered, true);
   s.vibes[0].guess = "bridge";
   assert.equal(derive(s).cards.bridge.discovered, false);
+  // Intentional deviation from the prototype (user request): skipping never discovers.
+  s.vibes[0].guess = "skip";
+  assert.equal(derive(s).cards.bridge.discovered, false);
+});
+test("a disagreed card does not count as PR progress", () => {
+  const s = sampleState();
+  s.resp.bridge = "disagree";
+  const d = derive(s);
+  assert.equal(d.prCard, undefined);
+  assert.equal(d.best, 1);
+  s.resp.bridge = "agree";
+  assert.equal(derive(s).best, 2);
+});
+test("catalog lookups ignore inherited object keys", () => {
+  const s = sampleState();
+  assert.equal(derive(s).cards.constructor, undefined);
+  assert.equal(derive(s).cards.toString, undefined);
+  assert.equal(buildPR(s, "constructor"), null);
+});
+test("PR without other self-chosen strengths makes no claim about awareness", () => {
+  const s = sampleState();
+  s.self = [];
+  const text = buildPR(s)!.text;
+  assert.equal(text.includes("自分でも意識していた"), false);
+  assert.ok(
+    text.includes(
+      `\n複数の仲間から同じ点を挙げてもらったことで、${CARDS.bridge.name}という一面に気づきました。`,
+    ),
+  );
+  s.self = ["bridge"];
+  assert.ok(buildPR(s)!.text.includes("自分でも意識していた強みですが"));
 });
 test("PR uses actual quotations, omits sender names, and prefers scenes", () => {
   const s = sampleState();
@@ -173,7 +246,8 @@ test("manual PR stays linked to its saved evidence when another strength becomes
     state.proofs.push({
       ...makePiece(fromId, true, "impl"),
       kind: "proof",
-      guess: "skip",
+      // A missed guess keeps impl a discovery; a skip no longer would (user request).
+      guess: "bridge",
       story: "実装を進めた",
     });
   assert.equal(buildPR(state)!.card.key, "impl");
@@ -211,10 +285,17 @@ test("native deck ranking and PR match the original HTML business logic", () => 
     new URL("../design/flocka-v2-blue-prototype.html", import.meta.url),
     "utf8",
   );
-  const block = source.slice(
-    source.indexOf("function fresh()"),
-    source.indexOf("const now ="),
-  );
+  const prototypeMissed = "const missed = p => p.guess !== p.card;";
+  assert.ok(source.includes(prototypeMissed));
+  // Intentional deviation from the prototype at the user's request: a skipped
+  // guess is not a missed guess, so it never marks a card as a new discovery.
+  // Everything else in the reference logic runs unchanged.
+  const block = source
+    .slice(source.indexOf("function fresh()"), source.indexOf("const now ="))
+    .replace(
+      prototypeMissed,
+      "const missed = p => p.guess !== 'skip' && p.guess !== p.card;",
+    );
   const context = {
     CARDS: catalog.CARDS,
     SELF_OPTIONS: catalog.SELF_OPTIONS,
@@ -242,9 +323,18 @@ test("native deck ranking and PR match the original HTML business logic", () => 
     ["bridge", "focus"],
   ]) {
     for (const withScene of [false, true]) {
-      for (const blocked of [[], ["mock-b"], ["mock-a"]]) {
+      for (const [blocked, skipped] of [
+        [[], false],
+        [["mock-b"], false],
+        [["mock-a"], false],
+        [[], true],
+      ] as const) {
         const s = sampleState();
-        s.blocked = blocked;
+        s.blocked = [...blocked];
+        // Opening without a guess exercises the skip deviation above.
+        if (skipped)
+          for (const piece of s.vibes)
+            if (piece.card === "bridge") piece.guess = "skip";
         s.self = self;
         if (withScene)
           s.proofs.push({
