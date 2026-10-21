@@ -3,12 +3,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Board, Btn, C, Header, T } from "../../components/ui";
 import { PasswordField, validPassword } from "./fields";
 import { assertAuthResult, getAuthClient } from "./client";
+import { useAuth } from "./provider";
 export function ResetPasswordScreen() {
   const { token, error: linkError } = useLocalSearchParams<{
       token?: string;
       error?: string;
     }>(),
     router = useRouter(),
+    { refetch } = useAuth(),
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [done, setDone] = useState(false),
@@ -25,6 +27,9 @@ export function ResetPasswordScreen() {
       );
       setPassword("");
       setDone(true);
+      // A session held before the reset may have been revoked; read it again so
+      // the next screen does not trust a stale one. Failure is shown by the auth routes.
+      await refetch().catch(() => {});
     } catch (error) {
       setError(error instanceof Error ? error.message : "再設定に失敗しました");
     } finally {

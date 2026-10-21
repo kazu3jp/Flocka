@@ -60,7 +60,8 @@ export function DeleteAccountScreen() {
         />
       </Board>
     );
-  if (auth.isPending || auth.error) return <SessionStatus />;
+  // A failed background re-check keeps a known session on this screen.
+  if (!auth.data && (auth.isPending || auth.error)) return <SessionStatus />;
   if (!auth.data)
     return (
       <AuthScreen

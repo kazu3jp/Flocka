@@ -57,7 +57,7 @@ const STEPS = [
 
 export function Onboarding() {
   const { data } = useAuth();
-  const { s, update, api, refresh, nav, toast } = useApp(),
+  const { s, update, api, refresh, nav, toast, saveProfile } = useApp(),
     [agree, setAgree] = useState(false),
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [step, setStep] = useState(0),
@@ -96,17 +96,40 @@ export function Onboarding() {
           : input,
         sel,
       );
+      // The account exists from here on. A photo that fails to upload must not
+      // undo it: finish with an initial avatar and offer to send the photo again.
+      let saved = input;
+      let photoFailed = false;
       if (input.avatar.type === "photo" && input.avatar.photo)
-        await api.uploadAvatar(input.avatar.photo);
-      await api.updateProfile(input, sel);
+        try {
+          await api.uploadAvatar(input.avatar.photo);
+        } catch {
+          photoFailed = true;
+          saved = { ...input, avatar: { ...input.avatar, type: "initial" } };
+        }
+      await api.updateProfile(saved, sel);
       update((x) => {
-        x.profile = input;
+        x.profile = saved;
         x.self = sel;
         x.onboarded = true;
       });
-      await refresh();
+      // Leave onboarding before syncing, so a failed sync never reopens it;
+      // the sync failure itself stays visible as the app's sync banner.
       nav.reset();
-      toast("デッキができた！");
+      void refresh().catch(() => {});
+      if (photoFailed)
+        toast(
+          "写真を保存できませんでした。プロフィールの編集から再設定できます",
+          {
+            label: "再送",
+            fn: () =>
+              void saveProfile(input, sel).then(
+                () => toast("写真を保存しました"),
+                () => toast("写真を保存できませんでした"),
+              ),
+          },
+        );
+      else toast("デッキができた！");
     } catch (error) {
       setError(
         error instanceof Error

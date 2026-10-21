@@ -1,36 +1,16 @@
 import { useRouter } from "expo-router";
-import { disablePush } from "../notifications/use-push-registration";
-import { useApp } from "../../store";
 import React, { useState } from "react";
 import { View } from "react-native";
 import { Btn, C, Icon, S, Sheet, T } from "../../components/ui";
 import { useAuth } from "./provider";
-import { assertAuthResult, getAuthClient } from "./client";
+import { useSignOut } from "./use-sign-out";
 export function AccountPanel() {
-  const { api } = useApp();
   const router = useRouter();
-  const { data, refetch } = useAuth(),
+  const { data } = useAuth(),
     [ask, setAsk] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null);
-  const logout = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Leaving this device must not depend on the server forgetting it. A failed
-      // unregister keeps the stored token, so nothing reports notifications as stopped.
-      if (data?.user.id) await disablePush(api, data.user.id).catch(() => {});
-      assertAuthResult(await getAuthClient().signOut());
-      await refetch();
-      setAsk(false);
-    } catch {
-      setError(
-        "ログアウトできませんでした。通信を確認して再試行してください。",
-      );
-    } finally {
-      setBusy(false);
-    }
+    { busy, error, pushPending, signOut } = useSignOut();
+  const logout = async (deferPushUnregister = false) => {
+    if (await signOut(deferPushUnregister)) setAsk(false);
   };
   return (
     <>
@@ -78,6 +58,14 @@ export function AccountPanel() {
             disabled={busy}
             onPress={() => void logout()}
           />
+          {pushPending && (
+            <Btn
+              plain
+              label="通知の解除を後で再試行してログアウト"
+              disabled={busy}
+              onPress={() => void logout(true)}
+            />
+          )}
         </Sheet>
       )}
     </>

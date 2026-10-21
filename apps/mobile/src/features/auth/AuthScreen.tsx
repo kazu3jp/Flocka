@@ -1,5 +1,5 @@
 import { LegalDocument } from "./LegalDocument";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useRouter, type Href } from "expo-router";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import {
 import { API_URL, assertAuthResult, getAuthClient } from "./client";
 import { SessionStatus, useAuth } from "./provider";
 import { WelcomeTour } from "./WelcomeTour";
+import { useBackStep } from "../navigation/use-back-step";
 import {
   PasswordField,
   AuthField,
@@ -83,13 +84,19 @@ export function AuthScreen({
     const timer = setTimeout(() => setWait((n) => n - 1), 1000);
     return () => clearTimeout(timer);
   }, [wait]);
-  const go = (next: AuthView) => {
+  const go = useCallback((next: AuthView) => {
     setView(next);
     setTouched(false);
     setError(null);
     setNotice(null);
     setPassword("");
-  };
+  }, []);
+  const back = useCallback(() => {
+    if (!busy)
+      go(view === "verify" ? "signup" : view === "reset" ? "login" : "welcome");
+  }, [busy, go, view]);
+  // Android back steps through the auth views before it leaves the app.
+  useBackStep(view === "welcome" ? 0 : 1, back);
   const run = async (action: () => Promise<void>) => {
     if (running.current) return;
     running.current = true;
@@ -194,8 +201,8 @@ export function AuthScreen({
         router.replace(destination);
       }
     });
-  if (session.isPending || session.error) return <SessionStatus />;
   if (session.data) return <Redirect href={destination} />;
+  if (session.isPending || session.error) return <SessionStatus />;
   const emailOk = validEmail(email);
   const mailField = (
     <AuthField
@@ -303,19 +310,7 @@ export function AuthScreen({
         </>
       ) : (
         <>
-          <AuthHeader
-            title={titles[view]}
-            onBack={() => {
-              if (!busy)
-                go(
-                  view === "verify"
-                    ? "signup"
-                    : view === "reset"
-                      ? "login"
-                      : "welcome",
-                );
-            }}
-          />
+          <AuthHeader title={titles[view]} onBack={back} />
           <View style={{ flex: 1, paddingTop: 10, paddingBottom: 16, gap: 20 }}>
             {(view === "signup" || view === "login") && (
               <SocialButtons

@@ -26,3 +26,5 @@ npx expo run:ios
 バックエンドはCronで通知を送信します。配信待ち・受付チケット・配信結果は別テーブルです。Expo側でアクセストークン保護を有効にした場合はWorkersの `EXPO_ACCESS_TOKEN` を設定してください。
 
 公式資料: [通知のセットアップ](https://docs.expo.dev/push-notifications/push-notifications-setup/)、[送信と配信結果](https://docs.expo.dev/push-notifications/sending-notifications/)。今回、外部への実通知は送っていません。
+
+ログアウト時に通知の登録解除が失敗した場合は、成功として扱わず理由を表示します。利用者が「通知の解除を後で再試行してログアウト」を選ぶと、トークンを解除待ちとして端末に残し、同じアカウントで次にログインしたとき（起動時の登録確認）に解除を再試行します。別のアカウントでは旧アカウントのトークンを解除できません。トークンが変わった場合は新しいトークンを先に登録し、古いトークンの解除失敗は解除待ちとして再試行します。OSによるトークン更新は `addPushTokenListener` で検知して再登録します。
