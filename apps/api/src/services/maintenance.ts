@@ -1,6 +1,8 @@
 import { retryAccountDeletions } from "./account-deletion";
+import { ORPHAN_AVATAR_GRACE_MS } from "./avatar-retention";
 const OUTBOX_RETENTION_MS = 7 * 24 * 3600_000;
-const ORPHAN_AVATAR_GRACE_MS = 24 * 3600_000;
+/** Longer than any Better Auth rate-limit window (the longest is 60 seconds). */
+const AUTH_RATE_LIMIT_RETENTION_MS = 3600_000;
 const AVATAR_SCAN_LIMIT = 500;
 
 async function deleteExpiredRows(db: D1Database, now: Date): Promise<void> {
@@ -13,6 +15,9 @@ async function deleteExpiredRows(db: D1Database, now: Date): Promise<void> {
     db
       .prepare("DELETE FROM auth_verifications WHERE expires_at < ?")
       .bind(epoch),
+    db
+      .prepare("DELETE FROM auth_rate_limits WHERE last_request < ?")
+      .bind(epoch - AUTH_RATE_LIMIT_RETENTION_MS),
     db
       .prepare("DELETE FROM api_request_limits WHERE window < ?")
       .bind(window - 5),
@@ -40,6 +45,8 @@ async function deleteOrphanAvatars(env: Env, now: Date): Promise<void> {
   for (const object of listing.objects) {
     if (now.getTime() - object.uploaded.getTime() < ORPHAN_AVATAR_GRACE_MS)
       continue;
+    // Checked per object right before its deletion. Backups cannot start
+    // referencing an old unreferenced object (see avatar-retention.ts).
     const used = await env.DB.prepare(
       "SELECT 1 FROM accounts WHERE avatar_key = ? UNION ALL SELECT 1 FROM backups WHERE avatar_key = ? LIMIT 1",
     )
@@ -60,11 +67,14 @@ async function deleteOrphanAvatars(env: Env, now: Date): Promise<void> {
   }
 }
 
-export async function runMaintenance(
+/** Independent maintenance jobs, run and reported separately by the cron. */
+export function maintenanceTasks(
   env: Env,
   now = new Date(),
-): Promise<void> {
-  await retryAccountDeletions(env, now);
-  await deleteExpiredRows(env.DB, now);
-  await deleteOrphanAvatars(env, now);
+): [string, () => Promise<void>][] {
+  return [
+    ["maintenance.account_deletions", () => retryAccountDeletions(env, now)],
+    ["maintenance.expired_rows", () => deleteExpiredRows(env.DB, now)],
+    ["maintenance.orphan_avatars", () => deleteOrphanAvatars(env, now)],
+  ];
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { Avatar, C, LinkButton, S, T, Sheet } from "../../components/ui";
-import { bareCard, type Card, type RemoteTestimony } from "@flocka/domain";
+import { bareCard, type Card, type PublicTestimony } from "@flocka/domain";
 import { useApp } from "../../store";
 import { PlayerSurface } from "./player-surface";
 
@@ -17,12 +17,17 @@ export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
 }
 
 /** A peer's self-chosen cards, with only the testimonies they published. */
-function peerHand(keys: string[], items: RemoteTestimony[]): Card[] {
+function peerHand(keys: string[], items: PublicTestimony[]): Card[] {
   return keys.map((key) => {
     const testimonies = items
       .filter((piece) => piece.card === key)
-      .map((piece) => ({
+      .map(({ giver, ...piece }) => ({
         ...piece,
+        // Public lists group a sender's testimonies without revealing the sender.
+        fromId: giver,
+        opened: true,
+        guess: null,
+        visibility: "public" as const,
         label: piece.label ?? undefined,
         text: piece.text ?? undefined,
         story: piece.story ?? undefined,
@@ -55,7 +60,7 @@ export function Player({
   const { s, d, peers, api } = useApp(),
     [publicData, setPublicData] = useState<{
       id: string;
-      items: RemoteTestimony[];
+      items: PublicTestimony[];
       error?: string;
     } | null>(null),
     [showPublic, setShowPublic] = useState(false),

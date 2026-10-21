@@ -13,6 +13,46 @@ export const tourEasing = {
   pop,
   envelope: Easing.bezier(0.42, 0, 0.58, 1),
 };
+const EASED_SAMPLES_PER_SEGMENT = 12;
+
+function numberWithUnit(value: number | string) {
+  if (typeof value === "number") return { amount: value, unit: "" };
+  const match = /^(-?\d*\.?\d+)([a-z%]*)$/.exec(value);
+  if (!match) throw new Error(`Cannot ease the interpolation output ${value}`);
+  return { amount: Number(match[1]), unit: match[2] };
+}
+
+/**
+ * The native driver ignores `easing` on interpolations, so native expands
+ * each eased keyframe segment into points. The web keeps the easing itself.
+ */
+export function eased(
+  easing: (t: number) => number,
+  {
+    inputRange,
+    outputRange,
+  }: { inputRange: number[]; outputRange: number[] | string[] },
+) {
+  if (Platform.OS === "web") return { easing, inputRange, outputRange };
+  const outputs = (outputRange as (number | string)[]).map(numberWithUnit);
+  const unit = outputs[0].unit;
+  const input = [inputRange[0]],
+    output = [outputs[0].amount];
+  for (let index = 1; index < inputRange.length; index++) {
+    const [fromInput, toInput] = [inputRange[index - 1], inputRange[index]];
+    const [from, to] = [outputs[index - 1].amount, outputs[index].amount];
+    for (let step = 1; step <= EASED_SAMPLES_PER_SEGMENT; step++) {
+      const t = step / EASED_SAMPLES_PER_SEGMENT;
+      input.push(fromInput + (toInput - fromInput) * t);
+      output.push(from + (to - from) * easing(t));
+    }
+  }
+  return {
+    inputRange: input,
+    outputRange: unit ? output.map((amount) => `${amount}${unit}`) : output,
+  };
+}
+
 const motions = {
   players: { duration: 3400 },
   swap: { duration: 3400 },

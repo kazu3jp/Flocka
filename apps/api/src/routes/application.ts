@@ -10,7 +10,16 @@ import {
 import { ApiError, readJson, type ApiContext } from "../http";
 import { AccountsRepository } from "../repositories/accounts";
 import { ExchangesRepository } from "../repositories/exchanges";
-import { toTestimony, type TestimonyRow } from "../repositories/testimonies";
+import {
+  toTestimony,
+  TestimoniesRepository,
+} from "../repositories/testimonies";
+import { SyncSnapshotRepository } from "../repositories/sync-snapshot";
+import {
+  decodeSyncCursor,
+  encodeSyncCursor,
+  type SyncCursor,
+} from "../services/sync-cursor";
 import { invalidPRSource } from "../repositories/pr-draft-references";
 import { isAdmin } from "../services/admin";
 import { hashToken } from "../auth";
@@ -18,16 +27,22 @@ import { hashToken } from "../auth";
 const emptyPreferences = { showcase: [], resp: {}, deco: {}, prDraft: null };
 export const applicationRoutes = new Hono<ApiContext>();
 applicationRoutes.get("/sync", async (c) => {
-  const page = z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(100000)
-      .parse(c.req.query("page") || "0"),
+  const cursorQuery = c.req.query("cursor"),
+    cursor = cursorQuery === undefined ? null : decodeSyncCursor(cursorQuery);
+  // Page numbers remain for older clients; a cursor continues by keyset instead.
+  const page = cursor
+      ? 0
+      : z.coerce
+          .number()
+          .int()
+          .min(0)
+          .max(100000)
+          .parse(c.req.query("page") || "0"),
     offset = page * 100;
   const accountId = c.get("accountId"),
     db = c.env.DB,
     accounts = new AccountsRepository(db),
+    lists = new SyncSnapshotRepository(db),
     account = await accounts.find(accountId);
   await db
     .prepare(
@@ -35,42 +50,28 @@ applicationRoutes.get("/sync", async (c) => {
     )
     .bind(accountId, new Date().toISOString())
     .run();
+  // A list that ended on an earlier cursor page is not read again.
+  const ended = (list: keyof SyncCursor) =>
+    cursor !== null && cursor[list] === null;
   const [exchanges, inbox, sent, blocks, requests, preferences] =
     await Promise.all([
-      new ExchangesRepository(db).listPage(accountId, offset),
-      db
-        .prepare(
-          "SELECT * FROM testimonies AS testimony WHERE recipient_id = ? AND removed_at IS NULL AND NOT EXISTS(SELECT 1 FROM blocks WHERE (account_id = testimony.recipient_id AND blocked_id = testimony.sender_id) OR (account_id = testimony.sender_id AND blocked_id = testimony.recipient_id)) ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
-        )
-        .bind(accountId, offset)
-        .all<TestimonyRow>(),
-      db
-        .prepare(
-          "SELECT * FROM testimonies WHERE sender_id = ? AND removed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
-        )
-        .bind(accountId, offset)
-        .all<TestimonyRow>(),
-      db
-        .prepare(
-          "SELECT blocked_id FROM blocks WHERE account_id = ? ORDER BY blocked_id LIMIT 101 OFFSET ?",
-        )
-        .bind(accountId, offset)
-        .all<{ blocked_id: string }>(),
-      db
-        .prepare(
-          "SELECT * FROM moderation_requests WHERE account_id = ? ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
-        )
-        .bind(accountId, offset)
-        .all<{
-          id: string;
-          testimony_id: string;
-          kind: "report" | "deletion";
-          reason: string | null;
-          created_at: string;
-          withdrawn_at: string | null;
-          status: string;
-          resolution: string | null;
-        }>(),
+      ended("exchanges")
+        ? []
+        : new ExchangesRepository(db).listPage(
+            accountId,
+            offset,
+            cursor?.exchanges ?? null,
+          ),
+      ended("inbox")
+        ? []
+        : lists.inbox(accountId, offset, cursor?.inbox ?? null),
+      ended("sent") ? [] : lists.sent(accountId, offset, cursor?.sent ?? null),
+      ended("blocks")
+        ? []
+        : lists.blocks(accountId, offset, cursor?.blocks ?? null),
+      ended("requests")
+        ? []
+        : lists.requests(accountId, offset, cursor?.requests ?? null),
       db
         .prepare(
           "SELECT data_json, revision FROM player_preferences WHERE account_id = ?",
@@ -78,42 +79,49 @@ applicationRoutes.get("/sync", async (c) => {
         .bind(accountId)
         .first<{ data_json: string; revision: number }>(),
     ]);
-  const nextPage = [
-    exchanges.length,
-    inbox.results.length,
-    sent.results.length,
-    blocks.results.length,
-    requests.results.length,
-  ].some((length) => length > 100)
-    ? page + 1
+  const more = (rows: unknown[]) => rows.length > 100;
+  const hasMore = [exchanges, inbox, sent, blocks, requests].some(more);
+  const lastRow = (rows: { id: string; created_at: string }[]) =>
+    more(rows) ? { at: rows[99].created_at, id: rows[99].id } : null;
+  const nextCursor = hasMore
+    ? encodeSyncCursor({
+        exchanges: more(exchanges)
+          ? { at: exchanges[99].createdAt, id: exchanges[99].id }
+          : null,
+        inbox: lastRow(inbox),
+        sent: lastRow(sent),
+        requests: lastRow(requests),
+        blocks: more(blocks) ? blocks[99].blocked_id : null,
+      })
     : null;
-  exchanges.splice(100);
-  inbox.results.splice(100);
-  sent.results.splice(100);
-  blocks.results.splice(100);
-  requests.results.splice(100);
-  const peerIds = new Set([
-    ...exchanges.map((e) => e.peer.id),
-    ...inbox.results.map((p) => p.sender_id),
-    ...sent.results.map((p) => p.recipient_id),
-    ...blocks.results.map((b) => b.blocked_id),
-  ]);
-  const peers = [];
-  for (const id of peerIds) peers.push(await accounts.getPlayer(id));
+  for (const rows of [exchanges, inbox, sent, blocks, requests])
+    rows.splice(100);
+  const peers = await accounts.listVisiblePlayers(
+    [
+      ...new Set([
+        ...exchanges.map((e) => e.peer.id),
+        ...inbox.map((p) => p.sender_id),
+        ...sent.map((p) => p.recipient_id),
+        ...blocks.map((b) => b.blocked_id),
+      ]),
+    ],
+    accountId,
+  );
   return c.json(
     syncSchema.parse({
-      nextPage,
+      nextPage: cursor || !hasMore ? null : page + 1,
+      nextCursor,
       player: accounts.toPlayer(account),
       peers,
       exchanges,
       settings: settingsSchema.parse(JSON.parse(account.settings_json)),
-      inbox: inbox.results.map(toTestimony),
-      sent: sent.results.map((p) => ({
+      inbox: inbox.map(toTestimony),
+      sent: sent.map((p) => ({
         ...toTestimony(p),
         toId: p.recipient_id,
       })),
-      blocked: blocks.results.map((b) => b.blocked_id),
-      requests: requests.results.map((r) =>
+      blocked: blocks.map((b) => b.blocked_id),
+      requests: requests.map((r) =>
         remoteRequestSchema.parse({
           id: r.id,
           pieceId: r.testimony_id,
@@ -198,15 +206,8 @@ applicationRoutes.post("/invites/preview", async (c) => {
 applicationRoutes.get("/players/:id/avatar", async (c) => {
   const id = c.req.param("id"),
     viewer = c.get("accountId");
-  const connected = await c.env.DB.prepare(
-    "SELECT 1 FROM exchanges WHERE (player_a = ? AND player_b = ?) OR (player_a = ? AND player_b = ?) LIMIT 1",
-  )
-    .bind(id, viewer, viewer, id)
-    .first();
-  if (
-    !connected ||
-    (await new ExchangesRepository(c.env.DB).isBlocked(id, viewer))
-  )
+  // Same rule as the public profile: accepted exchange, no block either way.
+  if (!(await new ExchangesRepository(c.env.DB).isConnected(viewer, id)))
     throw new ApiError(404, "PLAYER_NOT_FOUND", "プレイヤーが見つかりません");
   const player = await new AccountsRepository(c.env.DB).find(id);
   if (!player.avatar_key)
@@ -227,12 +228,7 @@ applicationRoutes.get("/players/:id/public", async (c) => {
     exchanges = new ExchangesRepository(c.env.DB);
   if (await exchanges.isBlocked(id, viewer))
     throw new ApiError(404, "PLAYER_NOT_FOUND", "プレイヤーが見つかりません");
-  const connected = await c.env.DB.prepare(
-    "SELECT 1 FROM exchanges WHERE status = 'accepted' AND ((player_a = ? AND player_b = ?) OR (player_a = ? AND player_b = ?)) LIMIT 1",
-  )
-    .bind(id, viewer, viewer, id)
-    .first();
-  if (!connected)
+  if (!(await exchanges.isConnected(viewer, id)))
     throw new ApiError(
       403,
       "CONNECTION_REQUIRED",
@@ -244,14 +240,14 @@ applicationRoutes.get("/players/:id/public", async (c) => {
     .min(0)
     .max(100000)
     .parse(c.req.query("page") || "0");
-  const rows = await c.env.DB.prepare(
-    "SELECT * FROM testimonies WHERE recipient_id = ? AND opened = 1 AND visibility = 'public' AND removed_at IS NULL AND NOT EXISTS(SELECT 1 FROM blocks WHERE account_id = ? AND blocked_id = sender_id) ORDER BY created_at DESC, id DESC LIMIT 101 OFFSET ?",
-  )
-    .bind(id, id, page * 100)
-    .all<TestimonyRow>();
+  const items = await new TestimoniesRepository(c.env.DB).listPublic(
+    id,
+    viewer,
+    page * 100,
+  );
   return c.json({
-    items: rows.results.slice(0, 100).map(toTestimony),
-    nextPage: rows.results.length > 100 ? page + 1 : null,
+    items: items.slice(0, 100),
+    nextPage: items.length > 100 ? page + 1 : null,
   });
 });
 
@@ -273,8 +269,14 @@ applicationRoutes.post("/invites/status", async (c) => {
     )
       .bind(a, b)
       .first<{ id: string }>();
+    // A block hides the exchange (and the peer's profile) like a missing one.
     if (found)
-      exchange = await new ExchangesRepository(c.env.DB).get(found.id, owner);
+      exchange = await new ExchangesRepository(c.env.DB)
+        .get(found.id, owner)
+        .catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
   }
   return c.json({ expiresAt: row.expires_at, exchange });
 });

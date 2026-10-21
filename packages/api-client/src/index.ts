@@ -8,7 +8,9 @@ import {
   backupRecordSchema,
   inviteSchema,
   pendingModerationPageSchema,
+  publicTestimonyPageSchema,
   type ModerationCursor,
+  type PublicTestimony,
   remoteExchangeSchema,
   remotePlayerSchema,
   remoteTestimonySchema,
@@ -194,18 +196,34 @@ export class FlockaApiClient {
   }
   async getSnapshot() {
     const snapshot = await this.json("/v1/sync?page=0", syncSchema);
-    let next = snapshot.nextPage;
-    while (next !== null) {
-      const page = await this.json(`/v1/sync?page=${next}`, syncSchema);
-      if (page.nextPage !== null && page.nextPage <= next)
-        throw new Error("同期ページが進みません");
+    // Servers with keyset paging always send nextCursor. Older servers omit it;
+    // then page numbers are followed as before.
+    const keyset = snapshot.nextCursor !== undefined;
+    let cursor = snapshot.nextCursor ?? null,
+      next = keyset ? null : snapshot.nextPage;
+    while (cursor !== null || next !== null) {
+      const page =
+        cursor !== null
+          ? await this.json(
+              `/v1/sync?cursor=${encodeURIComponent(cursor)}`,
+              syncSchema,
+            )
+          : await this.json(`/v1/sync?page=${next}`, syncSchema);
+      if (keyset) {
+        if (page.nextCursor === undefined || page.nextCursor === cursor)
+          throw new Error("同期ページが進みません");
+        cursor = page.nextCursor;
+      } else {
+        if (page.nextPage !== null && next !== null && page.nextPage <= next)
+          throw new Error("同期ページが進みません");
+        next = page.nextPage;
+      }
       snapshot.peers.push(...page.peers);
       snapshot.exchanges.push(...page.exchanges);
       snapshot.inbox.push(...page.inbox);
       snapshot.sent.push(...page.sent);
       snapshot.blocked.push(...page.blocked);
       snapshot.requests.push(...page.requests);
-      next = page.nextPage;
     }
     // Inserts during pagination can repeat rows. Merge by stable identifiers.
     snapshot.peers = [
@@ -225,6 +243,7 @@ export class FlockaApiClient {
     ];
     snapshot.blocked = [...new Set(snapshot.blocked)];
     snapshot.nextPage = null;
+    snapshot.nextCursor = null;
     return snapshot;
   }
   savePreferences(data: Preferences, revision: number) {
@@ -345,18 +364,12 @@ export class FlockaApiClient {
     );
   }
   async publicTestimonies(id: string) {
-    const items: z.infer<typeof remoteTestimonySchema>[] = [];
+    const items: PublicTestimony[] = [];
     let page: number | null = 0;
     while (page !== null) {
-      const result: {
-        items: z.infer<typeof remoteTestimonySchema>[];
-        nextPage: number | null;
-      } = await this.json(
+      const result: z.infer<typeof publicTestimonyPageSchema> = await this.json(
         `/v1/players/${encodeURIComponent(id)}/public?page=${page}`,
-        z.object({
-          items: z.array(remoteTestimonySchema),
-          nextPage: z.number().int().nonnegative().nullable(),
-        }),
+        publicTestimonyPageSchema,
       );
       // A repeated or earlier page would loop forever on a misbehaving server.
       if (result.nextPage !== null && result.nextPage <= page)

@@ -68,6 +68,7 @@ export const createTestimonySchema = z.discriminatedUnion("kind", [
     story: z.string().trim().min(8).max(80),
   }),
 ]);
+export type CreateTestimony = z.infer<typeof createTestimonySchema>;
 export const testimonyPatchSchema = z
   .object({
     opened: z.literal(true).optional(),
@@ -103,6 +104,26 @@ export const remoteTestimonySchema = z.object({
   createdAt: z.string(),
 });
 export type RemoteTestimony = z.infer<typeof remoteTestimonySchema>;
+/**
+ * A testimony the recipient made public, as another player sees it. The sender,
+ * exchange and the recipient's guess stay private. `giver` only groups the
+ * testimonies of one sender within a player's public list.
+ */
+export const publicTestimonySchema = z.object({
+  id: z.string().uuid(),
+  kind: z.enum(["vibe", "proof"]),
+  card: strengthKeySchema,
+  label: z.string().nullable(),
+  text: z.string().nullable(),
+  story: z.string().nullable(),
+  createdAt: z.string(),
+  giver: z.string().min(1).max(20),
+});
+export type PublicTestimony = z.infer<typeof publicTestimonySchema>;
+export const publicTestimonyPageSchema = z.object({
+  items: z.array(publicTestimonySchema),
+  nextPage: z.number().int().nonnegative().nullable(),
+});
 export const settingsSchema = z.object({
   allowVibe: z.boolean(),
   allowProof: z.boolean(),
@@ -243,6 +264,8 @@ export const remoteSentSchema = remoteTestimonySchema.extend({
 });
 export const syncSchema = z.object({
   nextPage: z.number().int().nullable(),
+  /** Keyset continuation. Servers without it omit the field; then follow nextPage. */
+  nextCursor: z.string().min(1).max(2000).nullable().optional(),
   player: remotePlayerSchema,
   peers: z.array(remotePlayerSchema),
   settings: settingsSchema,
