@@ -221,6 +221,11 @@ Expo SDK 57の[対応表](https://docs.expo.dev/versions/v57.0.0/)と、React Na
 
 `npm run typecheck`、`npm run lint -w @flocka/mobile`、API・ドメイン・APIクライアント・テストのESLint、`npm test`（47件）、`npm run export:native`、`npm run export:web` が通過しました。Windowsではルートの `npm run lint` のglobが展開されないため、ESLintは対象を個別に指定して実行しています。VRT・実機での確認と本番デプロイは実施していません。
 
+## 相手情報の共有範囲・書き込み条件・索引（2026-10-21）
+
+[peer-privacy.integration.test.ts](../tests/peer-privacy.integration.test.ts) で、どちらの方向のブロックでも同期・交換取得・写真・公開証言が相手の情報を返さないこと、保留中の交換で写真を返さないこと、解除済みの交換を同期に含めず再解除を409にすること、公開証言が送り主ID・交換ID・予想を含まず閲覧者側のブロックに従うこと、場面のメモの1日5件の制限、同期のカーソルが途中で削除された行の後続を飛ばさないことを実APIで検査します。[account-deletion.integration.test.ts](../tests/account-deletion.integration.test.ts) では、削除する人の証言を引用しない交換相手の下書きが残ること、管理者の監査記録が匿名化されて残ることを検査します。
+
+テストは0010を含むすべてのマイグレーションをローカルD1へ適用します。ローカルの既存D1にも `npm run db:migrate` で0010を適用できました。本番D1への0010の適用とデプロイは実施していません。APIの配布前に本番へ0010を適用する必要があります。ブロック中・解除済みの判定をSQLへ移した並行実行の競合そのものは、決定的に再現するテストを用意していません。バックアップと未参照画像削除の競合も、R2のアップロード時刻を操作できないため自動テストでは検査していません。
 ## 近距離交換のBluetooth状態への追従（2026-10-21）
 
 Bluetooth（Android 11以下では位置情報も）が途中でオフになると、ネイティブ側は広告・探索・接続・GATTサービスを片付けて `onError`（`BLUETOOTH_OFF` / `LOCATION_OFF`）を送り、画面が開いている間はセッションを保持します。オンに戻ると自動で設定し直し、探索が実際に始まった時点で `onReady` を送ります。開始時点でオフの場合も `start()` はそのコードで失敗し、同じく `onReady` で復帰します。権限なし（`PERMISSION_DENIED`）・非対応（`UNSUPPORTED`）・その他の失敗（`BLUETOOTH_FAILED`）はセッションを終了します。画面はコードごとの日本語文と「設定を開く」（権限はアプリ設定、AndroidのBluetooth・位置情報は各設定画面）を表示します。

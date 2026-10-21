@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import { createExchangeSchema, meetingContextSchema } from "@flocka/domain";
 import { hashToken, randomToken } from "../auth";
 import { ApiError, readJson, type ApiContext } from "../http";
-import { ExchangesRepository } from "../repositories/exchanges";
+import {
+  ExchangesRepository,
+  noBlockBetween,
+  type ExchangeRow,
+} from "../repositories/exchanges";
 
 const INVITE_LIFETIME_MS = 10 * 60 * 1000;
 export const exchangeRoutes = new Hono<ApiContext>();
@@ -98,58 +102,59 @@ exchangeRoutes.post("/exchanges/:id/approve", async (c) => {
     id = c.req.param("id"),
     repository = new ExchangesRepository(c.env.DB),
     exchange = await repository.requireParticipant(id, accountId);
-  if (exchange.status === "cancelled")
+  const rejectInactive = async (current: ExchangeRow) => {
+    if (current.status === "cancelled")
+      throw new ApiError(
+        409,
+        "EXCHANGE_CANCELLED",
+        "この交換はキャンセルされています",
+      );
+    if (await repository.isBlocked(current.player_a, current.player_b))
+      throw new ApiError(
+        403,
+        "EXCHANGE_BLOCKED",
+        "このプレイヤーとは交換できません",
+      );
+  };
+  await rejectInactive(exchange);
+  const at = new Date().toISOString();
+  // Every write re-checks status and blocks, so a concurrent cancel or block wins.
+  const active = `EXISTS(SELECT 1 FROM exchanges AS e WHERE e.id = ?1 AND e.status != 'cancelled' AND ${noBlockBetween("e.player_a", "e.player_b")})`;
+  const bothApproved =
+    "(SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ?1 AND approved_at IS NOT NULL) = 2";
+  const notify = (player: "player_a" | "player_b") =>
+    c.env.DB.prepare(
+      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
+      SELECT ?2, ${player}, 'exchange', id, ?3, ?3 FROM exchanges WHERE id = ?1 AND status = 'pending'
+      AND ${bothApproved} AND ${active}`,
+    ).bind(id, crypto.randomUUID(), at);
+  const [approval] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE exchange_participants SET approved_at = COALESCE(approved_at, ?2), place = ?3, trigger = ?4
+      WHERE exchange_id = ?1 AND account_id = ?5 AND ${active}`,
+    ).bind(id, at, context.place, context.trigger, accountId),
+    notify("player_a"),
+    notify("player_b"),
+    c.env.DB.prepare(
+      `UPDATE exchanges SET status = 'accepted' WHERE id = ?1 AND status = 'pending'
+      AND ${bothApproved} AND ${active}`,
+    ).bind(id),
+  ]);
+  if (!approval.meta.changes) {
+    await rejectInactive(await repository.requireParticipant(id, accountId));
     throw new ApiError(
       409,
-      "EXCHANGE_CANCELLED",
-      "この交換はキャンセルされています",
+      "EXCHANGE_CONFLICT",
+      "交換の状態が更新されました。もう一度確認してください",
     );
-  if (await repository.isBlocked(exchange.player_a, exchange.player_b))
-    throw new ApiError(
-      403,
-      "EXCHANGE_BLOCKED",
-      "このプレイヤーとは交換できません",
-    );
-  const at = new Date().toISOString();
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `UPDATE exchange_participants SET approved_at = COALESCE(approved_at, ?), place = ?, trigger = ?
-      WHERE exchange_id = ? AND account_id = ? AND EXISTS(SELECT 1 FROM exchanges WHERE id = ? AND status != 'cancelled')`,
-    ).bind(
-      new Date().toISOString(),
-      context.place,
-      context.trigger,
-      id,
-      accountId,
-      id,
-    ),
-    c.env.DB.prepare(
-      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
-      SELECT ?, player_a, 'exchange', id, ?, ? FROM exchanges WHERE id = ? AND status = 'pending'
-      AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
-    ).bind(crypto.randomUUID(), at, at, id, id),
-    c.env.DB.prepare(
-      `INSERT INTO notification_outbox(id, account_id, kind, resource_id, created_at, next_attempt_at)
-      SELECT ?, player_b, 'exchange', id, ?, ? FROM exchanges WHERE id = ? AND status = 'pending'
-      AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
-    ).bind(crypto.randomUUID(), at, at, id, id),
-    c.env.DB.prepare(
-      `UPDATE exchanges SET status = 'accepted' WHERE id = ? AND status = 'pending'
-      AND (SELECT COUNT(*) FROM exchange_participants WHERE exchange_id = ? AND approved_at IS NOT NULL) = 2`,
-    ).bind(id, id),
-  ]);
-  const updated = await repository.get(id, accountId);
-  return c.json(updated);
-});
-exchangeRoutes.post("/exchanges/:id/cancel", async (c) => {
-  const id = c.req.param("id"),
-    accountId = c.get("accountId"),
-    repository = new ExchangesRepository(c.env.DB);
-  await repository.requireParticipant(id, accountId);
-  await c.env.DB.prepare(
-    "UPDATE exchanges SET status = 'cancelled' WHERE id = ?",
-  )
-    .bind(id)
-    .run();
+  }
   return c.json(await repository.get(id, accountId));
 });
+exchangeRoutes.post("/exchanges/:id/cancel", async (c) =>
+  c.json(
+    await new ExchangesRepository(c.env.DB).cancel(
+      c.req.param("id"),
+      c.get("accountId"),
+    ),
+  ),
+);

@@ -62,6 +62,40 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       },
       preferences.preferences.revision,
     );
+    // d also exchanged with the deleted player, but d's draft quotes only c.
+    const d = await f.register("無関係な下書きの人");
+    const connect = async (
+      owner: typeof a,
+      guest: typeof a,
+    ): Promise<string> => {
+      const code = (await owner.api.createInvite()).code;
+      const started = await guest.api.startExchange(code);
+      await owner.api.approveExchange(started.id, "交流会", "同じ机");
+      await guest.api.approveExchange(started.id, "交流会", "同じ机");
+      return started.id;
+    };
+    const withDeleted = await connect(a, d),
+      withOther = await connect(c, d);
+    await a.api.sendScene(withDeleted, "impl", "削除される人から届いた場面");
+    const unrelatedSource = [
+      await c.api.sendScene(withOther, "focus", "集中して資料を仕上げた場面"),
+      await c.api.sendScene(withOther, "focus", "最後まで粘って検証した場面"),
+    ].map((item) => item.id);
+    const dPreferences = (await d.api.getSnapshot()).preferences;
+    await d.api.savePreferences(
+      {
+        ...dPreferences.data,
+        prDraft: "残るべき下書き",
+        prDraftSource: { card: "focus", pieceIds: unrelatedSource },
+      },
+      dPreferences.revision,
+    );
+    // A deleted administrator's audit trail is kept without identity or note.
+    await f.setAdmins([a.player.id]);
+    // setOptions() replaces runtime stubs, including the D1 handle.
+    const db = await f.runtime.getD1Database("DB");
+    const audited = await d.api.requestModeration(unrelatedSource[0], "report");
+    await a.api.resolveModeration(audited.id, "reviewed", "管理者のメモ");
     snapshot.blocked = [a.player.id, c.player.id];
     await b.api.saveBackup(snapshot, null);
     const { AVATARS: bucket } = await f.runtime.getBindings<{
@@ -90,7 +124,7 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
     assert.ok(token);
     assert.equal(link.pathname, "/delete-account");
     assert.ok(
-      await f.db
+      await db
         .prepare("SELECT 1 FROM auth_users WHERE id = ?")
         .bind(a.player.id)
         .first(),
@@ -114,7 +148,7 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
     assert.equal(confirm.status, 200, await confirm.text());
     for (const table of ["accounts", "auth_users"])
       assert.equal(
-        await f.db
+        await db
           .prepare(`SELECT 1 FROM ${table} WHERE id = ?`)
           .bind(a.player.id)
           .first(),
@@ -122,7 +156,7 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       );
     for (const table of ["auth_sessions", "auth_accounts"])
       assert.equal(
-        await f.db
+        await db
           .prepare(`SELECT 1 FROM ${table} WHERE user_id = ?`)
           .bind(a.player.id)
           .first(),
@@ -134,28 +168,28 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
     );
     assert.ok(await bucket.get(`avatars/${b.player.id}/keep`));
     assert.equal(
-      await f.db
+      await db
         .prepare("SELECT 1 FROM testimonies WHERE id = ?")
         .bind(piece.id)
         .first(),
       null,
     );
     assert.equal(
-      await f.db
+      await db
         .prepare("SELECT 1 FROM exchanges WHERE id = ?")
         .bind(exchange.id)
         .first(),
       null,
     );
     assert.equal(
-      await f.db
+      await db
         .prepare("SELECT 1 FROM moderation_requests WHERE testimony_id = ?")
         .bind(piece.id)
         .first(),
       null,
     );
     assert.equal(
-      await f.db
+      await db
         .prepare(
           "SELECT 1 FROM notification_outbox WHERE resource_id IN (?, ?)",
         )
@@ -164,7 +198,7 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       null,
     );
     assert.equal(
-      await f.db.prepare("SELECT 1 FROM account_deletions").first(),
+      await db.prepare("SELECT 1 FROM account_deletions").first(),
       null,
     );
     const backup = await b.api.getBackup();
@@ -178,6 +212,18 @@ test("verified deletion erases D1, R2 and mirrored peer data without deleting un
       undefined,
     );
     assert.deepEqual(backup.snapshot.blocked, [c.player.id]);
+    const unrelated = (await d.api.getSnapshot()).preferences.data;
+    assert.equal(unrelated.prDraft, "残るべき下書き");
+    assert.deepEqual(unrelated.prDraftSource?.pieceIds, unrelatedSource);
+    assert.deepEqual(
+      await db
+        .prepare(
+          "SELECT admin_id, action, note FROM moderation_audit WHERE request_id = ?",
+        )
+        .bind(audited.id)
+        .first(),
+      { admin_id: "erased-account", action: "reviewed", note: "" },
+    );
     const staleBackup = await b.api.saveBackup(snapshot, backup.revision);
     assert.equal(staleBackup.revision, 3);
     assert.equal(

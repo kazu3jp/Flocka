@@ -182,7 +182,8 @@ test("real player snapshots, private preferences, invitations, visibility and mo
     assert.equal((await a.api.getSnapshot()).inbox.length, 0);
     await a.api.unblock(b.player.id);
     await b.api.cancelExchange(exchange.id);
-    assert.equal((await a.api.getSnapshot()).exchanges[0].status, "cancelled");
+    // A cancelled exchange no longer shares the peer's live profile.
+    assert.equal((await a.api.getSnapshot()).exchanges.length, 0);
   } finally {
     await f.runtime.dispose();
   }

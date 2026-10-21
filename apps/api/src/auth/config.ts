@@ -1,4 +1,5 @@
 import { hasMissingProviderToken } from "../services/revoke-provider-tokens";
+import { allowedOrigins } from "../origins";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins";
@@ -54,7 +55,7 @@ export function createAuth(
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [
-      ...env.ALLOWED_ORIGINS.split(","),
+      ...allowedOrigins(env),
       "flocka://",
       ...(socialProviders(env).apple ? ["https://appleid.apple.com"] : []),
     ],
@@ -174,6 +175,10 @@ export function createAuth(
       updateAge: 60 * 60 * 24,
       cookieCache: { enabled: false },
     },
+    // Better Auth 1.7.7 keys every rule by client IP and path; a rule can change
+    // window/max but not the key, so per-email limits are not available here.
+    // Distinct IPs targeting one address are bounded only by these IP rules,
+    // the OTP's attempt limit and its 10-minute expiry (docs/architecture.md).
     rateLimit: {
       enabled: true,
       storage: "database",
@@ -181,6 +186,8 @@ export function createAuth(
       max: 30,
       customRules: {
         "/sign-up/email": { window: 60, max: 5 },
+        // Stricter than the built-in 3 per 10 seconds (18 per minute) per IP.
+        "/sign-in/email": { window: 60, max: 5 },
         "/email-otp/send-verification-otp": { window: 30, max: 1 },
         "/email-otp/verify-email": { window: 60, max: 5 },
         "/request-password-reset": { window: 60, max: 3 },
@@ -218,7 +225,7 @@ export function createAuth(
             target.host === "delete-account" &&
             target.pathname === "";
           const isWeb =
-            env.ALLOWED_ORIGINS.split(",").includes(target.origin) &&
+            allowedOrigins(env).includes(target.origin) &&
             target.pathname === "/delete-account";
           if (
             (!isApp && !isWeb) ||

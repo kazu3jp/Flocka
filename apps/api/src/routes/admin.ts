@@ -19,6 +19,11 @@ type PendingRow = {
   story: string | null;
 };
 
+const pendingQuery = `SELECT m.id, m.testimony_id, m.kind, m.reason, m.created_at, t.kind AS kind_of_testimony, t.label, t.text, t.story
+  FROM moderation_requests m JOIN testimonies t ON t.id = m.testimony_id
+  WHERE m.status = 'pending' AND m.withdrawn_at IS NULL`;
+const pendingOrder = "ORDER BY m.created_at, m.id LIMIT 51";
+
 export const adminRoutes = new Hono<ApiContext>();
 adminRoutes.use("/admin/*", async (c, next) => {
   if (!isAdmin(c.env, c.get("accountId")))
@@ -43,15 +48,14 @@ adminRoutes.get("/admin/moderation", async (c) => {
     after = parsed.data;
   }
   // Keyset paging: resolved requests leave the list without shifting later ones.
-  const rows = await c.env.DB.prepare(
-    `SELECT m.id, m.testimony_id, m.kind, m.reason, m.created_at, t.kind AS kind_of_testimony, t.label, t.text, t.story
-    FROM moderation_requests m JOIN testimonies t ON t.id = m.testimony_id
-    WHERE m.status = 'pending' AND m.withdrawn_at IS NULL
-      AND (?1 IS NULL OR m.created_at > ?1 OR (m.created_at = ?1 AND m.id > ?2))
-    ORDER BY m.created_at, m.id LIMIT 51`,
-  )
-    .bind(after?.at ?? null, after?.id ?? null)
-    .all<PendingRow>();
+  // Separate statements keep the range on moderation_requests_queue usable.
+  const rows = await (
+    after
+      ? c.env.DB.prepare(
+          `${pendingQuery} AND (m.created_at, m.id) > (?1, ?2) ${pendingOrder}`,
+        ).bind(after.at, after.id)
+      : c.env.DB.prepare(`${pendingQuery} ${pendingOrder}`)
+  ).all<PendingRow>();
   const last = rows.results[49];
   return c.json({
     items: rows.results.slice(0, 50).map((row) => ({
