@@ -1,7 +1,10 @@
 import { NativeModule, requireOptionalNativeModule } from "expo";
-import type { FlockaNearbyModuleEvents } from "./FlockaNearby.types";
+import type {
+  FlockaNearbyModuleEvents,
+  NearbyPermissions,
+} from "./FlockaNearby.types";
 declare class FlockaNearbyModule extends NativeModule<FlockaNearbyModuleEvents> {
-  requestPermissions(): Promise<{ granted: boolean }>;
+  requestPermissions(): Promise<NearbyPermissions>;
   start(code: string): Promise<void>;
   stop(): Promise<void>;
 }

@@ -6,9 +6,11 @@ public class FlockaNearbyModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("FlockaNearby")
-    Events("onPeer", "onError")
+    Events("onPeer", "onError", "onReady")
     AsyncFunction("requestPermissions") { () -> [String: Bool] in
-      ["granted": CBManager.authorization != .denied && CBManager.authorization != .restricted]
+      // Once denied, iOS only lets the user change Bluetooth access from the Settings app.
+      let granted = CBManager.authorization != .denied && CBManager.authorization != .restricted
+      return ["granted": granted, "canAskAgain": granted]
     }
     AsyncFunction("start") { (code: String, promise: Promise) in
       guard code.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else {
@@ -46,8 +48,11 @@ private final class NearbySession: NSObject, CBCentralManagerDelegate, CBPeriphe
   private var seen: [UUID: Date] = [:]
   private var signals: [UUID: Int] = [:]
   private var timeouts: [UUID: DispatchWorkItem] = [:]
+  /// The screen still wants the session. Bluetooth turning off pauses it instead of ending it.
   private var active = true
   private var serviceAdded = false
+  /// The requirement reported to JS while paused, so repeated state updates do not repeat onError.
+  private var pausedFor: String?
 
   init(code: String, promise: Promise, emit: @escaping (String, [String: Any]) -> Void) {
     self.code = code
@@ -61,28 +66,52 @@ private final class NearbySession: NSObject, CBCentralManagerDelegate, CBPeriphe
   }
   func stop() {
     active = false
+    teardown()
+    if let promise { promise.reject("CANCELLED", "近距離交換を停止しました") }
+    promise = nil
+    central?.delegate = nil
+    advertiser?.delegate = nil
+  }
+  /// Drops the service, advertising, scanning and connections. CoreBluetooth removes services itself on power-off.
+  private func teardown() {
     if central?.state == .poweredOn {
       central.stopScan()
       for peer in peers.values { central.cancelPeripheralConnection(peer) }
     }
     if advertiser?.state == .poweredOn { advertiser.stopAdvertising(); advertiser.removeAllServices() }
+    serviceAdded = false
     for timeout in timeouts.values { timeout.cancel() }
-    timeouts.removeAll(); peers.removeAll()
-    if let promise { promise.reject("CANCELLED", "近距離交換を停止しました") }
+    timeouts.removeAll(); peers.removeAll(); seen.removeAll(); signals.removeAll()
+  }
+  /// A requirement the user can turn back on: keep the session and set it up again on the next poweredOn.
+  private func pause(_ code: String, _ message: String) {
+    teardown()
+    let pending = promise
     promise = nil
+    pending?.reject(code, message)
+    if pending != nil || pausedFor != code { emit("onError", ["code": code, "message": message]) }
+    pausedFor = code
+  }
+  private func finish(_ code: String, _ message: String) {
+    active = false
+    teardown()
+    promise?.reject(code, message); promise = nil
+    emit("onError", ["code": code, "message": message])
     central?.delegate = nil
     advertiser?.delegate = nil
   }
   private func updateState() {
     guard active, let central, let advertiser else { return }
     let states = [central.state, advertiser.state]
-    if states.contains(.unauthorized) || states.contains(.unsupported) || states.contains(.poweredOff) {
-      let message = states.contains(.unauthorized) ? "Bluetoothを端末の設定から許可してください" : states.contains(.unsupported) ? "この端末は近距離交換に対応していません" : "Bluetoothをオンにしてください"
-      promise?.reject("BLUETOOTH_UNAVAILABLE", message); promise = nil
-      emit("onError", ["message": message])
+    if states.contains(.unauthorized) { finish("PERMISSION_DENIED", "Bluetoothを端末の設定から許可してください"); return }
+    if states.contains(.unsupported) { finish("UNSUPPORTED", "この端末は近距離交換に対応していません"); return }
+    if states.contains(.poweredOff) { pause("BLUETOOTH_OFF", "Bluetoothをオンにしてください"); return }
+    guard central.state == .poweredOn, advertiser.state == .poweredOn else {
+      // The stack is restarting; drop what was set up and wait for the next state update.
+      if states.contains(.resetting) { teardown() }
       return
     }
-    guard central.state == .poweredOn, advertiser.state == .poweredOn, !serviceAdded else { return }
+    guard !serviceAdded else { return }
     serviceAdded = true
     let service = CBMutableService(type: serviceID, primary: true)
     service.characteristics = [CBMutableCharacteristic(type: codeID, properties: [.read], value: code.data(using: .utf8), permissions: [.readable])]
@@ -91,15 +120,16 @@ private final class NearbySession: NSObject, CBCentralManagerDelegate, CBPeriphe
   func centralManagerDidUpdateState(_ central: CBCentralManager) { updateState() }
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) { updateState() }
   func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
-    guard active else { return }
-    if let error { promise?.reject("SERVICE_FAILED", error.localizedDescription); promise = nil; return }
+    guard active, serviceAdded else { return }
+    if error != nil { finish("BLUETOOTH_FAILED", "交換サービスを追加できません"); return }
     peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [serviceID]])
     central.scanForPeripherals(withServices: [serviceID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
   }
   func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
-    guard active else { return }
-    if let error { promise?.reject("ADVERTISING_FAILED", error.localizedDescription) }
-    else { promise?.resolve() }
+    guard active, serviceAdded else { return }
+    if error != nil { finish("BLUETOOTH_FAILED", "Bluetooth広告を開始できません"); return }
+    pausedFor = nil
+    if let promise { promise.resolve() } else { emit("onReady", [:]) }
     promise = nil
   }
   func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
