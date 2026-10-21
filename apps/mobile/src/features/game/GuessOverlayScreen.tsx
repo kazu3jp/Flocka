@@ -32,6 +32,7 @@ import {
   wordsOf,
   type State,
 } from "@flocka/domain";
+import { useSheetFeedback } from "../../components/feedback";
 import { useApp } from "../../store";
 import { hapticSuccess } from "../haptics/haptics";
 
@@ -86,7 +87,16 @@ function GuessContent({ id }: { id: string }) {
     // Runs once when the result appears.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
-  if (!p || !after) return null;
+  // Moderation, a block or a sync can remove the testimony while it is open.
+  if (!p || !after)
+    return (
+      <Board safeTop safeBottom>
+        <Header title="予想チャレンジ" />
+        <T>この証言は表示できなくなりました。</T>
+        <View style={S.fill} />
+        <Btn label="閉じる" onPress={() => setOpening(null)} />
+      </Board>
+    );
   const opts = optionsFor(p, s.self),
     remaining = d.unopened.filter((piece) => piece.id !== p.id),
     chosen = busy ? pending : stage === "opening" ? guess : null,
@@ -237,7 +247,7 @@ function GuessContent({ id }: { id: string }) {
               >
                 {openingResult(guess, p.card, s.self.includes(p.card))}
               </T>
-              {guess && guess !== "skip" && guess !== p.card && (
+              {guess && guess !== p.card && Object.hasOwn(CARDS, guess) && (
                 <T size={13}>予想：{CARDS[guess].name}</T>
               )}
             </View>
@@ -288,6 +298,9 @@ function GuessContent({ id }: { id: string }) {
 
 export function GuessOverlay() {
   const { opening, setOpening } = useApp();
+  // Toasts raised while the overlay is open render inside its native window.
+  const { content: feedback, register } = useSheetFeedback();
+  useEffect(() => (opening ? register?.() : undefined), [opening, register]);
   return (
     <Modal
       visible={!!opening}
@@ -295,6 +308,7 @@ export function GuessOverlay() {
       onRequestClose={() => setOpening(null)}
     >
       {opening && <GuessContent id={opening} key={opening} />}
+      {opening && feedback}
     </Modal>
   );
 }

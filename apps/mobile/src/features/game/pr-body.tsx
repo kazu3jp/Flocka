@@ -2,18 +2,25 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { PRSegment } from "@flocka/domain";
 import { PRCaret } from "./pr-caret";
-import { useTypedShown, type TypedProgress } from "./use-typed-pr";
+import { typedLength, useTypedShown, type TypedProgress } from "./use-typed-pr";
 import { C, F, T } from "../../components/ui";
 
+/** Counts code points, and each break as its "\n", exactly like the draft text. */
 function visiblePRSegments(segments: PRSegment[], shown: number) {
   const visible: PRSegment[] = [];
   let remaining = shown;
   for (const segment of segments) {
     if (remaining <= 0) break;
-    if (segment.kind === "break") visible.push(segment);
-    else {
-      visible.push({ ...segment, text: segment.text.slice(0, remaining) });
-      remaining -= segment.text.length;
+    if (segment.kind === "break") {
+      visible.push(segment);
+      remaining -= 1;
+    } else {
+      const characters = Array.from(segment.text);
+      visible.push({
+        ...segment,
+        text: characters.slice(0, remaining).join(""),
+      });
+      remaining -= characters.length;
     }
   }
   return visible;
@@ -91,7 +98,7 @@ export function PRBody({
                 </Text>
               );
             })}
-            {shown < draft.length && <PRCaret />}
+            {shown < typedLength(draft) && <PRCaret />}
           </T>
         )}
       </Pressable>

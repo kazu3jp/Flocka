@@ -69,7 +69,9 @@ export function usePRDocument() {
   const share = () => {
     const sharingVisit = visit.current;
     // Dismissing the share sheet is not an error; only a failure is reported.
-    void Share.share({ message: draft }).catch(() => {
+    void Share.share({ message: draft }).catch((reason: unknown) => {
+      // The Web Share API rejects with AbortError when the viewer cancels.
+      if (reason instanceof Error && reason.name === "AbortError") return;
       if (sharingVisit && sharingVisit === visit.current)
         toast("共有できませんでした");
     });
@@ -77,6 +79,9 @@ export function usePRDocument() {
   return {
     document,
     sourceKnown,
+    // A saved draft stays readable after its card stops being confirmed;
+    // only a currently confirmed card can replace it.
+    canRegenerate: generated !== null,
     regenerationStrength: generated?.card.name,
     draft,
     manual: s.prDraft !== null,
@@ -105,7 +110,7 @@ export function usePRDocument() {
     error,
     confirmReset,
     askReset: () => {
-      if (!busy) setConfirmReset(true);
+      if (!busy && generated) setConfirmReset(true);
     },
     closeReset: () => {
       if (!busy) setConfirmReset(false);

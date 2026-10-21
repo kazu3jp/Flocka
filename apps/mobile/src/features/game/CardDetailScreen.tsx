@@ -25,13 +25,21 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         <T>カードが見つかりませんでした。</T>
       </Board>
     );
+  const response = s.resp[cardKey];
   const explanation = card.confirmed
-    ? "2人以上が別々に同じ強みを挙げています。自己PRに使えます。"
+    ? response === "disagree"
+      ? "2人以上が別々に同じ強みを挙げています。"
+      : "2人以上が別々に同じ強みを挙げています。自己PRに使えます。"
     : card.discovered
       ? "自分では選ばなかった強みです。あと1人の証言で確認済みになります。"
       : card.testimonies.length
         ? "あと1人の証言で確認済みになります。"
-        : "あなたが選んだ強みです。仲間の証言が届くのを待とう。";
+        : card.self
+          ? "あなたが選んだ強みです。仲間の証言が届くのを待とう。"
+          : "表示中の証言はありません。非表示にした証言は「届いた証言」から戻せます。";
+  // Once answered, the reaction stays changeable even if the card is no longer
+  // a discovery, so "違うかも" can always be undone.
+  const showResponse = card.discovered || response !== undefined;
   return (
     <Board scroll>
       <Header title={card.name} onBack={nav.pop} />
@@ -49,14 +57,16 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
       <T size={14} style={{ textAlign: "center", lineHeight: 22.4 }}>
         {explanation}
       </T>
-      {card.discovered && (
+      {showResponse && (
         <Panel style={{ padding: 14, gap: 8 }}>
           <T
             size={16}
             color={C.ink}
             style={{ fontFamily: F.bold, lineHeight: 24 }}
           >
-            この新発見、どう思う？
+            {card.discovered
+              ? "この新発見、どう思う？"
+              : "このカード、どう思う？"}
           </T>
           <View style={[S.row, { gap: 8 }]}>
             {(

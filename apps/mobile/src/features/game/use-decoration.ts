@@ -1,6 +1,12 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { defaultDeco, type DecoData } from "@flocka/domain";
+import {
+  defaultDeco,
+  isCardKey,
+  type DecoData,
+  type State,
+} from "@flocka/domain";
+import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
 
@@ -19,13 +25,24 @@ export function useDecoration(cardKey: string) {
       };
     }, [cardKey]),
   );
+  const { ask, dialog } = useConfirmation();
+  const known = isCardKey(cardKey);
+  const savedDecoration = (state: State) =>
+    known && Object.hasOwn(state.deco, cardKey) ? state.deco[cardKey] : null;
+  // "元に戻す" restores the design this visit started from, not the default.
+  const [initial] = useState(() => {
+    const saved = savedDecoration(s);
+    return saved ? (JSON.parse(JSON.stringify(saved)) as DecoData) : null;
+  });
   const card = d.cards[cardKey];
-  const decoration = s.deco[cardKey] ?? defaultDeco();
+  const decoration = savedDecoration(s) ?? defaultDeco();
+  const changed =
+    JSON.stringify(savedDecoration(s)) !== JSON.stringify(initial);
   const select = (key: string) => {
-    if (busy) return;
+    if (busy || !known) return;
     let limitReached = false;
     update((state) => {
-      const current = state.deco[cardKey] ?? defaultDeco();
+      const current = savedDecoration(state) ?? defaultDeco();
       if (tab !== "stickers") {
         state.deco[cardKey] = { ...current, [tab]: key };
         return;
@@ -64,10 +81,20 @@ export function useDecoration(cardKey: string) {
       toast("シールは4枚まで。貼っているシールを外すと追加できます");
   };
   const reset = () => {
-    if (!busy)
-      update((state) => {
-        delete state.deco[cardKey];
-      });
+    if (busy || !known || !changed) return;
+    ask(
+      "元に戻す？",
+      "この画面を開いたときのデコに戻します。",
+      () =>
+        update((state) => {
+          if (initial)
+            state.deco[cardKey] = JSON.parse(
+              JSON.stringify(initial),
+            ) as DecoData;
+          else delete state.deco[cardKey];
+        }),
+      "元に戻す",
+    );
   };
   const finish = () =>
     run(async () => {
@@ -85,6 +112,8 @@ export function useDecoration(cardKey: string) {
     setTab,
     select,
     reset,
+    canReset: known && changed,
+    dialog,
     finish,
     busy,
     error,
