@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AppState, Platform, Pressable, View } from "react-native";
+import { AppState, Linking, Platform, Pressable, View } from "react-native";
 import { useIsFocused } from "expo-router";
 import {
   Board,
@@ -16,6 +16,7 @@ import type { RemotePlayer } from "@flocka/domain";
 import { ApiClientError } from "@flocka/api-client";
 import { useApp } from "../../store";
 import Nearby from "../../../modules/flocka-nearby/src/FlockaNearbyModule";
+import type { NearbyErrorCode } from "../../../modules/flocka-nearby/src/FlockaNearby.types";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
@@ -31,6 +32,52 @@ const SEEN_REFRESH_INTERVAL_MS = 5000;
 const BLUETOOTH_PERMISSION_MESSAGE = "近距離交換にはBluetoothの許可が必要です";
 const BLUETOOTH_UNAVAILABLE_MESSAGE =
   "Bluetoothを利用できません。Bluetoothがオンになっているか確認してください";
+const SETTINGS_FAILED_MESSAGE =
+  "設定を開けませんでした。端末の設定アプリから変更してください";
+/** Where 「設定を開く」 leads. Bluetooth and Location screens can only be opened on Android. */
+type SettingsTarget = "app" | "bluetooth" | "location";
+type RadioError = { message: string; settings?: SettingsTarget };
+const ANDROID_SETTINGS_INTENTS = {
+  bluetooth: "android.settings.BLUETOOTH_SETTINGS",
+  location: "android.settings.LOCATION_SOURCE_SETTINGS",
+} as const;
+
+/** Native radio errors carry platform details; show what the user can do instead. */
+function nearbyRadioError(code: unknown): RadioError {
+  const android = Platform.OS === "android";
+  switch (code as NearbyErrorCode) {
+    case "PERMISSION_DENIED":
+      return {
+        message: "Bluetoothの許可がありません。設定から許可してください",
+        settings: "app",
+      };
+    case "BLUETOOTH_OFF":
+      return {
+        message: "Bluetoothがオフです。オンにすると探索を再開します",
+        settings: android ? "bluetooth" : undefined,
+      };
+    case "LOCATION_OFF":
+      return {
+        message:
+          "この端末で近くの人を探すには位置情報をオンにする必要があります。オンにすると探索を再開します",
+        settings: android ? "location" : undefined,
+      };
+    case "UNSUPPORTED":
+      return { message: "この端末は近距離交換に対応していません" };
+    default:
+      return { message: BLUETOOTH_UNAVAILABLE_MESSAGE };
+  }
+}
+const nativeErrorCode = (error: unknown) =>
+  error && typeof error === "object" && "code" in error
+    ? error.code
+    : undefined;
+function openSettings(target: SettingsTarget) {
+  if (target === "app" || Platform.OS !== "android")
+    return Linking.openSettings();
+  return Linking.sendIntent(ANDROID_SETTINGS_INTENTS[target]);
+}
+
 export function NearbyScreen() {
   const { api, refresh, nav } = useApp(),
     { invite, error: inviteError, renew } = useInvite(),
@@ -38,7 +85,7 @@ export function NearbyScreen() {
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
     >({}),
-    [radioError, setRadioError] = useState<string | null>(null),
+    [radioError, setRadioError] = useState<RadioError | null>(null),
     { busy, error, run } = useAction(),
     startVisit = useScreenVisit();
   useEffect(() => {
@@ -89,31 +136,52 @@ export function NearbyScreen() {
               Date.now() + (offline ? OFFLINE_RETRY_MS : PREVIEW_TTL_MS),
           });
           if (active)
-            setRadioError(userFacingError(error, "相手を確認できませんでした"));
+            setRadioError({
+              message: userFacingError(error, "相手を確認できませんでした"),
+            });
         });
     });
-    // Native radio errors carry platform details; show what the user can do instead.
-    const failures = bluetooth.addListener("onError", () => {
-      if (active) setRadioError(BLUETOOTH_UNAVAILABLE_MESSAGE);
+    // Bluetooth or Location turned off: the native session pauses and resumes by itself (onReady).
+    const failures = bluetooth.addListener("onError", ({ code }) => {
+      if (!active) return;
+      setRadioError(nearbyRadioError(code));
+      setPeers({});
+    });
+    const resumed = bluetooth.addListener("onReady", () => {
+      if (active) setRadioError(null);
     });
     const start = async () => {
       const permissions = await bluetooth.requestPermissions();
       if (!active) return;
       if (!permissions.granted) {
-        setRadioError(BLUETOOTH_PERMISSION_MESSAGE);
+        setRadioError({
+          message: BLUETOOTH_PERMISSION_MESSAGE,
+          settings: permissions.canAskAgain ? undefined : "app",
+        });
         return;
       }
       await bluetooth.start(invite.code);
       if (active) setRadioError(null);
     };
     const startRadio = () =>
-      void start().catch(() => {
-        if (active) setRadioError(BLUETOOTH_UNAVAILABLE_MESSAGE);
+      void start().catch((error: unknown) => {
+        const code = nativeErrorCode(error);
+        // CANCELLED only comes from our own stop() or a newer start().
+        if (active && code !== "CANCELLED")
+          setRadioError(nearbyRadioError(code));
       });
     startRadio();
+    // Permission alerts and Control Center only make the app "inactive"; stopping there would cancel
+    // the pending start. The radio stops in the background and restarts when the app returns.
+    let stoppedInBackground = false;
     const listener = AppState.addEventListener("change", (state) => {
-      if (state === "active") startRadio();
-      else void bluetooth.stop().catch(() => {});
+      if (state === "background") {
+        stoppedInBackground = true;
+        void bluetooth.stop().catch(() => {});
+      } else if (state === "active" && stoppedInBackground) {
+        stoppedInBackground = false;
+        startRadio();
+      }
     });
     const timer = setInterval(
       () =>
@@ -135,6 +203,7 @@ export function NearbyScreen() {
       listener.remove();
       discovered.remove();
       failures.remove();
+      resumed.remove();
       void bluetooth.stop().catch(() => {});
     };
   }, [api, focused, invite]);
@@ -158,8 +227,22 @@ export function NearbyScreen() {
       )}
       {(radioError || inviteError || error) && (
         <T color={C.yellow} accessibilityRole="alert">
-          {radioError || inviteError || error}
+          {radioError?.message || inviteError || error}
         </T>
+      )}
+      {radioError?.settings && (
+        <Btn
+          plain
+          small
+          label="設定を開く"
+          onPress={() => {
+            const target = radioError.settings;
+            if (!target) return;
+            void openSettings(target).catch(() =>
+              setRadioError({ message: SETTINGS_FAILED_MESSAGE }),
+            );
+          }}
+        />
       )}
       {Object.values(peers).map(({ player, code }) => (
         <Pressable
