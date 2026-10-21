@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
@@ -166,9 +166,10 @@ export function AvatarPicker({
         type: "photo",
         photo: `data:image/jpeg;base64,${result.base64}`,
       });
-    } catch (e) {
+    } catch {
+      // Native error messages are not user-facing copy.
       onError(
-        `写真を読み込めませんでした: ${e instanceof Error ? e.message : String(e)}`,
+        "写真を読み込めませんでした。別の写真を選ぶか、もう一度お試しください。",
       );
     }
   };
@@ -248,18 +249,25 @@ export function useConfirmation() {
     label: string;
     fn: () => void;
   } | null>(null);
+  // A double tap can fire before the closed sheet re-renders; run each confirmation once.
+  const handled = useRef(false);
   const ask = (
     title: string,
     text: string,
     fn: () => void,
     label = "確認する",
-  ) => setPending({ title, text, label, fn });
+  ) => {
+    handled.current = false;
+    setPending({ title, text, label, fn });
+  };
   const dialog = pending ? (
     <Sheet title={pending.title} onClose={() => setPending(null)}>
       <T>{pending.text}</T>
       <Btn
         label={pending.label}
         onPress={() => {
+          if (handled.current) return;
+          handled.current = true;
           pending.fn();
           setPending(null);
         }}

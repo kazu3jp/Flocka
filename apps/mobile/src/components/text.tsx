@@ -197,7 +197,7 @@ export function Avatar({
         <CachedSvgXml xml={motif} width="75%" height="75%" />
       ) : (
         <T display size={size * 0.4} color={C.ink}>
-          {name.slice(0, 1) || "?"}
+          {Array.from(name)[0] ?? "?"}
         </T>
       )}
     </View>
