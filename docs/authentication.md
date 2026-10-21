@@ -4,14 +4,14 @@
 
 `npm run setup:local` は `apps/api/.dev.vars` に32バイトの乱数によるシークレットを、`apps/mobile/.env.local` に接続先を設定します。存在するファイルは保持します。必要に応じて `.dev.vars.example` にある項目を既存ファイルへ追加してください。秘密情報をGitに追加しません。
 
-| 設定 | 役割 |
-| --- | --- |
-| `BETTER_AUTH_SECRET` | 少なくとも32文字の固有のシークレット。環境ごとに別の値 |
-| `BETTER_AUTH_URL` | Workersの外部URL。本番はHTTPS |
-| `RESEND_API_KEY` | Resendの送信権限を持つAPIキー |
-| `RESEND_FROM` | `Flocka <no-reply@flocka.zofax.net>` |
-| `ALLOWED_ORIGINS` | Webフロントの完全なオリジンをカンマ区切りで設定 |
-| `EXPO_PUBLIC_API_URL` | Expo側のWorkers接続先。秘密情報は入れない |
+| 設定                  | 役割                                                   |
+| --------------------- | ------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`  | 少なくとも32文字の固有のシークレット。環境ごとに別の値 |
+| `BETTER_AUTH_URL`     | Workersの外部URL。本番はHTTPS                          |
+| `RESEND_API_KEY`      | Resendの送信権限を持つAPIキー                          |
+| `RESEND_FROM`         | `Flocka <no-reply@flocka.zofax.net>`                   |
+| `ALLOWED_ORIGINS`     | Webフロントの完全なオリジンをカンマ区切りで設定        |
+| `EXPO_PUBLIC_API_URL` | Expo側のWorkers接続先。秘密情報は入れない              |
 
 Resendで `flocka.zofax.net` を追加し、管理画面に示されたDNSレコードを設定して検証を完了します。DNSレコードの値を推測で設定しません。APIキーとDNS設定は本実装に含めて公開しません。
 
@@ -65,3 +65,11 @@ npx wrangler secret put APPLE_CLIENT_SECRET
 実装は [Better Auth Expo](https://better-auth.com/docs/integrations/expo)、[Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)、[Email OTP](https://better-auth.com/docs/plugins/email-otp)、[メール・パスワード](https://better-auth.com/docs/authentication/email-password)、[Apple](https://better-auth.com/docs/authentication/apple)、[Resend Workers](https://resend.com/docs/send-with-cloudflare-workers) の公式資料に基づきます。
 
 Apple/Googleなどで登録し規約への同意が未記録の場合は、初回プロフィール登録で本文を提示し同意を確認します。`POST /v1/me/terms` は現在の文書の版と明示的な同意だけを受け付け、D1に版・時刻を記録します。同意のないアカウントは `POST /v1/accounts` で拒否します。メール登録時の同意はBetter Authの追加フィールドで記録しています。
+
+## セッションの再確認
+
+- 背景での再確認（フォーカス時など）が通信エラーや429で失敗しても、確認済みのセッションがあれば画面を保持し、「ログイン状態を確認できませんでした」のバナーから再確認できます。セッションがまだ無いときだけ確認画面で止めます。
+- APIが `UNAUTHORIZED` / `ACCOUNT_CHANGED` を返すと、アプリはBetter Authのセッションを再取得し、失効していればログイン画面へ戻します。未保存の表示設定・自己PR下書きはアカウント別に端末へ残し、同じアカウントで再ログインしたときに、保存時のリビジョンがサーバーと一致する場合だけ送信します。一致しない場合は比較画面で選択します。
+- 認証APIの429は日本語で表示し、`X-Retry-After` を読めた場合は待ち時間を示します。WebはAPIがこのヘッダーをCORSで公開していないため、待ち時間なしの文言になります。
+- パスワード再設定の成功後はセッションを再取得し、失効したセッションでアプリへ戻りません。
+- 起動時のエラー画面（メール未確認、削除処理中など）からもログアウトできます。

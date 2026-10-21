@@ -220,3 +220,7 @@ Expo SDK 57の[対応表](https://docs.expo.dev/versions/v57.0.0/)と、React Na
 運営の通報一覧は `page`/OFFSETから `afterAt`/`afterId`（作成日時とID）による続き読み込みへ変更し、対応済みにした依頼の後ろが飛ばされないことを結合テストで確認しています。APIの応答は `nextPage` から `next` に変わるため、APIとアプリを同時に更新する必要があります。
 
 `npm run typecheck`、`npm run lint -w @flocka/mobile`、API・ドメイン・APIクライアント・テストのESLint、`npm test`（47件）、`npm run export:native`、`npm run export:web` が通過しました。Windowsではルートの `npm run lint` のglobが展開されないため、ESLintは対象を個別に指定して実行しています。VRT・実機での確認と本番デプロイは実施していません。
+
+## セッション・同期・アカウント操作の修正（2026-10-21）
+
+背景のセッション再確認の失敗で画面を消さない、401/削除処理中への対応、未保存設定の再送とリビジョン照合、バックアップの競合と写真の除外、復元の段階別エラー、削除確定のタイムアウト、ログアウト時の通知解除の保留と再試行、認証429の日本語化、Androidの戻る操作を修正しました。純粋な判定は `tests/session-sync.test.ts` で検証します。`npm run typecheck`、`npm run lint`、`npm test`（55件成功）、`npm run export:web`、`npm run export:native` は成功しました。VRTはWindows環境で実行できないため未実施です。実機・実サーバーでの401、タイムアウト、通知トークン更新の確認は未実施です。
