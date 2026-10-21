@@ -27,10 +27,16 @@ const certificate = spawnSync(
     "-out",
     fileURLToPath(new URL("tls.crt", output)),
   ],
-  { stdio: "ignore" },
+  { encoding: "utf8" },
 );
-if (certificate.status !== 0)
-  throw new Error("Could not create the loopback-only VRT certificate");
+if (certificate.error || certificate.status !== 0) {
+  const reason =
+    certificate.error?.message ??
+    (certificate.stderr.trim() || `exit status ${certificate.status}`);
+  throw new Error(
+    `Could not create the loopback-only VRT certificate with openssl: ${reason}`,
+  );
+}
 // The reference executes the exact React 18 distributions used by the source.
 for (const [name, hash] of [
   [
@@ -84,25 +90,34 @@ reference = reference
   </style></head>`,
   );
 await writeFile(new URL("reference.html", output), reference);
-const result = spawnSync(
-  "npm",
-  [
-    "run",
-    "export:web",
-    "-w",
-    "@flocka/mobile",
-    "--",
-    "--output-dir",
-    "dist-vrt",
-  ],
-  {
-    cwd: root,
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      EXPO_PUBLIC_API_URL: "https://127.0.0.1:9012",
-      CI: "1",
-    },
+// On Windows npm is npm.cmd, which Node does not spawn without a shell.
+// When started through npm, run the same npm CLI with the current Node binary;
+// otherwise let cmd.exe resolve npm.cmd (the arguments are fixed literals).
+const npmArguments = [
+  "run",
+  "export:web",
+  "-w",
+  "@flocka/mobile",
+  "--",
+  "--output-dir",
+  "dist-vrt",
+];
+const npmCli = process.env.npm_execpath;
+const [npmCommand, npmCommandArguments] = npmCli
+  ? [process.execPath, [npmCli, ...npmArguments]]
+  : ["npm", npmArguments];
+const result = spawnSync(npmCommand, npmCommandArguments, {
+  cwd: root,
+  shell: !npmCli && process.platform === "win32",
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    EXPO_PUBLIC_API_URL: "https://127.0.0.1:9012",
+    CI: "1",
   },
-);
+});
+if (result.error) {
+  console.error(`Could not run ${npmCommand}: ${result.error.message}`);
+  process.exit(1);
+}
 if (result.status !== 0) process.exit(result.status ?? 1);
