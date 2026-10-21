@@ -24,6 +24,8 @@ npm run setup:local
 
 `setup:local` は `.dev.vars` と `.env.local` を作成し、認証シークレットを生成します。既存ファイルは上書きせず、秘密情報を表示しません。`apps/api/.dev.vars` の `RESEND_API_KEY` を設定してください。送信元は `Flocka <no-reply@flocka.zofax.net>` です。Resendでこのドメインを検証する必要があります。詳しくは [認証設定](docs/authentication.md) を参照してください。
 
+`.dev.vars` の `ALLOWED_ORIGINS` は Expo Web（8081番）からの呼び出しを許可します。実機から使う場合は LAN アドレスのオリジンを追加してください。既存の `.dev.vars` は上書きされないため、未設定なら `.dev.vars.example` から追記してください。`EXPO_ACCESS_TOKEN` と `ADMIN_USER_IDS` は任意です。
+
 ターミナル1でAPIとローカルD1/R2を起動:
 
 ```sh
@@ -53,7 +55,7 @@ Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/he
 
 未完了の要件と検証範囲は [完成条件の照合](docs/release-readiness.md)、実行結果は [検証記録](docs/validation.md) にまとめています。
 
-画面の回帰テストは `npm run test:vrt`、比較レポートの表示は `npm run test:vrt:report` です。初回は `npx playwright install chromium` を実行してください。対象画面と基準画像の更新方法は [画面テスト](docs/visual-testing.md) を参照してください。
+画面の回帰テストは `npm run test:vrt`、比較レポートの表示は `npm run test:vrt:report` です。初回は `npx playwright install chromium` を実行してください。対象画面と基準画像の更新方法は [画面テスト](docs/visual-testing.md) を参照してください。基準画像は macOS 用だけです。OpenSSL が必要で、Windows では Git for Windows 付属のものを使えます。macOS 以外での実行方法も同じ文書にあります。
 
 ```sh
 npm run validate
