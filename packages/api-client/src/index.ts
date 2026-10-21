@@ -26,8 +26,26 @@ export class ApiClientError extends Error {
     super(message);
   }
 }
+/**
+ * Errors that mean the signed-in session no longer matches the server:
+ * signed out or switched elsewhere, or the account is being deleted.
+ */
+export function sessionFailureKind(
+  error: unknown,
+): "signed-out" | "account-deleting" | null {
+  if (!(error instanceof ApiClientError)) return null;
+  if (error.code === "ACCOUNT_DELETION_PENDING") return "account-deleting";
+  if (
+    error.status === 401 &&
+    (error.code === "UNAUTHORIZED" || error.code === "ACCOUNT_CHANGED")
+  )
+    return "signed-out";
+  return null;
+}
 export type SessionTransport = {
   accountId?: string;
+  /** Told about every session failure so the app can re-check who is signed in. */
+  onSessionFailure?: (error: ApiClientError) => void;
   cookie?: () => string | Promise<string>;
   credentials?: RequestCredentials;
 };
@@ -133,11 +151,13 @@ export class FlockaApiClient {
             : ["INVALID_JSON", "JSON_REQUIRED"].includes(parsed.data.error.code)
               ? "送信内容を確認できませんでした。もう一度お試しください"
               : parsed.data.error.message;
-        throw new ApiClientError(
+        const failure = new ApiClientError(
           response.status,
           parsed.data.error.code,
           message,
         );
+        if (sessionFailureKind(failure)) this.auth.onSessionFailure?.(failure);
+        throw failure;
       }
       // Keep the deadline active until JSON or image data has been consumed.
       return consume(response);

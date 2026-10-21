@@ -23,6 +23,34 @@ export function useAccountDeletion(
     [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
+  /** Record the server outcome, then clear this device; a cleanup failure offers a retry. */
+  const finishDeletion = async (outcome: "completed" | "pending") => {
+    setCleanup(clearDeletedAccount);
+    setCleanupError(null);
+    setOutcome(outcome);
+    try {
+      await clearDeletedAccount();
+    } catch (error) {
+      setCleanupError(
+        error instanceof Error
+          ? error.message
+          : "保存データを消去できませんでした",
+      );
+    }
+    await auth.refetch();
+  };
+  /**
+   * A confirmation can time out after the server already revoked every session.
+   * Only a definite answer that the session is gone counts as accepted deletion.
+   */
+  const sessionEndedAfterConfirmation = async () => {
+    try {
+      const result = await getAuthClient().getSession();
+      return !result.error && !result.data;
+    } catch {
+      return false;
+    }
+  };
   const submitDeletion = async (confirm = Boolean(token)) => {
     const isConfirmation = Boolean(token) && confirm;
     if (running.current) return;
@@ -40,21 +68,14 @@ export function useAccountDeletion(
         setSent(true);
         return;
       }
-      setCleanup(clearDeletedAccount);
-      setCleanupError(null);
-      setOutcome(pending ? "pending" : "completed");
       // Retain the actual server outcome if local cleanup fails; offer a real retry.
-      try {
-        await clearDeletedAccount();
-      } catch (error) {
-        setCleanupError(
-          error instanceof Error
-            ? error.message
-            : "保存データを消去できませんでした",
-        );
-      }
-      await auth.refetch();
+      await finishDeletion(pending ? "pending" : "completed");
     } catch (error) {
+      if (isConfirmation && (await sessionEndedAfterConfirmation())) {
+        // The server finished or is finishing the deletion; the reply was lost.
+        await finishDeletion("pending");
+        return;
+      }
       setError(
         error instanceof Error
           ? error.message

@@ -6,7 +6,8 @@ import {
 import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { FlockaApiClient } from "@flocka/api-client";
+import { FlockaApiClient, type ApiClientError } from "@flocka/api-client";
+import { authErrorMessage, parseRetryAfter } from "./auth-error-message";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 function makeAuthClient(baseURL: string) {
@@ -24,9 +25,19 @@ function makeAuthClient(baseURL: string) {
         disableCache: true,
       }),
     ],
-    fetchOptions: { timeout: 15_000 },
+    fetchOptions: {
+      timeout: 15_000,
+      // The rate limiter names its wait only in a header, which the result object drops.
+      onError: ({ response }) => {
+        lastRetryAfter =
+          response.status === 429
+            ? parseRetryAfter(response.headers.get("X-Retry-After"))
+            : null;
+      },
+    },
   });
 }
+let lastRetryAfter: number | null = null;
 let client: ReturnType<typeof makeAuthClient> | undefined;
 export function getAuthClient() {
   if (!API_URL) throw new Error("EXPO_PUBLIC_API_URLを設定してください");
@@ -36,14 +47,18 @@ export function getAuthClient() {
   client ??= makeAuthClient(API_URL);
   return client;
 }
-export function getApiClient(accountId?: string) {
+export function getApiClient(
+  accountId?: string,
+  onSessionFailure?: (error: ApiClientError) => void,
+) {
   if (!API_URL) throw new Error("EXPO_PUBLIC_API_URLを設定してください");
   return new FlockaApiClient(
     API_URL,
     Platform.OS === "web"
-      ? { credentials: "include", accountId }
+      ? { credentials: "include", accountId, onSessionFailure }
       : {
           accountId,
+          onSessionFailure,
           cookie: () => getAuthClient().getCookie() ?? "",
           credentials: "omit",
         },
@@ -51,28 +66,13 @@ export function getApiClient(accountId?: string) {
   );
 }
 export function assertAuthResult(result: {
-  error: { message?: string; code?: string } | null;
+  error: { message?: string; code?: string; status?: number } | null;
 }) {
-  if (result.error) {
-    const messages: Record<string, string> = {
-      INVALID_EMAIL_OR_PASSWORD:
-        "メールアドレスまたはパスワードを確認してください",
-      EMAIL_NOT_VERIFIED:
-        "メールアドレスの確認が必要です。確認コードを送信してください",
-      INVALID_TOKEN:
-        "確認リンクが無効か期限切れです。確認メールをもう一度送信してください",
-      ACCOUNT_DELETION_PENDING:
-        "アカウントの削除を処理中です。完了までサーバーで再試行します",
-      INVALID_OTP: "確認コードを確認してください",
-      OTP_EXPIRED: "確認コードの有効期限が切れています。再送してください",
-      TOO_MANY_ATTEMPTS:
-        "試行回数の上限に達しました。時間をおいて再試行してください",
-      USER_ALREADY_EXISTS: "登録済みのメールアドレスです。ログインしてください",
-    };
+  if (result.error)
     throw new Error(
-      messages[result.error.code ?? ""] ??
-        result.error.message ??
-        "認証処理に失敗しました",
+      authErrorMessage(
+        result.error,
+        result.error.status === 429 ? lastRetryAfter : null,
+      ),
     );
-  }
 }
