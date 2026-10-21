@@ -38,6 +38,8 @@ export function Confirm({ cid }: { cid: string }) {
       setMemoOpen(true);
       return;
     }
+    // After this account approved, the same request only updates the memo.
+    const editingMemo = c.myApproved || c.status === "accepted";
     void run(async () => {
       const exchange = await api.approveExchange(
         cid,
@@ -47,9 +49,11 @@ export function Confirm({ cid }: { cid: string }) {
       await refresh();
       setMemoOpen(false);
       toast(
-        exchange.status === "accepted"
-          ? `交換成立！${peers[c.peerId]?.profile.name ?? "相手"}とつながりました`
-          : "承認しました。相手の承認を待っています",
+        editingMemo
+          ? "メモを保存しました"
+          : exchange.status === "accepted"
+            ? `交換成立！${peers[c.peerId]?.profile.name ?? "相手"}とつながりました`
+            : "承認しました。相手の承認を待っています",
       );
     });
   };
@@ -66,7 +70,7 @@ export function Confirm({ cid }: { cid: string }) {
       />
       {error && <T color={C.yellow}>{error}</T>}
       <Player peerId={c.peerId} />
-      {!pending && (
+      {!pending && c.status !== "cancelled" && (
         <Panel style={{ padding: 10 }}>
           <T color={C.muted} size={12}>
             出会いのメモ
@@ -116,7 +120,7 @@ export function Confirm({ cid }: { cid: string }) {
           />
         </>
       )}
-      {memoOpen && (
+      {memoOpen && c.status !== "cancelled" && (
         <Sheet title="出会いのメモ" onClose={() => setMemoOpen(false)}>
           <T size={13}>
             どこで、何をきっかけに交換したか。交換するには両方の入力が必要です。あとから編集できます。

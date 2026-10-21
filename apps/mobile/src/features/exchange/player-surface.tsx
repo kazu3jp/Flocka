@@ -171,7 +171,7 @@ export function PlayerSurface({
         >
           {role}
         </T>
-        {showHand && (
+        {(showHand || (onPick && contentHeight > 0)) && (
           <>
             <View
               testID="player-strength-label"
@@ -215,42 +215,62 @@ export function PlayerSurface({
                 </Pressable>
               )}
             </View>
-            <View
-              testID="player-hand"
-              accessibilityLabel="相手に見せる強み"
-              style={{
-                flex: 1,
-                minHeight: 0,
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-                paddingHorizontal: 18,
-                paddingTop: 8,
-                paddingBottom: 4,
-              }}
-            >
-              {cards.map((card, index) => {
-                const pose = fanPose(index, cards.length);
-                return (
-                  <StrengthCard
-                    key={card.key}
-                    card={card}
-                    style={{
-                      width: cardWidth,
-                      height: cardHeight,
-                      flexShrink: 0,
-                      marginLeft: index ? -handWidth * 0.46 : 0,
-                      zIndex: index === 1 ? 2 : 1,
-                      transform: [
-                        { rotate: `${pose.angle}deg` },
-                        { translateY: cardHeight * pose.verticalOffset },
-                      ],
-                    }}
-                    height={cardHeight}
-                  />
-                );
-              })}
-            </View>
+            {/* Short panels keep the picker reachable and name the shown cards instead of the hand. */}
+            {!showHand && (
+              <T
+                testID="player-strength-names"
+                size={14}
+                color={C.ink}
+                numberOfLines={2}
+                style={{
+                  paddingHorizontal: 16,
+                  fontFamily: F.bold,
+                  lineHeight: 23.1,
+                }}
+              >
+                {cards.length
+                  ? cards.map((card) => card.name).join("・")
+                  : "まだ選んでいません"}
+              </T>
+            )}
+            {showHand && (
+              <View
+                testID="player-hand"
+                accessibilityLabel="相手に見せる強み"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  paddingHorizontal: 18,
+                  paddingTop: 8,
+                  paddingBottom: 4,
+                }}
+              >
+                {cards.map((card, index) => {
+                  const pose = fanPose(index, cards.length);
+                  return (
+                    <StrengthCard
+                      key={card.key}
+                      card={card}
+                      style={{
+                        width: cardWidth,
+                        height: cardHeight,
+                        flexShrink: 0,
+                        marginLeft: index ? -handWidth * 0.46 : 0,
+                        zIndex: index === 1 ? 2 : 1,
+                        transform: [
+                          { rotate: `${pose.angle}deg` },
+                          { translateY: cardHeight * pose.verticalOffset },
+                        ],
+                      }}
+                      height={cardHeight}
+                    />
+                  );
+                })}
+              </View>
+            )}
           </>
         )}
         <View

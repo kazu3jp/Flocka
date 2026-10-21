@@ -1,14 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useIsFocused } from "expo-router";
+import { INVITE_LIFETIME_MS } from "@flocka/domain";
 import { useApp } from "../../store";
 import { userFacingError } from "../sync/user-facing-error";
+
+// Renew a little early so a code is never shown after the server stops accepting it.
+const RENEW_MARGIN_MS = 15_000;
+
+/**
+ * The device clock may disagree with the server, so expiry is measured from
+ * when this device received the code rather than from the server timestamp.
+ */
+function withLocalExpiry<Invite extends { code: string }>(invite: Invite) {
+  return {
+    ...invite,
+    localExpiresAt: Date.now() + INVITE_LIFETIME_MS - RENEW_MARGIN_MS,
+  };
+}
+
 export function useInvite() {
   const { api, refresh, nav } = useApp(),
     focused = useIsFocused(),
-    [invite, setInvite] = useState<Awaited<
-      ReturnType<typeof api.createInvite>
+    [invite, setInvite] = useState<ReturnType<
+      typeof withLocalExpiry<Awaited<ReturnType<typeof api.createInvite>>>
     > | null>(null),
+    // An expired code is withdrawn until a renewal succeeds.
+    [expired, setExpired] = useState(false),
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(true),
     mounted = useRef(true),
@@ -19,8 +37,11 @@ export function useInvite() {
     setBusy(true);
     setError(null);
     try {
-      const next = await api.createInvite();
-      if (mounted.current) setInvite(next);
+      const next = withLocalExpiry(await api.createInvite());
+      if (mounted.current) {
+        setInvite(next);
+        setExpired(false);
+      }
     } catch (error) {
       if (mounted.current)
         setError(userFacingError(error, "交換コードを作成できませんでした"));
@@ -35,7 +56,7 @@ export function useInvite() {
     void api
       .createInvite()
       .then((next) => {
-        if (mounted.current) setInvite(next);
+        if (mounted.current) setInvite(withLocalExpiry(next));
       })
       .catch((error) => {
         if (mounted.current)
@@ -55,7 +76,8 @@ export function useInvite() {
       checking = false;
     const timer = setInterval(async () => {
       if (!active || checking || AppState.currentState !== "active") return;
-      if (Date.parse(invite.expiresAt) <= Date.now()) {
+      if (invite.localExpiresAt <= Date.now()) {
+        setExpired(true);
         await renew();
         return;
       }
@@ -84,5 +106,5 @@ export function useInvite() {
     // Navigation methods are ref-backed; restarting a handshake on each sync would lose its state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, focused, invite, refresh, renew]);
-  return { invite, error, busy, renew };
+  return { invite: expired ? null : invite, expired, error, busy, renew };
 }

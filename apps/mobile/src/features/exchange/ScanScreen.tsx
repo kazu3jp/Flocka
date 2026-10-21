@@ -29,7 +29,13 @@ export function Scan() {
     scanned = useRef(false),
     rescanTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     startVisit = useScreenVisit(),
-    { invite, error: inviteError, busy: creating, renew } = useInvite(),
+    {
+      invite,
+      expired,
+      error: inviteError,
+      busy: creating,
+      renew,
+    } = useInvite(),
     { busy, error, run } = useAction();
   useEffect(
     () => () => {
@@ -94,7 +100,13 @@ export function Scan() {
                 backgroundColor={C.paper}
               />
             ) : (
-              <T color={C.ink}>交換コードを作成中…</T>
+              <T color={C.ink}>
+                {creating
+                  ? "交換コードを作成中…"
+                  : expired
+                    ? "交換コードの有効期限が切れました。「QRを更新する」を押してください。"
+                    : "交換コードを作成できませんでした。「QRを更新する」を押してください。"}
+              </T>
             )}
             <Avatar name={s.profile.name} avatar={s.profile.avatar} size={56} />
             <T display color={C.ink} size={20}>
@@ -103,7 +115,7 @@ export function Scan() {
             {invite && (
               <T color={C.muted} size={12}>
                 有効期限{" "}
-                {new Date(invite.expiresAt).toLocaleTimeString("ja-JP")}
+                {new Date(invite.localExpiresAt).toLocaleTimeString("ja-JP")}
               </T>
             )}
           </Panel>

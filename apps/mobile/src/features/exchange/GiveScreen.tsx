@@ -48,17 +48,21 @@ export function Give({ cid }: { cid: string }) {
     if (receipt) hapticSuccess();
   }, [receipt]);
   const drafting = !!c && !c.vibe && !receipt && (!!sel || !!text.trim());
+  const peerName = peers[c?.peerId ?? ""]?.profile.name ?? "相手";
   // Leaving with a chosen word or typed reason asks before discarding it.
-  const leave = (after: () => void) =>
-    drafting
-      ? ask(
-          "入力した印象を破棄する？",
-          "選んだ言葉と書いた理由は保存されません。",
-          after,
-          "破棄する",
-        )
-      : after();
-  useBackStep(drafting ? 1 : 0, () => leave(nav.pop));
+  // While the impression is being sent, the screen stays until the server answers.
+  const leave = (after: () => void) => {
+    if (busy) return;
+    if (drafting)
+      ask(
+        "入力した印象を破棄する？",
+        "選んだ言葉と書いた理由は保存されません。",
+        after,
+        "破棄する",
+      );
+    else after();
+  };
+  useBackStep(drafting || busy ? 1 : 0, () => leave(nav.pop));
   if (!c)
     return (
       <Board>
@@ -133,7 +137,7 @@ export function Give({ cid }: { cid: string }) {
             color={C.pale}
             style={{ textAlign: "center", lineHeight: 19.375 }}
           >
-            {peers[c.peerId]?.profile.name}のデッキに、証言として届きます。
+            {peerName}のデッキに、証言として届きます。
           </T>
         </View>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
@@ -147,9 +151,7 @@ export function Give({ cid }: { cid: string }) {
         right={
           <View style={[S.row, { gap: 8 }]}>
             <PeerAvatar id={c.peerId} size={32} />
-            <T style={{ fontFamily: F.bold, lineHeight: 24.75 }}>
-              {peers[c.peerId]?.profile.name}
-            </T>
+            <T style={{ fontFamily: F.bold, lineHeight: 24.75 }}>{peerName}</T>
           </View>
         }
       />
@@ -259,10 +261,13 @@ export function Give({ cid }: { cid: string }) {
         disabled={busy}
         onPress={() =>
           leave(() => {
+            // "later" stops the deck from recommending this person again;
+            // the unsent filter in つながった人 still lists them.
             update((x) => {
               const cc = x.connections.find((v) => v.id === cid);
               if (cc) cc.later = true;
             });
+            toast("あとで「つながった人」から贈れます");
             nav.pop();
           })
         }
