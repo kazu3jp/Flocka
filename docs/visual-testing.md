@@ -15,7 +15,20 @@ npm run test:vrt:report
 
 Node 22.13以上と OpenSSL が必要です。9010・9012番ポートを使用します。テスト専用の証明書を生成し、ローカル HTTPS から実際の Workers を呼び出します。D1・R2 はテスト実行ごとに起動する独立したローカル環境です。メールとプッシュの外部送信は捕捉します。実際のAPIで登録・認証・交換・証言を作成するため、本番アプリの通信をモック成功応答に置き換えません。
 
-基準画像は404枚で、OSごとに保存します。装飾の4タブとシール4枚の状態も参照HTMLと比較します。現在の基準画像は macOS 用です。別 OS の実行結果はフォント描画が異なるため、その環境で画像を確認してから追加してください。
+`openssl` は PATH 上に必要です。Windows では Git for Windows に含まれる `C:\Program Files\Git\usr\bin\openssl.exe`（Git Bash では `/mingw64/bin/openssl` も可）を使えます。PATH にない場合、`build:vrt` は openssl のエラー内容を表示して停止します。`tools/vrt/vendor/*.js` は SHA-256 を検証するため、`.gitattributes` で改行変換を無効にしています（`core.autocrlf=true` でも LF のまま取得されます）。
+
+基準画像は404枚で、OSごとに保存します。装飾の4タブとシール4枚の状態も参照HTMLと比較します。現在の基準画像は macOS 用（`e2e/visual/baselines/darwin`）だけです。別 OS の実行結果はフォント描画が異なるため、その環境で画像を確認してから追加してください。
+
+**Windows・Linux での実行:** 基準画像がない OS で `npm run test:vrt` を実行すると、画像比較は「snapshot doesn't exist」で失敗し、Playwright が `e2e/visual/baselines/win32` などへ実際の画像を書き出します。これは確認済みの基準画像ではないため、コミットせず削除してください。
+
+画像以外の検証（実APIでの操作、寸法差1px以内の照合、通信失敗時の表示など）だけを実行するには、Playwright の `--ignore-snapshots` を使います。macOS の `npm run test:vrt` の設定は変わらず、画像比較は省略されません。
+
+```sh
+npm run build:vrt
+npx playwright test --ignore-snapshots
+```
+
+この結果は画像の回帰を検証していません。画面の見た目の確認は macOS の `npm run test:vrt` で行ってください。
 
 ```sh
 # 変更内容を確認したうえで、明示的に基準画像を更新する

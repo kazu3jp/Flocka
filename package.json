@@ -17,7 +17,7 @@
     "android": "npm run android -w @flocka/mobile --",
     "db:migrate": "npm run db:migrate -w @flocka/api",
     "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint -w @flocka/mobile && eslint apps/api/src packages/*/src tests e2e playwright.config.ts",
+    "lint": "npm run lint -w @flocka/mobile && eslint apps/api/src packages/api-client/src packages/domain/src tests e2e playwright.config.ts",
     "test": "npm run build:api && tsx --test tests/*.test.ts",
     "validate": "npm run typecheck && npm run lint && npm test",
     "export:web": "npm run export:web -w @flocka/mobile --",
