@@ -30,6 +30,14 @@ test("connection rows, sent details and removal preserve source layout and real 
         name: "connection list",
         actual: page.getByTestId("connections-list"),
         reference: reference.locator(".list"),
+        // The status filter row is an intentional addition above the list.
+        skip: ["y"],
+      },
+      {
+        name: "filter row starts where the source list starts",
+        actual: page.getByTestId("connections-filter"),
+        reference: reference.locator(".list"),
+        skip: ["width", "height"],
       },
     ],
     testInfo,

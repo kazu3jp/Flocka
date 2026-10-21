@@ -9,13 +9,25 @@ import { writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 
+type LayoutDimension = "x" | "y" | "width" | "height";
+
+/**
+ * `skip` leaves out a dimension that an intentional, documented deviation
+ * changes (docs/flocka-v2-screen-spec.md section 10); the rest stay exact.
+ */
 export async function compareLayout(
-  pairs: { name: string; actual: Locator; reference: Locator }[],
+  pairs: {
+    name: string;
+    actual: Locator;
+    reference: Locator;
+    skip?: LayoutDimension[];
+  }[],
   testInfo: TestInfo,
 ) {
   const measurements = await Promise.all(
     pairs.map(async (pair) => ({
       name: pair.name,
+      skip: pair.skip ?? [],
       actual: await pair.actual.boundingBox(),
       reference: await pair.reference.boundingBox(),
     })),
@@ -32,6 +44,7 @@ export async function compareLayout(
     expect(measurement.actual, measurement.name).not.toBeNull();
     expect(measurement.reference, measurement.name).not.toBeNull();
     for (const dimension of ["x", "y", "width", "height"] as const) {
+      if (measurement.skip.includes(dimension)) continue;
       expect(
         Math.abs(
           measurement.actual![dimension] - measurement.reference![dimension],

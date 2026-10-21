@@ -66,7 +66,9 @@ function ErrorBanner({
   onPress: () => void;
 }) {
   return (
-    <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+    // A live region announces the banner without duplicating the screen's own
+    // alert for the same failure.
+    <View accessibilityLiveRegion="polite">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={text}

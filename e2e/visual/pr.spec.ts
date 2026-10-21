@@ -1,10 +1,18 @@
 import { test, expect } from "./test";
+import type { Page } from "@playwright/test";
 import {
   capture,
   compareLayout,
   referenceComparison,
   signInFixture,
 } from "./helpers";
+
+// Windows hands clipboard text back with CRLF; the app writes LF line breaks.
+const readClipboard = async (page: Page) =>
+  (await page.evaluate(() => navigator.clipboard.readText())).replace(
+    /\r\n/g,
+    "\n",
+  );
 
 test("PR editing, clipboard, failed saves and regeneration use real preferences", async ({
   page,
@@ -28,9 +36,7 @@ test("PR editing, clipboard, failed saves and regeneration use real preferences"
 
   await page.getByRole("button", { name: "コピー", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("コピーしました");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    original,
-  );
+  expect(await readClipboard(page)).toBe(original);
   await reference.locator('[data-od-id="pr-copy"]').click();
   await referenceComparison(page, reference, "self-pr-copied", testInfo);
   await capture(page, "self-pr-copied");
@@ -58,10 +64,26 @@ test("PR editing, clipboard, failed saves and regeneration use real preferences"
         name: "PR editor",
         actual: editor,
         reference: reference.locator(".prdoc textarea"),
+        // The character counter is an intentional addition below the editor.
+        skip: ["height"],
       },
     ],
     testInfo,
   );
+  const [editorBox, counterBox, sourceEditorBox] = await Promise.all([
+    editor.boundingBox(),
+    page.getByTestId("pr-editor-count").boundingBox(),
+    reference.locator(".prdoc textarea").boundingBox(),
+  ]);
+  expect(
+    Math.abs(
+      counterBox!.y +
+        counterBox!.height -
+        (sourceEditorBox!.y + sourceEditorBox!.height),
+    ),
+    "editor and counter fill the source editor area",
+  ).toBeLessThanOrEqual(1);
+  expect(editorBox!.y + editorBox!.height).toBeLessThanOrEqual(counterBox!.y);
   await capture(page, "self-pr-edit");
 
   await context.setOffline(true);
@@ -104,9 +126,7 @@ test("PR editing, clipboard, failed saves and regeneration use real preferences"
   await capture(page, "self-pr-manual");
   await page.getByRole("button", { name: "コピー", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("コピーしました");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    edited,
-  );
+  expect(await readClipboard(page)).toBe(edited);
   await page.getByTestId("toast").getByRole("button").click();
 
   await page
