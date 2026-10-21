@@ -4,6 +4,7 @@ import { CARDS, PEER_PROFILE, bareCard } from "@flocka/domain";
 import { Avatar, C, Icon, S, StrengthCard, T } from "../../components/ui";
 import Svg, { Path, Rect } from "react-native-svg";
 import {
+  eased,
   tourEasing,
   useOwnSizeTranslate,
   useTourMotion,
@@ -73,25 +74,28 @@ function TourOption({
       style={[
         S.fill,
         {
-          opacity: enter.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, 1],
-            easing: tourEasing.pop,
-          }),
+          opacity: enter.interpolate(
+            eased(tourEasing.pop, {
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+            }),
+          ),
           transform: [
             {
-              translateY: enter.interpolate({
-                easing: tourEasing.pop,
-                inputRange: [0, 1],
-                outputRange: own.percents("height", [40, 0]),
-              }),
+              translateY: enter.interpolate(
+                eased(tourEasing.pop, {
+                  inputRange: [0, 1],
+                  outputRange: own.percents("height", [40, 0]),
+                }),
+              ),
             },
             {
-              rotate: enter.interpolate({
-                easing: tourEasing.pop,
-                inputRange: [0, 1],
-                outputRange: ["6deg", "0deg"],
-              }),
+              rotate: enter.interpolate(
+                eased(tourEasing.pop, {
+                  inputRange: [0, 1],
+                  outputRange: ["6deg", "0deg"],
+                }),
+              ),
             },
           ],
         },
@@ -124,11 +128,12 @@ function TourDocumentLine({
         transformOrigin: "left",
         transform: [
           {
-            scaleX: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1],
-              easing: tourEasing.ease,
-            }),
+            scaleX: progress.interpolate(
+              eased(tourEasing.ease, {
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+            ),
           },
         ],
       }}
@@ -181,23 +186,25 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
               ...(panel.measured ? {} : { opacity: 0 }),
               transform: [
                 {
-                  translateX: players.interpolate({
-                    easing: tourEasing.ease,
-                    inputRange: [0, 0.25, 0.55, 0.75, 1],
-                    outputRange: panel.percents(
-                      "width",
-                      i ? [120, 0, 0, -6, -6] : [-120, 0, 0, 6, 6],
-                    ),
-                  }),
+                  translateX: players.interpolate(
+                    eased(tourEasing.ease, {
+                      inputRange: [0, 0.25, 0.55, 0.75, 1],
+                      outputRange: panel.percents(
+                        "width",
+                        i ? [120, 0, 0, -6, -6] : [-120, 0, 0, 6, 6],
+                      ),
+                    }),
+                  ),
                 },
                 {
-                  rotate: players.interpolate({
-                    easing: tourEasing.ease,
-                    inputRange: [0, 0.25, 0.55, 0.75, 1],
-                    outputRange: i
-                      ? ["8deg", "4deg", "4deg", "2deg", "2deg"]
-                      : ["-8deg", "-4deg", "-4deg", "-2deg", "-2deg"],
-                  }),
+                  rotate: players.interpolate(
+                    eased(tourEasing.ease, {
+                      inputRange: [0, 0.25, 0.55, 0.75, 1],
+                      outputRange: i
+                        ? ["8deg", "4deg", "4deg", "2deg", "2deg"]
+                        : ["-8deg", "-4deg", "-4deg", "-2deg", "-2deg"],
+                    }),
+                  ),
                 },
               ],
             },
@@ -228,18 +235,20 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
         style={{
           transform: [
             {
-              scale: swap.interpolate({
-                easing: tourEasing.pop,
-                inputRange: [0, 0.22, 0.35, 0.45, 0.6, 0.8, 1],
-                outputRange: [0, 0, 1.15, 1, 1, 1, 1],
-              }),
+              scale: swap.interpolate(
+                eased(tourEasing.pop, {
+                  inputRange: [0, 0.22, 0.35, 0.45, 0.6, 0.8, 1],
+                  outputRange: [0, 0, 1.15, 1, 1, 1, 1],
+                }),
+              ),
             },
             {
-              rotate: swap.interpolate({
-                easing: tourEasing.pop,
-                inputRange: [0, 0.6, 0.8, 1],
-                outputRange: ["0deg", "0deg", "180deg", "180deg"],
-              }),
+              rotate: swap.interpolate(
+                eased(tourEasing.pop, {
+                  inputRange: [0, 0.6, 0.8, 1],
+                  outputRange: ["0deg", "0deg", "180deg", "180deg"],
+                }),
+              ),
             },
           ],
           position: "absolute",
@@ -279,20 +288,22 @@ function GuessScene({ reduced }: { reduced: boolean }) {
             {
               translateY: reduced
                 ? 0
-                : envelope.interpolate({
-                    easing: tourEasing.envelope,
-                    inputRange: [0, 1],
-                    outputRange: [0, -8],
-                  }),
+                : envelope.interpolate(
+                    eased(tourEasing.envelope, {
+                      inputRange: [0, 1],
+                      outputRange: [0, -8],
+                    }),
+                  ),
             },
             {
               rotate: reduced
                 ? "0deg"
-                : envelope.interpolate({
-                    easing: tourEasing.envelope,
-                    inputRange: [0, 1],
-                    outputRange: ["0deg", "-3deg"],
-                  }),
+                : envelope.interpolate(
+                    eased(tourEasing.envelope, {
+                      inputRange: [0, 1],
+                      outputRange: ["0deg", "-3deg"],
+                    }),
+                  ),
             },
           ],
           position: "absolute",
@@ -375,18 +386,20 @@ function GuessScene({ reduced }: { reduced: boolean }) {
                 index === 0 && {
                   transform: [
                     {
-                      translateY: pick.interpolate({
-                        easing: tourEasing.pop,
-                        inputRange: [0, 0.55, 0.7, 1],
-                        outputRange: [0, 0, -10, -10],
-                      }),
+                      translateY: pick.interpolate(
+                        eased(tourEasing.pop, {
+                          inputRange: [0, 0.55, 0.7, 1],
+                          outputRange: [0, 0, -10, -10],
+                        }),
+                      ),
                     },
                     {
-                      rotate: pick.interpolate({
-                        easing: tourEasing.pop,
-                        inputRange: [0, 0.55, 0.7, 1],
-                        outputRange: ["0deg", "0deg", "-2deg", "-2deg"],
-                      }),
+                      rotate: pick.interpolate(
+                        eased(tourEasing.pop, {
+                          inputRange: [0, 0.55, 0.7, 1],
+                          outputRange: ["0deg", "0deg", "-2deg", "-2deg"],
+                        }),
+                      ),
                     },
                   ],
                 },
@@ -422,11 +435,12 @@ function PRScene({ reduced }: { reduced: boolean }) {
             : [
                 { perspective: 600 },
                 {
-                  rotateY: flip.interpolate({
-                    easing: tourEasing.pop,
-                    inputRange: [0, 1],
-                    outputRange: ["90deg", "0deg"],
-                  }),
+                  rotateY: flip.interpolate(
+                    eased(tourEasing.pop, {
+                      inputRange: [0, 1],
+                      outputRange: ["90deg", "0deg"],
+                    }),
+                  ),
                 },
               ],
           position: "absolute",
@@ -453,25 +467,28 @@ function PRScene({ reduced }: { reduced: boolean }) {
             paddingHorizontal: 12,
             paddingVertical: 14,
             gap: 9,
-            opacity: doc.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1],
-              easing: tourEasing.pop,
-            }),
+            opacity: doc.interpolate(
+              eased(tourEasing.pop, {
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+            ),
             transform: [
               {
-                translateY: doc.interpolate({
-                  easing: tourEasing.pop,
-                  inputRange: [0, 1],
-                  outputRange: docSize.percents("height", [40, 0]),
-                }),
+                translateY: doc.interpolate(
+                  eased(tourEasing.pop, {
+                    inputRange: [0, 1],
+                    outputRange: docSize.percents("height", [40, 0]),
+                  }),
+                ),
               },
               {
-                rotate: doc.interpolate({
-                  easing: tourEasing.pop,
-                  inputRange: [0, 1],
-                  outputRange: ["6deg", "3deg"],
-                }),
+                rotate: doc.interpolate(
+                  eased(tourEasing.pop, {
+                    inputRange: [0, 1],
+                    outputRange: ["6deg", "3deg"],
+                  }),
+                ),
               },
             ],
           },
