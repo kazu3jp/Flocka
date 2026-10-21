@@ -47,3 +47,31 @@ test("navigation validation never throws on malformed entries", () => {
   assert.equal(validNav({ tab: 1, stacks: initNav().stacks }), false);
   assert.equal(validNav({ tab: "find", stacks: "deck" }), false);
 });
+
+test("a retired card drops only its own cached entries", () => {
+  const saved = {
+    ...fresh(),
+    onboarded: true,
+    self: ["impl", "retired"],
+    showcase: ["retired", "impl"],
+    resp: { impl: "agree", retired: "disagree" },
+    deco: {
+      retired: {
+        pattern: "dots",
+        frame: "none",
+        stickers: [],
+        color: "original",
+      },
+    },
+    prDraft: "手で書いた下書き",
+    prDraftSource: { card: "retired", pieceIds: ["a", "b"] },
+  };
+  const restored = restoreCachedState(JSON.stringify(saved));
+  assert.equal(restored.onboarded, true);
+  assert.deepEqual(restored.self, ["impl"]);
+  assert.deepEqual(restored.showcase, ["impl"]);
+  assert.deepEqual(restored.resp, { impl: "agree" });
+  assert.deepEqual(restored.deco, {});
+  assert.equal(restored.prDraft, "手で書いた下書き");
+  assert.equal(restored.prDraftSource, null);
+});

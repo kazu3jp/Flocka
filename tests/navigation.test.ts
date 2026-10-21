@@ -51,3 +51,23 @@ test("the card collection opens on the deck tab above the deck", () => {
   ]);
   assert.equal(validNav(collection), true);
 });
+
+test("onboarding and detail screens without their id never enter a tab stack", () => {
+  const initial = initNav();
+  assert.equal(navigationForRoute(initial, { id: "onboarding" }), initial);
+  for (const id of ["card", "deco", "piece", "give", "confirm"] as const) {
+    assert.equal(navigationForRoute(initial, { id }), initial);
+    assert.equal(navigationForRoute(initial, { id, params: {} }), initial);
+  }
+  const withOnboarding = initNav();
+  withOnboarding.stacks.find.push({ id: "onboarding" });
+  assert.equal(validNav(withOnboarding), false);
+  const withoutKey = initNav();
+  withoutKey.stacks.find.push({ id: "card" });
+  assert.equal(validNav(withoutKey), false);
+  const piece = navigationForRoute(initial, {
+    id: "piece",
+    params: { id: "p1" },
+  });
+  assert.equal(validNav(piece), true);
+});

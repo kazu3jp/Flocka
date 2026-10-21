@@ -61,6 +61,27 @@ export function validNav(v: unknown): v is NavState {
   );
 }
 
+/** The identifier each detail screen cannot render without. */
+const REQUIRED_PARAM: Partial<Record<ScreenId, string>> = {
+  card: "key",
+  deco: "key",
+  piece: "id",
+  give: "cid",
+  confirm: "cid",
+};
+
+/** Onboarding is a gate before the tabs, never a page inside a tab's history. */
+function stackableEntry(e: Entry) {
+  const required = REQUIRED_PARAM[e.id];
+  return (
+    e.id !== "onboarding" &&
+    (!required ||
+      (!!e.params &&
+        Object.hasOwn(e.params, required) &&
+        e.params[required] !== ""))
+  );
+}
+
 function validEntry(v: unknown): v is Entry {
   if (!v || typeof v !== "object") return false;
   const e = v as Entry;
@@ -70,7 +91,8 @@ function validEntry(v: unknown): v is Entry {
       (!!e.params &&
         typeof e.params === "object" &&
         !Array.isArray(e.params) &&
-        Object.values(e.params).every((value) => typeof value === "string")))
+        Object.values(e.params).every((value) => typeof value === "string"))) &&
+    stackableEntry(e)
   );
 }
 
@@ -109,6 +131,7 @@ function sameEntry(left: Entry, right: Entry) {
 
 /** Reconcile an external URL without sending another router navigation. */
 export function navigationForRoute(current: NavState, entry: Entry): NavState {
+  if (!stackableEntry(entry)) return current;
   const tab: Tab =
     entry.id === "pr"
       ? "pr"

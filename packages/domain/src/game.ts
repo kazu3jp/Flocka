@@ -10,6 +10,9 @@ export const allPieces = (s: State) => [
 export const wordsOf = (p: Piece) =>
   p.kind === "proof" ? p.story || p.title || "" : p.text || p.label || "";
 
+/** Catalog lookups must not resolve inherited keys such as "constructor" from a URL. */
+export const isCardKey = (key: string) => Object.hasOwn(CARDS, key);
+
 export function optionsFor(p: Piece, self: string[]) {
   const pool = [
     ...self.filter((k) => k !== p.card),
@@ -28,14 +31,15 @@ export function derive(s: State) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const opened = pieces.filter((p) => p.opened),
     unopened = pieces.filter((p) => !p.opened);
-  const cards: Record<string, Card> = {};
+  // No prototype, so lookups by an untrusted key never hit Object.prototype.
+  const cards: Record<string, Card> = Object.create(null);
   for (const k of Object.keys(CARDS)) {
     const testimonies = opened.filter((p) => p.card === k),
       givers = [...new Set(testimonies.map((p) => p.fromId))],
       self = s.self.includes(k);
     cards[k] = {
       ...bareCard(k, self),
-      deco: s.deco[k],
+      deco: Object.hasOwn(s.deco, k) ? s.deco[k] : undefined,
       testimonies,
       givers,
       confirmed: givers.length >= 2,
@@ -50,14 +54,16 @@ export function derive(s: State) {
   const deck = Object.values(cards)
     .filter((c) => c.self || c.testimonies.length)
     .sort((a, b) => rank(b) - rank(a));
+  // A card the user disagreed with cannot become the PR, so it is not progress toward one.
+  const usable = deck.filter((c) => s.resp[c.key] !== "disagree");
   return {
     pieces,
     opened,
     unopened,
     cards,
     deck,
-    prCard: deck.find((c) => c.confirmed && s.resp[c.key] !== "disagree"),
-    best: Math.min(2, Math.max(0, ...deck.map((c) => c.givers.length))),
+    prCard: usable.find((c) => c.confirmed),
+    best: Math.min(2, Math.max(0, ...usable.map((c) => c.givers.length))),
   };
 }
 
