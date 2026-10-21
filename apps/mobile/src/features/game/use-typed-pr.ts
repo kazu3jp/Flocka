@@ -31,6 +31,9 @@ function createTypedProgress(): TypedProgress {
   };
 }
 
+/** Typing advances by code point, so an emoji is never split for a frame. */
+export const typedLength = (text: string) => Array.from(text).length;
+
 export function useTypedShown(progress: TypedProgress) {
   return useSyncExternalStore(progress.subscribe, progress.get);
 }
@@ -44,10 +47,11 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
   }, []);
   useEffect(() => {
     let active = true;
+    const total = typedLength(text);
     const showAll = () => {
       if (active) {
         stop();
-        progress.set(text.length);
+        progress.set(total);
       }
     };
     const subscription = AccessibilityInfo.addEventListener(
@@ -59,7 +63,7 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
     void AccessibilityInfo.isReduceMotionEnabled()
       .then((reduced) => {
         if (!active) return;
-        if (reduced || manual || !text.length) {
+        if (reduced || manual || !total) {
           showAll();
           return;
         }
@@ -67,9 +71,9 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
         let cursor = 0;
         timer.current = setInterval(() => {
           if (!active) return;
-          cursor = Math.min(text.length, cursor + 2);
+          cursor = Math.min(total, cursor + 2);
           progress.set(cursor);
-          if (cursor === text.length) stop();
+          if (cursor === total) stop();
         }, 22);
       })
       .catch(showAll);
@@ -81,7 +85,7 @@ export function useTypedPR(text: string, manual: boolean, replay: number) {
   }, [text, manual, replay, stop, progress]);
   const reveal = useCallback(() => {
     stop();
-    progress.set(text.length);
-  }, [progress, stop, text.length]);
+    progress.set(typedLength(text));
+  }, [progress, stop, text]);
   return { progress, reveal };
 }

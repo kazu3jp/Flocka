@@ -28,7 +28,9 @@ export function PR() {
     editor.replay,
   );
   const document = editor.document;
-  if (!document)
+  // A hand-edited draft is the user's own text, so it stays available even
+  // when no confirmed card can generate a document any more.
+  if (!document && !editor.manual)
     return (
       <Board>
         <Header title="自己PR" />
@@ -131,28 +133,30 @@ export function PR() {
             size={16}
             style={{ flex: 1, lineHeight: 20.8 }}
           >
-            {editor.sourceKnown
+            {editor.sourceKnown && document
               ? `強み：${document.card.name}`
               : "保存した下書き"}
           </T>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="もう一度書き出す"
-            onPress={editor.askReset}
-            disabled={editor.busy}
-            hitSlop={4}
-            style={{
-              width: 44,
-              height: 44,
-              marginVertical: -4,
-              marginRight: -6,
-              flexShrink: 0,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon name="redo" size={18} color={C.ink} />
-          </Pressable>
+          {editor.canRegenerate && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="もう一度書き出す"
+              onPress={editor.askReset}
+              disabled={editor.busy}
+              hitSlop={4}
+              style={{
+                width: 44,
+                height: 44,
+                marginVertical: -4,
+                marginRight: -6,
+                flexShrink: 0,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="redo" size={18} color={C.ink} />
+            </Pressable>
+          )}
         </View>
         {editor.editing ? (
           <View style={{ flex: 1, minHeight: 0 }}>
@@ -201,7 +205,7 @@ export function PR() {
           <PRBody
             draft={editor.draft}
             manual={editor.manual}
-            segments={document.segments}
+            segments={document?.segments ?? []}
             progress={progress}
             reveal={reveal}
           />
@@ -234,22 +238,24 @@ export function PR() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              {(editor.sourceKnown ? document.sources : []).map((id, index) => (
-                <View key={id} style={{ marginLeft: index ? -6 : 0 }}>
-                  <Avatar
-                    name={peers[id]?.profile.name ?? "プロフィールを取得中"}
-                    avatar={peers[id]?.profile.avatar}
-                    size={20}
-                  />
-                </View>
-              ))}
+              {(editor.sourceKnown && document ? document.sources : []).map(
+                (id, index) => (
+                  <View key={id} style={{ marginLeft: index ? -6 : 0 }}>
+                    <Avatar
+                      name={peers[id]?.profile.name ?? "プロフィールを取得中"}
+                      avatar={peers[id]?.profile.avatar}
+                      size={20}
+                    />
+                  </View>
+                ),
+              )}
             </View>
             <T
               color={C.ink}
               size={12}
               style={{ fontFamily: F.bold, lineHeight: 19.8 }}
             >
-              {editor.sourceKnown
+              {editor.sourceKnown && document
                 ? `仲間${document.sources.length}人の証言から作成`
                 : "出典を確認できない保存済みの下書き"}
             </T>
@@ -304,7 +310,7 @@ export function PR() {
           onPress={editor.copy}
         />
       </View>
-      {editor.confirmReset && (
+      {editor.confirmReset && editor.canRegenerate && (
         <Sheet title="もう一度書き出す？" onClose={editor.closeReset}>
           <T>
             手で編集した内容を消して、「{editor.regenerationStrength}

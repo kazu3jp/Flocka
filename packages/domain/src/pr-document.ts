@@ -48,23 +48,26 @@ export function buildPR(state: State, cardKey?: string) {
   });
   segments.push({ kind: "break" });
   const selfNames = state.self
-    .filter((key) => key !== card.key)
+    .filter((key) => key !== card.key && Object.hasOwn(CARDS, key))
     .map((key) => CARDS[key].name)
     .join("・");
-  if (!card.self && selfNames) {
-    segments.push(
-      {
-        kind: "text",
-        text: `自分では${selfNames}を強みだと考えていましたが、複数の仲間から同じ点を挙げてもらったことで、`,
-      },
-      { kind: "strength", text: card.name },
-      { kind: "text", text: "という一面に気づきました。" },
-    );
-  } else {
+  if (card.self) {
     segments.push({
       kind: "text",
       text: "自分でも意識していた強みですが、複数の仲間から同じ点を挙げてもらい、確信に変わりました。",
     });
+  } else {
+    // Without other self-chosen strengths, claim neither a prior belief nor awareness.
+    segments.push(
+      {
+        kind: "text",
+        text: selfNames
+          ? `自分では${selfNames}を強みだと考えていましたが、複数の仲間から同じ点を挙げてもらったことで、`
+          : "複数の仲間から同じ点を挙げてもらったことで、",
+      },
+      { kind: "strength", text: card.name },
+      { kind: "text", text: "という一面に気づきました。" },
+    );
   }
   segments.push(
     { kind: "break" },

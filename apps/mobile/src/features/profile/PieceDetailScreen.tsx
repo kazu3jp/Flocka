@@ -31,8 +31,12 @@ export function PieceDetail({ id }: { id: string }) {
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
-  // The server snapshot lists this account's open reports for the piece.
-  const report = s.reports.find((r) => r.pieceId === id && !r.withdrawn);
+  // Only an open report replaces the reasons; a resolved one can be reported again.
+  const reports = s.reports.filter((r) => r.pieceId === id && !r.withdrawn);
+  const report = reports.find((r) => !r.status || r.status === "pending");
+  const resolved = report
+    ? undefined
+    : reports.find((r) => r.status === "reviewed" || r.status === "rejected");
   const redirected = useRef<string | null>(null);
   const visit = useRef<object | null>(null);
   useFocusEffect(
@@ -148,11 +152,19 @@ export function PieceDetail({ id }: { id: string }) {
       <T display size={18}>
         {report ? "通報済み" : "通報理由"}
       </T>
+      {resolved && (
+        <T size={13}>
+          以前の「{resolved.reason || "通報"}」は運営が確認し、
+          {resolved.status === "rejected"
+            ? "対応しないと判断しました。"
+            : "対応済みです。"}
+          ほかに問題があれば、もう一度通報できます。
+        </T>
+      )}
       {report ? (
         <T size={13}>
-          「{report.reason || "通報"}」として運営に送信しました。
-          {report.status === "pending" ? "確認をお待ちください。" : ""}
-          取り下げは「公開範囲・安全」からできます。
+          「{report.reason || "通報"}
+          」として運営に送信しました。確認をお待ちください。取り下げは「公開範囲・安全」からできます。
         </T>
       ) : (
         <View style={S.wrap}>

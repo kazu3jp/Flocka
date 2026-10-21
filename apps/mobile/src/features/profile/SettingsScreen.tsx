@@ -26,12 +26,17 @@ export function Settings() {
   const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
     { syncing } = useAppStatus(),
     [legal, setLegal] = useState<LegalTitle | null>(null),
-    [settings, setSettings] = useState(s.settings),
+    // Unsaved edits only; otherwise the switches follow the latest server settings.
+    [draft, setDraft] = useState<typeof s.settings | null>(null),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation(),
     pull = usePullRefresh(),
     // Which action is running, so only its button shows progress.
     [active, setActive] = useState<SettingsAction | null>(null);
+  const settings = draft ?? s.settings;
+  const changed = (Object.keys(s.settings) as (keyof typeof s.settings)[]).some(
+    (key) => settings[key] !== s.settings[key],
+  );
   const runAction = (action: SettingsAction, task: () => Promise<void>) => {
     setActive(action);
     void run(task).finally(() => setActive(null));
@@ -85,7 +90,7 @@ export function Settings() {
             <Switch
               accessibilityLabel={label}
               value={settings[k]}
-              onValueChange={(v) => setSettings({ ...settings, [k]: v })}
+              onValueChange={(v) => setDraft({ ...settings, [k]: v })}
               trackColor={{ true: C.blue, false: C.grey }}
             />
           </View>
@@ -94,7 +99,7 @@ export function Settings() {
       <Btn
         label="設定を保存"
         loading={active === "save"}
-        disabled={busy}
+        disabled={busy || !changed}
         onPress={() =>
           ask(
             "受け取り設定を変更する？",
@@ -103,6 +108,7 @@ export function Settings() {
               runAction("save", async () => {
                 await api.saveSettings(settings);
                 await refresh();
+                setDraft(null);
                 toast("設定を保存しました");
               }),
             "保存する",
@@ -114,7 +120,8 @@ export function Settings() {
       </T>
       {s.blocked.length ? (
         s.blocked.map((id) => {
-          const name = peers[id]?.profile.name || id;
+          // Never show a raw account id when the profile is unavailable.
+          const name = peers[id]?.profile.name || "名前を取得できない相手";
           return (
             <Btn
               key={id}

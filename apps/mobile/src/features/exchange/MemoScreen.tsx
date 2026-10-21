@@ -113,7 +113,8 @@ export function Memo() {
             color={C.pale}
             style={{ textAlign: "center", lineHeight: 19.375 }}
           >
-            {peers[receipt.to]?.profile.name}のデッキに、証言として届きます。
+            {peers[receipt.to]?.profile.name ?? "相手"}
+            のデッキに、証言として届きます。
           </T>
         </View>
         <Btn plain label="交換へ戻る" onPress={nav.root} />
@@ -131,7 +132,7 @@ export function Memo() {
         {step === 0
           ? "誰に贈る？"
           : step === 1
-            ? `${peers[to]?.profile.name}の、どの強み？`
+            ? `${peers[to]?.profile.name ?? "相手"}の、どの強み？`
             : "その強みを見た場面は？"}
       </T>
       {step === 0 && (

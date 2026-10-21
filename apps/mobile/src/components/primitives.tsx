@@ -346,6 +346,9 @@ export function BoardList<Item>({
 
 export const BoardInsets = createContext({ top: true, bottom: true });
 const BoardScroll = createContext(false);
+// Android apps are edge-to-edge, so the window no longer resizes for the keyboard.
+// The view measures its own overlap with the keyboard, so a resized window adds no offset.
+const keyboardAvoidance = Platform.OS === "ios" ? "padding" : "height";
 
 export function Board({
   children,
@@ -400,10 +403,7 @@ export function Board({
         <Rect width="100%" height="100%" fill="url(#boardGrid)" />
       </Svg>
       <BoardScroll.Provider value={scroll && !form}>
-        <KeyboardAvoidingView
-          style={S.fill}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={S.fill} behavior={keyboardAvoidance}>
           {scroll ? (
             <ScrollView
               stickyHeaderIndices={stickyHeader && !form ? [0] : undefined}
@@ -467,10 +467,7 @@ export function Sheet({
       accessibilityViewIsModal
     >
       <ForegroundColor.Provider value={C.ink}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardAvoidance}>
           <View
             style={[
               { flex: 1, justifyContent: "flex-end", overflow: "hidden" },

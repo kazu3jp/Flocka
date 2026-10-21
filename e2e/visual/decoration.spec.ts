@@ -105,13 +105,22 @@ test("decoration tabs, sticker limits, failed saves and durable preferences", as
   await expect(
     page.getByRole("button", { name: "ピンク", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  // 元に戻す returns to the design this visit started from, after confirmation.
+  await page.getByRole("button", { name: "元の色", exact: true }).click();
   await page.getByRole("button", { name: "元に戻す", exact: true }).click();
+  await page
+    .getByTestId("sheet")
+    .getByRole("button", { name: "元に戻す", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "元の色", exact: true }),
+    page.getByRole("button", { name: "ピンク", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "完了", exact: true }).click();
   const reset = await context.request.get("/v1/sync");
-  expect((await reset.json()).preferences.data.deco.bridge).toBeUndefined();
+  expect((await reset.json()).preferences.data.deco.bridge).toMatchObject({
+    pattern: "dots",
+    color: "rose",
+  });
   // A real save that completes late must not pop a different screen's history.
   await page.goto("/deco?key=bridge");
   let releaseSave = () => {};

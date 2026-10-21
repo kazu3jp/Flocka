@@ -47,6 +47,17 @@ export const bareCard = (key: string, self = true): Card => ({
   discovered: false,
 });
 
+/** A card retired from the catalog drops only its own entries, never the whole cache. */
+const knownCard = (key: unknown) =>
+  typeof key === "string" && Object.hasOwn(CARDS, key);
+
+function knownCardEntries<Value>(record: Record<string, Value> | undefined) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return {};
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => knownCard(key)),
+  );
+}
+
 export function restoreState(raw: string | null): State {
   if (!raw) return fresh();
   const v: State = JSON.parse(raw);
@@ -69,9 +80,22 @@ export function restoreState(raw: string | null): State {
       avatar: { ...initial.profile.avatar, ...v.profile.avatar },
     },
     settings: { ...initial.settings, ...v.settings },
-    self: v.self.filter((k) => CARDS[k]),
-    vibes: v.vibes.filter((p) => CARDS[p.card]),
-    proofs: v.proofs.filter((p) => CARDS[p.card]),
+    self: v.self.filter(knownCard),
+    showcase: Array.isArray(v.showcase) ? v.showcase.filter(knownCard) : [],
+    vibes: v.vibes.filter((p) => knownCard(p.card)),
+    proofs: v.proofs.filter((p) => knownCard(p.card)),
+    sentVibes: Array.isArray(v.sentVibes)
+      ? v.sentVibes.filter((p) => knownCard(p.card))
+      : [],
+    sentProofs: Array.isArray(v.sentProofs)
+      ? v.sentProofs.filter((p) => knownCard(p.card))
+      : [],
+    resp: knownCardEntries(v.resp),
+    deco: knownCardEntries(v.deco),
+    // A draft whose evidence names a retired card is kept, only without attribution.
+    ...(v.prDraftSource && !knownCard(v.prDraftSource.card)
+      ? { prDraftSource: null }
+      : {}),
     connections: v.connections,
   });
 }

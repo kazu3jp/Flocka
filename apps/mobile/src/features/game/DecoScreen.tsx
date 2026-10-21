@@ -22,6 +22,8 @@ export function Deco({ cardKey }: { cardKey: string }) {
     setTab,
     select,
     reset,
+    canReset,
+    dialog,
     finish,
     busy,
     error,
@@ -34,6 +36,7 @@ export function Deco({ cardKey }: { cardKey: string }) {
     return (
       <Board>
         <Header title="カードをデコる" onBack={back} />
+        <T>カードが見つかりませんでした。</T>
       </Board>
     );
   const options = tab === "color" ? DECO_COLORS : DECO[tab];
@@ -46,7 +49,13 @@ export function Deco({ cardKey }: { cardKey: string }) {
       <Header
         title="カードをデコる"
         onBack={back}
-        right={<LinkButton label="元に戻す" onPress={reset} disabled={busy} />}
+        right={
+          <LinkButton
+            label="元に戻す"
+            onPress={reset}
+            disabled={busy || !canReset}
+          />
+        }
       />
       <View
         testID="decoration-preview"
@@ -218,6 +227,7 @@ export function Deco({ cardKey }: { cardKey: string }) {
         disabled={busy}
         onPress={() => void finish()}
       />
+      {dialog}
     </Board>
   );
 }

@@ -46,7 +46,13 @@ export function Moderation() {
     <Board scroll>
       <Header title="通報の対応" onBack={nav.pop} />
       {error && <T color={C.yellow}>{error}</T>}
-      {loaded && !items.length && <T size={13}>対応待ちの依頼はありません。</T>}
+      {loaded && !items.length && (
+        <T size={13}>
+          {next === null
+            ? "対応待ちの依頼はありません。"
+            : "表示中の依頼はすべて対応しました。続きを読み込んでください。"}
+        </T>
+      )}
       {items.map((item) => (
         <Panel key={item.id} style={S.gap}>
           <T color={C.ink} size={13}>

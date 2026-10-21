@@ -1,4 +1,4 @@
-import { CARDS, SELF_OPTIONS } from "./catalog";
+import { CARDS } from "./catalog";
 import { bareCard, now } from "./state";
 import type { State, Piece, Card } from "./types";
 
@@ -10,17 +10,53 @@ export const allPieces = (s: State) => [
 export const wordsOf = (p: Piece) =>
   p.kind === "proof" ? p.story || p.title || "" : p.text || p.label || "";
 
-export function optionsFor(p: Piece, self: string[]) {
-  const pool = [
-    ...self.filter((k) => k !== p.card),
-    ...SELF_OPTIONS.filter((k) => k !== p.card && !self.includes(k)),
-  ];
-  let hash = 7;
-  for (const c of p.id) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
-  const a = [pool[0], pool[1], p.card],
-    k = hash % 3;
-  return a.slice(k).concat(a.slice(0, k));
+/** Catalog lookups must not resolve inherited keys such as "constructor" from a URL. */
+export const isCardKey = (key: string) => Object.hasOwn(CARDS, key);
+
+function seededRandom(seed: string) {
+  let state = 7;
+  for (const c of seed) state = (state * 31 + c.charCodeAt(0)) >>> 0;
+  // mulberry32: a small deterministic generator, so options never change between renders.
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
+
+function pick<T>(items: T[], random: () => number) {
+  return items.splice(Math.floor(random() * items.length), 1)[0];
+}
+
+/**
+ * Three fixed choices per envelope. At most one wrong choice is a self-claimed
+ * strength, so an unexpected answer is never the only card the user did not
+ * claim, while the user's own picks can still tempt them.
+ */
+export function optionsFor(p: Piece, self: string[]) {
+  const random = seededRandom(p.id);
+  const claimed = [...new Set(self)].filter(
+    (key) => key !== p.card && isCardKey(key),
+  );
+  const others = Object.keys(CARDS).filter(
+    (key) => key !== p.card && !claimed.includes(key),
+  );
+  const wrong: string[] = [];
+  if (claimed.length && random() < 2 / 3) wrong.push(pick(claimed, random));
+  while (wrong.length < 2) wrong.push(pick(others, random));
+  const options = [p.card, ...wrong];
+  for (let index = options.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(random() * (index + 1));
+    [options[index], options[swap]] = [options[swap], options[index]];
+  }
+  return options;
+}
+
+/** A skipped guess is not a missed guess, so it never marks a discovery. */
+const missedGuess = (p: Piece) =>
+  p.guess !== null && p.guess !== "skip" && p.guess !== p.card;
 
 export function derive(s: State) {
   const pieces = allPieces(s)
@@ -28,18 +64,19 @@ export function derive(s: State) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const opened = pieces.filter((p) => p.opened),
     unopened = pieces.filter((p) => !p.opened);
-  const cards: Record<string, Card> = {};
+  // No prototype, so lookups by an untrusted key never hit Object.prototype.
+  const cards: Record<string, Card> = Object.create(null);
   for (const k of Object.keys(CARDS)) {
     const testimonies = opened.filter((p) => p.card === k),
       givers = [...new Set(testimonies.map((p) => p.fromId))],
       self = s.self.includes(k);
     cards[k] = {
       ...bareCard(k, self),
-      deco: s.deco[k],
+      deco: Object.hasOwn(s.deco, k) ? s.deco[k] : undefined,
       testimonies,
       givers,
       confirmed: givers.length >= 2,
-      discovered: !self && testimonies.some((p) => p.guess !== p.card),
+      discovered: !self && testimonies.some(missedGuess),
     };
   }
   const rank = (c: Card) =>
@@ -50,14 +87,16 @@ export function derive(s: State) {
   const deck = Object.values(cards)
     .filter((c) => c.self || c.testimonies.length)
     .sort((a, b) => rank(b) - rank(a));
+  // A card the user disagreed with cannot become the PR, so it is not progress toward one.
+  const usable = deck.filter((c) => s.resp[c.key] !== "disagree");
   return {
     pieces,
     opened,
     unopened,
     cards,
     deck,
-    prCard: deck.find((c) => c.confirmed && s.resp[c.key] !== "disagree"),
-    best: Math.min(2, Math.max(0, ...deck.map((c) => c.givers.length))),
+    prCard: usable.find((c) => c.confirmed),
+    best: Math.min(2, Math.max(0, ...usable.map((c) => c.givers.length))),
   };
 }
 

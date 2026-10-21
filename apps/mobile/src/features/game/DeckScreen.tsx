@@ -94,8 +94,13 @@ export function Deck() {
     ...(overflow ? ["more" as const] : []),
     ...Array(Math.max(0, DECK_SLOTS - d.deck.length)).fill(null),
   ];
+  // People the user chose to write to later are not recommended again here.
   const unsent = s.connections.filter(
-    (c) => c.status === "accepted" && !c.vibe && !s.blocked.includes(c.peerId),
+    (c) =>
+      c.status === "accepted" &&
+      !c.vibe &&
+      !c.later &&
+      !s.blocked.includes(c.peerId),
   );
   const challenge = !!d.unopened.length,
     quest = challenge || !!unsent.length || !d.pieces.length;
