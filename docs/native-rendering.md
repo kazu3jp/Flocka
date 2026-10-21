@@ -61,3 +61,11 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 - **ウェルカム演出**: ネイティブではNative Driverで動かす。原本の%指定の移動は、要素自身の大きさを計測してpxへ変換する。Webは従来どおりJS Driverと%指定。予想シーンの選択リング（`boxShadow` の補間）はNative Driverで動かせず、不透明度の重ね合わせでは原本の跳ねる動きを再現できないため、JS Driverのまま残した。
 
 プレイヤーカードは、表示領域の大きさが分かるまで手札を描かない作りのため、最初の1回の描画（手札なし）は残る。Webの画像比較（`test:vrt`）はWindowsでは `tools/vrt/build.mjs` の `spawnSync("npm")` が失敗するため実行していない。
+
+## カード絵とシールの影（2026-10-21）
+
+原本のカード絵（`drop-shadow(2px 3px 0 ink / .35)`）とシール（`1px 2px 0 / .3`）の影は、SVGの `feDropShadow` で描いていた。react-native-svgはAndroidでフィルターとグループの不透明度をソフトウェアのビットマップへ描くため、カード絵1枚ごとに画面外の描画が発生していた。
+
+- ネイティブでは、絵をインク色で塗った複製を影の量だけずらして下に敷き、その複製を包むViewの不透明度で薄める（`components/drop-shadow-svg.tsx`）。`needsOffscreenAlphaCompositing` により、AndroidはGPUのレイヤー、iOSはグループ不透明度で合成されるため、図形の重なりが濃くならない。ずらす量はフィルターと同じSVG座標系で指定する。
+- Webは基準画像と一致させるため、従来どおり `feDropShadow` を使う。
+- Chromiumで全33素材（カード絵21、シール12）を描き比べ、フィルターと今回の方式の差が最大1ピクセル（160×160の描画内）であることを確認した。ネイティブ端末での描画と速度の計測は未実施。
