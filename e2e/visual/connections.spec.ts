@@ -149,9 +149,10 @@ test("connection rows, sent details and removal preserve source layout and real 
     buttonBounds!.x + buttonBounds!.width - 2,
   );
 
-  expect(
-    (await (await context.request.get(`/v1/exchanges/${id}`)).json()).status,
-  ).toBe("cancelled");
+  // A cancelled exchange is no longer shared with either participant.
+  const cancelled = await context.request.get(`/v1/exchanges/${id}`);
+  expect(cancelled.status()).toBe(404);
+  expect((await cancelled.json()).error.code).toBe("EXCHANGE_NOT_FOUND");
   // Exercise enlarged text without disabling font scaling or truncating the label.
   await retryButton
     .getByText("最新データを再取得", { exact: true })
@@ -248,10 +249,10 @@ test("a pending connection offers confirmation and can be removed without enabli
       .click();
     await page.getByRole("button", { name: "解除", exact: true }).click();
     await expect(row).toHaveCount(0);
-    expect(
-      (await (await context.request.get(`/v1/exchanges/${exchange.id}`)).json())
-        .status,
-    ).toBe("cancelled");
+    // A cancelled exchange is no longer shared with either participant.
+    const cancelled = await context.request.get(`/v1/exchanges/${exchange.id}`);
+    expect(cancelled.status()).toBe(404);
+    expect((await cancelled.json()).error.code).toBe("EXCHANGE_NOT_FOUND");
   } finally {
     await peer.close();
   }
