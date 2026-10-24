@@ -8,12 +8,15 @@ import {
   C,
   F,
   Header,
+  LAYOUT,
   LinkButton,
   Panel,
   S,
   T,
+  InlineError,
 } from "../../components/ui";
 import { VIBE_CARD, summarize } from "@flocka/domain";
+import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
 import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
@@ -118,7 +121,7 @@ export function Give({ cid }: { cid: string }) {
               <ImpressionLabel label={sent?.label ?? ""} />
             </View>
           </Panel>
-          <Panel style={{ padding: 14 }}>
+          <Panel style={{ padding: LAYOUT.panelPaddingCompact }}>
             <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
               交換した場所・きっかけ
             </T>
@@ -128,10 +131,16 @@ export function Give({ cid }: { cid: string }) {
               {c.context.trigger || "きっかけは未記入"}
             </T>
           </Panel>
-          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
-            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
-            に印象を贈りました
-          </T>
+          <PopIn>
+            <T
+              display
+              size={20}
+              style={{ textAlign: "center", lineHeight: 28 }}
+            >
+              {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+              に印象を贈りました
+            </T>
+          </PopIn>
           <T
             size={12.5}
             color={C.pale}
@@ -155,11 +164,6 @@ export function Give({ cid }: { cid: string }) {
           </View>
         }
       />
-      {error && (
-        <T color={C.yellow} accessibilityRole="alert">
-          {error}
-        </T>
-      )}
       <View testID="give-instructions">
         <T display size={20} style={{ lineHeight: 28 }}>
           相手のいいなと思ったところは？
@@ -181,13 +185,12 @@ export function Give({ cid }: { cid: string }) {
           {[c.context.place, c.context.trigger].filter(Boolean).join(" ／ ") ||
             "まだ記入されていません"}
         </T>
-        {!sel && !text && (
-          <LinkButton
-            label="出会いのメモを編集"
-            color={C.ink}
-            onPress={() => nav.push("confirm", { cid })}
-          />
-        )}
+        {/* Always shown: hiding it once a choice is made pulled the options up under the finger. */}
+        <LinkButton
+          label="出会いのメモを編集"
+          color={C.ink}
+          onPress={() => nav.push("confirm", { cid })}
+        />
       </Panel>
       <GiveMode mode={mode} onChange={setMode} />
       {mode === "pick" && <VibeOptions selected={sel} onChange={setSel} />}
@@ -256,6 +259,7 @@ export function Give({ cid }: { cid: string }) {
         }
         onPress={send}
       />
+      <InlineError text={error} />
       <LinkButton
         label="あとで"
         disabled={busy}

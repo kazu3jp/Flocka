@@ -26,11 +26,12 @@ import {
 } from "react-native-safe-area-context";
 import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 
-import { C, F, S } from "./theme";
+import { C, F, LAYOUT, S, SP } from "./theme";
 import { T, Icon, ForegroundColor } from "./text";
 import { useModalFrame } from "./app-frame";
 import { useSheetFeedback } from "./feedback";
 import { ScreenVisible } from "./screen-focus";
+import { SelectionFill, SquishPressable } from "./motion";
 
 export function Panel(props: ViewProps) {
   return <View {...props} style={[S.panel, props.style]} />;
@@ -70,7 +71,10 @@ export function Btn({
   const { height } = useWindowDimensions();
   const inactive = disabled || loading;
   return (
-    <Pressable
+    <SquishPressable
+      // Presses sink toward the shadow, as .btn:active does in the source.
+      pressScale={1}
+      pressShift={2}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: inactive, busy: loading, selected }}
@@ -80,7 +84,7 @@ export function Btn({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: small ? 44 : height <= 720 ? 50 : 54,
+          minHeight: small ? LAYOUT.touchTarget : height <= 720 ? 50 : 54,
           paddingHorizontal: small ? 10 : 18,
           paddingVertical: 10,
           borderRadius: 14,
@@ -96,31 +100,57 @@ export function Btn({
           boxShadow: disabled
             ? "none"
             : `${pressed ? 1 : 4}px ${pressed ? 1 : 4}px 0 ${C.ink}`,
-          transform: [
-            { translateX: pressed ? 2 : 0 },
-            { translateY: pressed ? 2 : 0 },
-          ],
           alignItems: "center",
           justifyContent: "center",
           flexDirection: "row",
-          gap: 8,
+          gap: SP.sm,
         },
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={disabled ? C.pale : danger ? C.white : C.ink}
-        />
+      {/* The spinner takes the icon's slot, or floats at the left edge when
+          there is no icon, so loading never changes the button's size. */}
+      {icon ? (
+        <View
+          style={{
+            width: iconSize,
+            height: iconSize,
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color={disabled ? C.pale : danger ? C.white : C.ink}
+            />
+          ) : (
+            <Icon
+              name={icon}
+              size={iconSize}
+              style={iconStyle}
+              color={danger ? C.white : C.ink}
+            />
+          )}
+        </View>
       ) : (
-        icon && (
-          <Icon
-            name={icon}
-            size={iconSize}
-            style={[Platform.OS !== "web" && { flexShrink: 0 }, iconStyle]}
-            color={danger ? C.white : C.ink}
-          />
+        loading && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: small ? SP.sm : SP.lg,
+              top: 0,
+              bottom: 0,
+              justifyContent: "center",
+            }}
+          >
+            <ActivityIndicator
+              size="small"
+              color={disabled ? C.pale : danger ? C.white : C.ink}
+            />
+          </View>
         )
       )}
       <T
@@ -136,7 +166,7 @@ export function Btn({
       >
         {label}
       </T>
-    </Pressable>
+    </SquishPressable>
   );
 }
 
@@ -153,16 +183,20 @@ export function LinkButton({
 }) {
   const inheritedColor = useContext(ForegroundColor);
   return (
-    <Pressable
+    <SquishPressable
+      pressScale={0.94}
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled}
       aria-disabled={disabled}
+      // Centred like the source's .link, so a link stretched across a column
+      // sits under its neighbours instead of hugging the left edge.
       style={{
-        minHeight: 44,
+        minHeight: LAYOUT.touchTarget,
+        alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 8,
+        paddingHorizontal: SP.sm,
         opacity: disabled ? 0.4 : 1,
       }}
     >
@@ -173,7 +207,7 @@ export function LinkButton({
       >
         {label}
       </T>
-    </Pressable>
+    </SquishPressable>
   );
 }
 
@@ -184,10 +218,13 @@ export function Choice({
   disabled = false,
   children,
   style,
+  selectedColor = C.yellow,
   accessibilityRole = "button",
 }: {
   label: string;
   selected?: boolean;
+  /** Fill of the selected state. */
+  selectedColor?: string;
   onPress: () => void;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -196,8 +233,13 @@ export function Choice({
   accessibilityRole?: Extract<AccessibilityRole, "button" | "tab" | "radio">;
 }) {
   const toggle = accessibilityRole === "button";
+  const { borderRadius = 12, borderWidth = 2 } = StyleSheet.flatten([
+    S.choice,
+    style,
+  ]) as ViewStyle;
   return (
-    <Pressable
+    <SquishPressable
+      pressScale={0.96}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={label}
       accessibilityState={{
@@ -213,19 +255,24 @@ export function Choice({
       onPress={onPress}
       style={[
         S.choice,
-        {
-          backgroundColor: selected ? C.yellow : C.paper,
-          opacity: disabled ? 0.4 : 1,
-        },
+        // Centred like the source's .seg buttons; content passed as children lays itself out.
+        !children && { alignItems: "center" },
+        { opacity: disabled ? 0.4 : 1 },
         style,
       ]}
     >
+      <SelectionFill
+        selected={!!selected}
+        from={C.paper}
+        to={selectedColor}
+        radius={Number(borderRadius) - Number(borderWidth)}
+      />
       {children || (
-        <T size={13} color={C.ink}>
+        <T size={13} color={C.ink} style={{ textAlign: "center" }}>
           {label}
         </T>
       )}
-    </Pressable>
+    </SquishPressable>
   );
 }
 
@@ -266,11 +313,11 @@ export function Header({
     <View
       style={[
         S.row,
-        { minHeight: 48, gap: 8 },
+        { minHeight: LAYOUT.headerHeight, gap: SP.sm },
         scroll && {
-          marginTop: -4,
-          marginHorizontal: -14,
-          paddingHorizontal: 14,
+          marginTop: -BOARD_TOP_PADDING,
+          marginHorizontal: -LAYOUT.screenPadding,
+          paddingHorizontal: LAYOUT.screenPadding,
           backgroundColor: C.blue,
         },
       ]}
@@ -281,9 +328,11 @@ export function Header({
           accessibilityRole="button"
           onPress={onBack}
           style={{
-            width: 44,
-            height: 44,
-            marginLeft: -10,
+            width: LAYOUT.touchTarget,
+            height: LAYOUT.touchTarget,
+            // The arrow is centred in its 44pt target; pull the target out so
+            // the arrow sits on the screen padding like the title's block.
+            marginLeft: -LAYOUT.blockGap,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -308,7 +357,9 @@ export function Header({
 type BoardRefresh = { refreshing?: boolean; onRefresh?: () => void };
 
 function boardRefreshControl({ refreshing, onRefresh }: BoardRefresh) {
-  if (!onRefresh) return undefined;
+  // react-native-web draws RefreshControl as a plain wrapper that repeats the
+  // list's style, which doubles its margins. Pulling does nothing there anyway.
+  if (!onRefresh || Platform.OS === "web") return undefined;
   return (
     <RefreshControl
       refreshing={!!refreshing}
@@ -336,15 +387,25 @@ export function BoardList<Item>({
       {...props}
       keyboardShouldPersistTaps="handled"
       refreshControl={boardRefreshControl({ refreshing, onRefresh })}
-      style={[{ flex: 1, marginHorizontal: -14 }, props.style]}
+      style={[
+        { flex: 1, marginHorizontal: -LAYOUT.screenPadding },
+        props.style,
+      ]}
       contentContainerStyle={[
-        { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 14, gap: 12 },
+        {
+          paddingHorizontal: LAYOUT.screenPadding,
+          paddingTop: 2,
+          paddingBottom: LAYOUT.screenPadding,
+          gap: LAYOUT.sectionGap,
+        },
         contentContainerStyle,
       ]}
     />
   );
 }
 
+/** Space between the safe area and the first block of a board. */
+const BOARD_TOP_PADDING = SP.xs;
 export const BoardInsets = createContext({ top: true, bottom: true });
 const BoardScroll = createContext(false);
 // Android apps are edge-to-edge, so the window no longer resizes for the keyboard.
@@ -412,10 +473,10 @@ export function Board({
               refreshControl={boardRefreshControl({ refreshing, onRefresh })}
               contentContainerStyle={[
                 {
-                  paddingHorizontal: 14,
-                  paddingTop: 4,
-                  paddingBottom: form ? 12 : 24,
-                  gap: form ? 10 : 12,
+                  paddingHorizontal: LAYOUT.screenPadding,
+                  paddingTop: BOARD_TOP_PADDING,
+                  paddingBottom: form ? LAYOUT.sectionGap : SP.xl,
+                  gap: form ? LAYOUT.blockGap : LAYOUT.sectionGap,
                   flexGrow: 1,
                 },
                 contentStyle,
@@ -428,10 +489,10 @@ export function Board({
               style={[
                 {
                   flex: 1,
-                  paddingHorizontal: 14,
-                  paddingTop: 4,
-                  paddingBottom: 12,
-                  gap: 10,
+                  paddingHorizontal: LAYOUT.screenPadding,
+                  paddingTop: BOARD_TOP_PADDING,
+                  paddingBottom: LAYOUT.sectionGap,
+                  gap: LAYOUT.blockGap,
                 },
                 contentStyle,
               ]}
@@ -510,9 +571,12 @@ export function Sheet({
                 borderTopRightRadius: 24,
               }}
               contentContainerStyle={{
-                paddingHorizontal: 18,
-                paddingTop: 10,
-                paddingBottom: Math.max(insets.bottom, 22),
+                paddingHorizontal: LAYOUT.sheetPaddingX,
+                paddingTop: LAYOUT.sheetPaddingTop,
+                paddingBottom: Math.max(
+                  insets.bottom,
+                  LAYOUT.sheetPaddingBottom,
+                ),
               }}
             >
               <View
@@ -522,7 +586,7 @@ export function Sheet({
                   backgroundColor: C.grey,
                   borderRadius: 9,
                   alignSelf: "center",
-                  marginBottom: 8,
+                  marginBottom: SP.sm,
                 }}
               />
               <View
@@ -531,8 +595,8 @@ export function Sheet({
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 10,
-                  marginBottom: 8,
+                  gap: LAYOUT.blockGap,
+                  marginBottom: SP.sm,
                 }}
               >
                 <T
@@ -548,10 +612,10 @@ export function Sheet({
                   accessibilityRole="button"
                   onPress={onClose}
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: LAYOUT.touchTarget,
+                    height: LAYOUT.touchTarget,
                     flexShrink: 0,
-                    marginRight: -10,
+                    marginRight: -LAYOUT.blockGap,
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -559,7 +623,7 @@ export function Sheet({
                   <Icon name="x" />
                 </Pressable>
               </View>
-              <View style={{ gap: 14 }}>{children}</View>
+              <View style={{ gap: LAYOUT.sheetGap }}>{children}</View>
             </ScrollView>
             {feedback}
           </View>

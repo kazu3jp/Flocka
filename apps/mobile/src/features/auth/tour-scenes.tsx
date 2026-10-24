@@ -242,14 +242,6 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
                 }),
               ),
             },
-            {
-              rotate: swap.interpolate(
-                eased(tourEasing.pop, {
-                  inputRange: [0, 0.6, 0.8, 1],
-                  outputRange: ["0deg", "0deg", "180deg", "180deg"],
-                }),
-              ),
-            },
           ],
           position: "absolute",
           left: "50%",
@@ -267,7 +259,23 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
           borderColor: C.ink,
         }}
       >
-        <Icon name="swap" color={C.ink} size={26} />
+        {/* Only the arrows turn; the badge and its shadow stay put. */}
+        <Animated.View
+          style={{
+            transform: [
+              {
+                rotate: swap.interpolate(
+                  eased(tourEasing.pop, {
+                    inputRange: [0, 0.6, 0.8, 1],
+                    outputRange: ["0deg", "0deg", "180deg", "180deg"],
+                  }),
+                ),
+              },
+            ],
+          }}
+        >
+          <Icon name="swap" color={C.ink} size={26} />
+        </Animated.View>
       </Animated.View>
     </Animated.View>
   );

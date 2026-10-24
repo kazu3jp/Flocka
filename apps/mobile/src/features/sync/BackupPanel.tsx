@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ApiClientError, FlockaApiClient } from "@flocka/api-client";
 import type { State } from "@flocka/domain";
-import { Btn, C, Panel, S, T } from "../../components/ui";
+import { Btn, C, InlineError, Panel, S, T } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp } from "../../store";
 import { UserFacingError, userFacingError } from "./user-facing-error";
@@ -172,13 +172,15 @@ export function BackupPanel() {
         <T color={C.muted} size={12}>
           プロフィールとデッキ、写真をサーバーに保存します。操作したときだけ送信します。
         </T>
-        {latest !== undefined && (
-          <T color={C.muted} size={12}>
-            {latest
+        {/* One line from the start, so checking the connection fills it in
+            without pushing the buttons. */}
+        <T color={C.muted} size={12} numberOfLines={1}>
+          {latest === undefined
+            ? "前回のバックアップ：接続を確認すると表示します"
+            : latest
               ? `前回のバックアップ：${new Date(latest.updatedAt).toLocaleString("ja-JP")}`
               : "サーバーにバックアップはまだありません"}
-          </T>
-        )}
+        </T>
         <>
           <Btn
             small
@@ -213,11 +215,7 @@ export function BackupPanel() {
             </>
           }
         </>
-        {error && (
-          <T color={C.danger} size={13}>
-            {error}
-          </T>
-        )}
+        <InlineError text={error} color={C.danger} size={13} />
       </Panel>
       {dialog}
     </>

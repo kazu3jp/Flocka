@@ -13,7 +13,7 @@ import {
   STRENGTH_GROUPS,
   type AvatarData,
 } from "@flocka/domain";
-import { Avatar, Btn, C, Choice, LinkButton, S, Sheet, T } from "./ui";
+import { Avatar, Btn, C, Choice, LinkButton, S, Sheet, SP, T } from "./ui";
 
 export function CardPicker({
   selected,
@@ -26,13 +26,17 @@ export function CardPicker({
   return (
     <View style={S.gap}>
       <T size={13}>{selected.length}/3枚選択 · 2〜3枚選ぼう</T>
-      <View accessibilityRole="tablist" style={[S.row, { gap: 4 }]}>
+      <View
+        accessibilityRole="tablist"
+        style={[S.row, { gap: SP.xs, alignItems: "stretch" }]}
+      >
         {STRENGTH_GROUPS.map(([, label], i) => (
           <View key={label} style={S.fill}>
             <Choice
               accessibilityRole="tab"
               label={label}
               selected={group === i}
+              style={S.fill}
               onPress={() => setGroup(i)}
             />
           </View>

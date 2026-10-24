@@ -3,6 +3,7 @@ import { View } from "react-native";
 import type { Entry, NavState, Tab } from "@flocka/domain";
 import { S } from "../../components/ui";
 import { ScreenVisible } from "../../components/screen-focus";
+import { ScreenEntrance } from "../../components/motion";
 import {
   AvatarEdit,
   Me,
@@ -102,7 +103,9 @@ export function ScreenStacks({ nav }: { nav: NavState }) {
               style={S.fill}
               testID={visible ? undefined : HIDDEN_SCREEN_TEST_ID}
             >
-              {screenFor(entry)}
+              <ScreenEntrance testID="screen-entrance">
+                {screenFor(entry)}
+              </ScreenEntrance>
             </View>
           </ScreenVisible.Provider>
         </Activity>

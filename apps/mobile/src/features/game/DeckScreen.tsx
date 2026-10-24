@@ -23,6 +23,11 @@ import {
   T,
 } from "../../components/ui";
 
+import {
+  ProgressFill,
+  SquishPressable,
+  StaggerItem,
+} from "../../components/motion";
 import { useApp } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 
@@ -37,8 +42,9 @@ function MoreCardsTile({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <SquishPressable
       testID="deck-more"
+      pressScale={0.97}
       accessibilityRole="button"
       accessibilityLabel={`ほか${count}枚のカードをすべて見る`}
       onPress={onPress}
@@ -65,7 +71,7 @@ function MoreCardsTile({
           <Icon name="chev" size={16} color={C.ink} />
         </View>
       </Panel>
-    </Pressable>
+    </SquishPressable>
   );
 }
 
@@ -124,32 +130,40 @@ export function Deck() {
             gap: 10,
           }}
         >
-          {slots.slice(row * 2, row * 2 + 2).map((c, i) =>
-            c === "more" ? (
-              <MoreCardsTile
-                key="more"
-                count={hidden}
-                onPress={() => nav.push("collection")}
-              />
-            ) : c ? (
-              <StrengthCard
-                key={c.key}
-                card={c}
-                style={S.fill}
-                onPress={() => nav.push("card", { key: c.key })}
-              />
-            ) : (
-              <Pressable
-                key={i}
-                accessibilityRole="button"
-                accessibilityLabel="未発見のカード・見つけ方を見る"
-                onPress={() => setLockedHint(true)}
+          {slots.slice(row * 2, row * 2 + 2).map((c, i) => {
+            const slot = row * 2 + i;
+            return (
+              <StaggerItem
+                key={c === "more" ? "more" : (c?.key ?? `locked-${i}`)}
+                itemKey={`deck:${c === "more" ? "more" : (c?.key ?? `locked-${slot}`)}`}
+                index={slot}
                 style={S.fill}
               >
-                <LockedCard style={S.fill} />
-              </Pressable>
-            ),
-          )}
+                {c === "more" ? (
+                  <MoreCardsTile
+                    count={hidden}
+                    onPress={() => nav.push("collection")}
+                  />
+                ) : c ? (
+                  <StrengthCard
+                    card={c}
+                    style={S.fill}
+                    onPress={() => nav.push("card", { key: c.key })}
+                  />
+                ) : (
+                  <SquishPressable
+                    pressScale={0.97}
+                    accessibilityRole="button"
+                    accessibilityLabel="未発見のカード・見つけ方を見る"
+                    onPress={() => setLockedHint(true)}
+                    style={S.fill}
+                  >
+                    <LockedCard style={S.fill} />
+                  </SquishPressable>
+                )}
+              </StaggerItem>
+            );
+          })}
         </View>
       ))}
     </View>
@@ -201,8 +215,9 @@ export function Deck() {
         />
       </View>
       {quest && (
-        <Pressable
+        <SquishPressable
           testID="deck-challenge"
+          pressScale={0.98}
           accessibilityRole="button"
           accessibilityLabel={
             challenge
@@ -274,7 +289,7 @@ export function Deck() {
               {challenge ? "開ける" : unsent.length ? "贈る" : "交換"}
             </T>
           </Panel>
-        </Pressable>
+        </SquishPressable>
       )}
       {largeText ? (
         <ScrollView
@@ -295,8 +310,9 @@ export function Deck() {
       ) : (
         grid
       )}
-      <Pressable
+      <SquishPressable
         testID="deck-pr"
+        pressScale={0.98}
         accessibilityRole="button"
         accessibilityLabel={
           d.prCard ? "自己PRが書けます！" : `自己PR あと証言${2 - d.best}人`
@@ -347,15 +363,12 @@ export function Deck() {
             ) : (
               <View style={[S.row, { gap: 4, marginTop: 4 }]}>
                 {[0, 1].map((i) => (
-                  <View
+                  <ProgressFill
                     key={i}
-                    style={{
-                      width: 26,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor:
-                        i < d.best ? C.yellow : "rgba(255,255,255,0.2)",
-                    }}
+                    filled={i < d.best}
+                    fillColor={C.yellow}
+                    trackColor="rgba(255,255,255,0.2)"
+                    style={{ width: 26, height: 8, borderRadius: 4 }}
                   />
                 ))}
               </View>
@@ -363,7 +376,7 @@ export function Deck() {
           </View>
           <Icon name="chev" color={d.prCard ? C.ink : C.white} />
         </Panel>
-      </Pressable>
+      </SquishPressable>
       {lockedHint && (
         <Sheet title="未発見のカード" onClose={() => setLockedHint(false)}>
           <T>

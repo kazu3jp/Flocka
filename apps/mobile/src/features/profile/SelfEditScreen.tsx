@@ -2,7 +2,7 @@ import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
 import { useState } from "react";
 import { CardPicker, InterestsPicker } from "../../components/pickers";
-import { Board, Btn, C, Field, Header, T } from "../../components/ui";
+import { Board, Btn, Field, Header, InlineError } from "../../components/ui";
 import { useApp } from "../../store";
 
 export function SelfEdit() {
@@ -26,7 +26,6 @@ export function SelfEdit() {
         value={profile.role}
         onChangeText={(role) => setProfile({ ...profile, role })}
       />
-      {error && <T color={C.yellow}>{error}</T>}
       <CardPicker selected={sel} onChange={setSel} />
       <InterestsPicker
         selected={profile.interests}
@@ -54,6 +53,7 @@ export function SelfEdit() {
           });
         }}
       />
+      <InlineError text={error} />
     </Board>
   );
 }
