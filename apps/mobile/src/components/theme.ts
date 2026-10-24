@@ -49,6 +49,16 @@ export const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
  * page padding and 10/12pt block gaps, and the layout tests compare against
  * those boxes, so these keep the source values instead of rounding to SP.
  */
+/**
+ * Smallest height of a single-line input. On Android an input that is empty and
+ * has no placeholder measures no text line, so its box was `minimum` tall and grew
+ * to line + padding + border (56 for a 26.4 line) with the first character.
+ * There the minimum is the filled height, so the box never changes while
+ * typing. Elsewhere the input is as tall as its line, as in the source design.
+ */
+export const inputMinHeight = (lineHeight: number) =>
+  Platform.OS === "android" ? Math.ceil(lineHeight + 2 * 12 + 2 * 2.5) : 52;
+
 export const LAYOUT = {
   /** Horizontal padding of every screen's content. */
   screenPadding: 14,
@@ -97,7 +107,7 @@ export const S = StyleSheet.create({
     color: C.ink,
     fontSize: 16,
     lineHeight: 25,
-    minHeight: 52,
+    minHeight: inputMinHeight(25),
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: C.paper,

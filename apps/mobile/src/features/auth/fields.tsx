@@ -7,7 +7,16 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useHiddenPasswordCharacters } from "../../components/use-hidden-password-characters";
-import { C, F, Field, FieldMessage, Icon, S, T } from "../../components/ui";
+import {
+  C,
+  F,
+  Field,
+  FieldMessage,
+  Icon,
+  S,
+  T,
+  inputMinHeight,
+} from "../../components/ui";
 
 /** The shared form geometry from the original authentication screens. */
 export function AuthHeader({
@@ -70,7 +79,7 @@ export function AuthField({
           {...props}
           label={label}
           hideLabel
-          style={[{ minHeight: 52, lineHeight: 26.4 }, style]}
+          style={[{ minHeight: inputMinHeight(26.4), lineHeight: 26.4 }, style]}
         />
         <FieldMessage text={error} />
       </View>
@@ -135,7 +144,11 @@ export function PasswordField({
           autoCorrect={false}
           autoComplete={signup ? "new-password" : "current-password"}
           maxLength={128}
-          style={{ paddingRight: 72, minHeight: 52, lineHeight: 26.4 }}
+          style={{
+            paddingRight: 72,
+            minHeight: inputMinHeight(26.4),
+            lineHeight: 26.4,
+          }}
         />
         <Pressable
           accessibilityRole="button"
