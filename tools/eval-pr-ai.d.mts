@@ -4,7 +4,10 @@ export function parseArgs(argv: string[]): {
   dryRun: boolean;
   models: string[];
 };
-export function requestFor(fixture: { card: string; texts: string[] }): {
+export function requestFor(
+  fixture: { card: string; texts: string[] },
+  model?: string,
+): {
   messages: { role: string; content: string }[];
   max_completion_tokens: number;
   temperature: number;

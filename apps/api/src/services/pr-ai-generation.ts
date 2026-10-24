@@ -1,11 +1,11 @@
 import {
   buildPRAiMessages,
+  buildPRAiRequest,
   DEFAULT_PR_AI_MODEL,
   estimateNeurons,
   parseWorkersAiResult,
   PR_AI_MAX_COMPLETION_TOKENS,
   PR_AI_REJECTION_MESSAGE,
-  PR_AI_TEMPERATURE,
   promptCharacters,
   reserveNeurons,
   validatePRAiOutput,
@@ -94,11 +94,7 @@ export async function generatePRAiDraft(input: {
     result = await runWithDeadline(
       run,
       model,
-      {
-        messages,
-        max_completion_tokens: PR_AI_MAX_COMPLETION_TOKENS,
-        temperature: PR_AI_TEMPERATURE,
-      },
+      buildPRAiRequest(model, messages),
       aiDeadlineMs(env),
     );
   } catch (error) {
@@ -123,10 +119,11 @@ export async function generatePRAiDraft(input: {
     );
   }
   const parsed = parseWorkersAiResult(result);
-  // Without token counts the reservation (an upper bound) stays as the cost.
-  const actual = parsed.usage
-    ? estimateNeurons(model, parsed.usage)
-    : reservation.neurons;
+  // Cloudflare's own figure first, then tokens x table; without either, the
+  // reservation (an upper bound) stays as the cost.
+  const actual =
+    parsed.neurons ??
+    (parsed.usage ? estimateNeurons(model, parsed.usage) : reservation.neurons);
   await usage.settle(reservation, actual);
   const verdict = validatePRAiOutput(
     parsed.text,
@@ -139,6 +136,9 @@ export async function generatePRAiDraft(input: {
       day: usageDay(now),
       neurons: Math.round(actual * 100) / 100,
       usageKnown: parsed.usage !== null,
+      reportedNeurons: parsed.neurons !== null,
+      finishReason: parsed.finishReason,
+      reasoning: parsed.reasoningFields,
       accepted: verdict.ok,
       ...(verdict.ok ? {} : { rejection: verdict.reason }),
     }),

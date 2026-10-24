@@ -12,10 +12,10 @@ import * as domainModule from "@flocka/domain";
 const domain = domainModule.default ?? domainModule;
 const {
   buildPRAiMessages,
+  buildPRAiRequest,
   estimateNeurons,
   parseWorkersAiResult,
   PR_AI_MAX_COMPLETION_TOKENS,
-  PR_AI_TEMPERATURE,
   promptCharacters,
   reserveNeurons,
   validatePRAiOutput,
@@ -67,14 +67,15 @@ export function parseArgs(argv) {
   return options;
 }
 
-export const requestFor = (fixture) => ({
-  messages: buildPRAiMessages(
-    fixture.card,
-    fixture.texts.map((text, index) => ({ id: String(index), text })),
-  ),
-  max_completion_tokens: PR_AI_MAX_COMPLETION_TOKENS,
-  temperature: PR_AI_TEMPERATURE,
-});
+/** The server's request body for `model` (default: the server's default model). */
+export const requestFor = (fixture, model = DEFAULT_MODELS[0]) =>
+  buildPRAiRequest(
+    model,
+    buildPRAiMessages(
+      fixture.card,
+      fixture.texts.map((text, index) => ({ id: String(index), text })),
+    ),
+  );
 
 async function callModel(accountId, token, model, body) {
   const started = Date.now();
@@ -109,13 +110,15 @@ function report(model, fixture, call, messages) {
   const parsed = parseWorkersAiResult(call.result);
   const verdict = validatePRAiOutput(parsed.text, fixture.texts);
   const usage = parsed.usage;
-  const neurons = usage
-    ? estimateNeurons(model, usage)
-    : reserveNeurons(
-        model,
-        promptCharacters(messages),
-        PR_AI_MAX_COMPLETION_TOKENS,
-      );
+  const neurons =
+    parsed.neurons ??
+    (usage
+      ? estimateNeurons(model, usage)
+      : reserveNeurons(
+          model,
+          promptCharacters(messages),
+          PR_AI_MAX_COMPLETION_TOKENS,
+        ));
   console.log(`output: ${parsed.text}`);
   console.log(
     `validator: ${verdict.ok ? "OK" : `REJECTED (${verdict.reason})`}`,
@@ -124,8 +127,9 @@ function report(model, fixture, call, messages) {
     `tokens: prompt=${usage?.promptTokens ?? "missing"} completion=${usage?.completionTokens ?? "missing"}`,
   );
   console.log(
-    `neurons: ${neurons.toFixed(2)}${usage ? "" : " (upper-bound reservation; usage missing)"}`,
+    `neurons: ${neurons.toFixed(2)}${parsed.neurons !== null ? " (reported by Cloudflare)" : usage ? "" : " (upper-bound reservation; usage missing)"}`,
   );
+  console.log(`finish_reason: ${parsed.finishReason ?? "missing"}`);
   console.log(`latency: ${call.latencyMs} ms`);
   console.log(
     `reasoning: fields=${parsed.reasoningFields ? "yes" : "no"} think-tags=${/<think/i.test(parsed.text) ? "yes" : "no"}`,
@@ -141,7 +145,13 @@ export async function main(argv, env) {
       for (const message of request.messages)
         console.log(`[${message.role}]\n${message.content}\n`);
     }
-    console.log(`models that would run: ${options.models.join(", ")}`);
+    for (const model of options.models) {
+      const { messages: _messages, ...settings } = requestFor(
+        FIXTURES[0],
+        model,
+      );
+      console.log(`request settings for ${model}: ${JSON.stringify(settings)}`);
+    }
     return 0;
   }
   const accountId = env.CLOUDFLARE_ACCOUNT_ID,
@@ -154,7 +164,7 @@ export async function main(argv, env) {
   }
   for (const model of options.models)
     for (const fixture of FIXTURES) {
-      const request = requestFor(fixture);
+      const request = requestFor(fixture, model);
       report(
         model,
         fixture,

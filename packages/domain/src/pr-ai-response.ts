@@ -4,6 +4,9 @@ export type WorkersAiResult = {
   text: string;
   /** Null when the response carried no token counts. */
   usage: TokenUsage | null;
+  /** Cloudflare's own cost for the call, when the response reports it. */
+  neurons: number | null;
+  finishReason: string | null;
   /** True when the response exposed reasoning separately from the answer. */
   reasoningFields: boolean;
 };
@@ -53,6 +56,11 @@ export function parseWorkersAiResult(result: unknown): WorkersAiResult {
     usage:
       promptTokens !== null && completionTokens !== null
         ? { promptTokens, completionTokens }
+        : null,
+    neurons: count(usageBody?.neurons),
+    finishReason:
+      choice && typeof choice.finish_reason === "string"
+        ? choice.finish_reason
         : null,
     reasoningFields: Boolean(
       message && (message.reasoning_content || message.reasoning),

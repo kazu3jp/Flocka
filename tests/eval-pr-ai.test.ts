@@ -47,6 +47,6 @@ test("eval tool arguments and requests", () => {
   assert.throws(() => parseArgs(["--nope"]));
   assert.equal(FIXTURES.length, 3);
   const request = requestFor(FIXTURES[0]);
-  assert.equal(request.max_completion_tokens, 900);
+  assert.equal(request.max_completion_tokens, 600);
   assert.equal(request.messages.length, 2);
 });

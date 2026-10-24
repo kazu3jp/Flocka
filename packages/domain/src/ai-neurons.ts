@@ -46,3 +46,17 @@ export function reserveNeurons(
     }),
   );
 }
+
+/**
+ * Extra request fields, per model, that were verified against the real API.
+ * gemma-4 thinks by default and then spends the whole token budget on
+ * reasoning (empty answer); this switches that off. Other models get nothing,
+ * because their parameters have not been verified.
+ */
+export const MODEL_REQUEST_EXTRAS: Record<string, Record<string, unknown>> = {
+  "@cf/google/gemma-4-26b-a4b-it": {
+    chat_template_kwargs: { enable_thinking: false },
+  },
+};
+export const requestExtrasFor = (model: string): Record<string, unknown> =>
+  Object.hasOwn(MODEL_REQUEST_EXTRAS, model) ? MODEL_REQUEST_EXTRAS[model] : {};

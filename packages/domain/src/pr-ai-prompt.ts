@@ -1,9 +1,10 @@
 import { CARDS } from "./catalog";
+import { requestExtrasFor } from "./ai-neurons";
 
 /** Hard server-side ceilings. The prompt asks for less than the validator allows. */
-export const PR_AI_TARGET_CHARACTERS = 400;
+export const PR_AI_TARGET_CHARACTERS = 300;
 export const PR_AI_MAX_CHARACTERS = 500;
-export const PR_AI_MAX_COMPLETION_TOKENS = 900;
+export const PR_AI_MAX_COMPLETION_TOKENS = 600;
 export const PR_AI_TEMPERATURE = 0.4;
 export const PR_AI_MAX_TESTIMONIES = 3;
 
@@ -16,10 +17,10 @@ const SYSTEM_PROMPT = `あなたは、学生や若手の自己PRの下書きを�
 
 守ること:
 - 日本語で、本人が話す自己PRとして、一人称（私）・です・ます調で書く。
-- ${PR_AI_TARGET_CHARACTERS}文字以内、1〜3段落。
+- ${PR_AI_TARGET_CHARACTERS}文字以内、2段落まで。短く簡潔に書く。
 - 引用の中にある内容だけを使う。経験、成果、数字、固有名詞、役職、期間、感想などを足さない。
 - 引用を少なくとも1つ、「」で囲み、一字一句そのまま使う。言い換えた部分を「」に入れない。
-- 引用の外では、引用に書かれていない事実を主張しない。
+- 引用の外では、引用に書かれていない事実を主張しない。引用にない評価の言葉や修飾（「迅速に」「単に〜だけでなく」「誰よりも」など）も足さず、本人の心がけや姿勢（「大切にしています」など）も書かない。引用の言い換えと「という声をもらいました」のような橋渡しだけにする。
 - 見出し、箇条書き、Markdown、HTML、URL、絵文字、前置きや説明は書かない。自己PRの本文だけを出力する。`;
 
 /** Testimonies are numbered quotes inside one tag. Tags in the text are neutralised. */
@@ -45,3 +46,18 @@ export function buildPRAiMessages(
 
 export const promptCharacters = (messages: PRAiMessage[]) =>
   messages.reduce((total, message) => total + message.content.length, 0);
+
+/** The exact request body for one model. The server and the eval tool both use it. */
+export const buildPRAiRequest = (
+  model: string,
+  messages: PRAiMessage[],
+): Record<string, unknown> & {
+  messages: PRAiMessage[];
+  max_completion_tokens: number;
+  temperature: number;
+} => ({
+  messages,
+  max_completion_tokens: PR_AI_MAX_COMPLETION_TOKENS,
+  temperature: PR_AI_TEMPERATURE,
+  ...requestExtrasFor(model),
+});

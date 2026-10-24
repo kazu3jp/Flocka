@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildPRAiMessages,
+  buildPRAiRequest,
+  requestExtrasFor,
   DEFAULT_PR_AI_MODEL,
   estimateNeurons,
   NEURON_RATES,
@@ -145,6 +147,37 @@ test("neuron estimates follow the one rate table", () => {
   });
   assert.deepEqual(neuronRateFor("constructor" as string), neuronRateFor("x"));
   assert.ok(Object.keys(NEURON_RATES).length >= 4);
-  // The reservation is an upper bound for a typical call.
-  assert.ok(reserveNeurons(DEFAULT_PR_AI_MODEL, 2000, 900) >= 32);
+  // The reservation is far above the measured cost (about 5-6) of a typical call.
+  assert.ok(reserveNeurons(DEFAULT_PR_AI_MODEL, 800, 600) >= 20);
+});
+
+test("request extras exist only for models verified against the real API", () => {
+  const messages = buildPRAiMessages("bridge", [
+    { id: "a", text: sources[0] },
+    { id: "b", text: sources[1] },
+  ]);
+  assert.deepEqual(requestExtrasFor(DEFAULT_PR_AI_MODEL), {
+    chat_template_kwargs: { enable_thinking: false },
+  });
+  const gemma = buildPRAiRequest(DEFAULT_PR_AI_MODEL, messages);
+  assert.deepEqual(gemma.chat_template_kwargs, { enable_thinking: false });
+  assert.equal(gemma.max_completion_tokens, 600);
+  for (const model of ["@cf/qwen/qwen3-30b-a3b-fp8", "@cf/other/unknown"])
+    assert.ok(!("chat_template_kwargs" in buildPRAiRequest(model, messages)));
+});
+
+test("response parser reads Cloudflare's reported neurons and finish reason", () => {
+  const parsed = parseWorkersAiResult({
+    choices: [
+      {
+        finish_reason: "length",
+        message: { content: "", reasoning: "考え中" },
+      },
+    ],
+    usage: { prompt_tokens: 400, completion_tokens: 600, neurons: 8.5 },
+  });
+  assert.equal(parsed.neurons, 8.5);
+  assert.equal(parsed.finishReason, "length");
+  assert.equal(parsed.text, "");
+  assert.equal(parsed.reasoningFields, true);
 });

@@ -71,7 +71,11 @@ test("AI draft: evidence comes from D1, output is validated, and it saves as a d
       messages: { role: string; content: string }[];
       max_completion_tokens: number;
     };
-    assert.equal(sent.max_completion_tokens, 900);
+    assert.equal(sent.max_completion_tokens, 600);
+    assert.deepEqual(
+      (sent as { chat_template_kwargs?: unknown }).chat_template_kwargs,
+      { enable_thinking: false },
+    );
     assert.match(sent.messages[1].content, /<quote n="1">/);
     for (const words of GIVER_WORDS)
       assert.ok(sent.messages[1].content.includes(words));
@@ -163,7 +167,43 @@ test("AI draft never returns text for rejected, failed or timed-out calls", asyn
     });
     await owner.api.generatePRDraftWithAI("bridge");
     const after = (await usage(f)).day!.neurons;
-    assert.ok(after - before >= 30, `kept reservation, got ${after - before}`);
+    assert.ok(after - before >= 20, `kept reservation, got ${after - before}`);
+
+    await f.db.prepare("UPDATE ai_usage_accounts SET calls = 0").run();
+    // Cloudflare's own neuron figure wins over tokens x table.
+    f.ai.script = (inputs) => ({
+      result: {
+        ...goodAiResult(inputs),
+        usage: { prompt_tokens: 400, completion_tokens: 60, neurons: 5.5 },
+      },
+    });
+    const beforeReported = (await usage(f)).day!.neurons;
+    await owner.api.generatePRDraftWithAI("bridge");
+    assert.ok(
+      Math.abs((await usage(f)).day!.neurons - beforeReported - 5.5) < 0.001,
+    );
+
+    // Reasoning used every token: no content, so no draft, but the cost is settled.
+    f.ai.script = () => ({
+      result: {
+        choices: [
+          {
+            finish_reason: "length",
+            message: { content: "", reasoning_content: "まず証言を整理する…" },
+          },
+        ],
+        usage: { prompt_tokens: 400, completion_tokens: 600, neurons: 8 },
+      },
+    });
+    const beforeLength = (await usage(f)).day!.neurons;
+    await failsWith(
+      owner.api.generatePRDraftWithAI("bridge"),
+      502,
+      "AI_OUTPUT_REJECTED",
+    );
+    assert.ok(
+      Math.abs((await usage(f)).day!.neurons - beforeLength - 8) < 0.001,
+    );
 
     // Legacy response shape.
     f.ai.script = (inputs) => ({
@@ -260,10 +300,10 @@ test("global budget is reserved atomically and concurrent calls cannot overshoot
   const f = await createAuthRuntime();
   try {
     const { owner } = await confirmedOwner(f);
-    // Leave room for exactly one reservation (about 33 Neurons each).
+    // Leave room for exactly one reservation (about 25 Neurons each).
     await f.db
       .prepare(
-        "INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, 8950, 0)",
+        "INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, 8970, 0)",
       )
       .bind(today())
       .run();
