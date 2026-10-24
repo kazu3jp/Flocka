@@ -8,12 +8,14 @@ import {
   C,
   F,
   Header,
+  LAYOUT,
   LinkButton,
   Panel,
   S,
   T,
 } from "../../components/ui";
 import { VIBE_CARD, summarize } from "@flocka/domain";
+import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
 import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
@@ -118,7 +120,7 @@ export function Give({ cid }: { cid: string }) {
               <ImpressionLabel label={sent?.label ?? ""} />
             </View>
           </Panel>
-          <Panel style={{ padding: 14 }}>
+          <Panel style={{ padding: LAYOUT.panelPaddingCompact }}>
             <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
               交換した場所・きっかけ
             </T>
@@ -128,10 +130,16 @@ export function Give({ cid }: { cid: string }) {
               {c.context.trigger || "きっかけは未記入"}
             </T>
           </Panel>
-          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
-            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
-            に印象を贈りました
-          </T>
+          <PopIn>
+            <T
+              display
+              size={20}
+              style={{ textAlign: "center", lineHeight: 28 }}
+            >
+              {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+              に印象を贈りました
+            </T>
+          </PopIn>
           <T
             size={12.5}
             color={C.pale}

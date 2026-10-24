@@ -7,6 +7,7 @@ import {
   Choice,
   F,
   Header,
+  LAYOUT,
   Panel,
   S,
   StrengthCard,
@@ -58,7 +59,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         {explanation}
       </T>
       {showResponse && (
-        <Panel style={{ padding: 14, gap: 8 }}>
+        <Panel style={{ padding: LAYOUT.panelPaddingCompact, gap: 8 }}>
           <T
             size={16}
             color={C.ink}
@@ -80,12 +81,12 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
                 key={response}
                 selected={s.resp[cardKey] === response}
                 label={label}
+                selectedColor={C.pink}
                 style={{
                   flex: 1,
                   minHeight: 48,
                   borderWidth: 2.5,
-                  backgroundColor:
-                    s.resp[cardKey] === response ? C.pink : C.paper,
+                  alignItems: "center",
                 }}
                 onPress={() =>
                   update((state) => {
@@ -137,7 +138,9 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
             key={piece.id}
             onPress={() => nav.push("piece", { id: piece.id })}
           >
-            <Panel style={{ padding: 14, borderRadius: 14 }}>
+            <Panel
+              style={{ padding: LAYOUT.panelPaddingCompact, borderRadius: 14 }}
+            >
               <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
                 {name}
                 {connection?.context.place

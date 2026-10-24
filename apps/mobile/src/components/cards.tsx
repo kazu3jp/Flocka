@@ -4,7 +4,6 @@ import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
 import React, { memo, useId, useMemo, useState } from "react";
 import {
-  Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -25,6 +24,7 @@ import Svg, {
 import { ART_COLORS, type Card } from "@flocka/domain";
 import { C, F, S } from "./theme";
 import { T } from "./text";
+import { SquishPressable } from "./motion";
 
 /** Burst wedges alternate with gaps, so one path with 20 subpaths fills the same area. */
 function burstRaysPath(cx: number, cy: number, radius: number) {
@@ -579,20 +579,17 @@ export const StrengthCard = memo(function StrengthCard({
         : `3px 3px 0 ${C.ink}`,
   };
   return onPress ? (
-    <Pressable
+    <SquishPressable
       testID={`strength-card-${card.key}`}
+      pressScale={0.97}
       accessibilityRole="button"
       accessibilityLabel={`${card.name}・${status}`}
       onPress={onPress}
       onLayout={measureCard}
-      style={({ pressed }) => [
-        container,
-        pressed && { transform: [{ translateY: -2 }, { rotate: "-.6deg" }] },
-        style,
-      ]}
+      style={[container, style]}
     >
       {inner}
-    </Pressable>
+    </SquishPressable>
   ) : (
     <View
       testID={`strength-card-${card.key}`}

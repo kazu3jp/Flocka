@@ -10,9 +10,11 @@ import {
   C,
   F,
   Icon,
+  LAYOUT,
   LinkButton,
   S,
   Sheet,
+  SP,
   T,
 } from "../../components/ui";
 import { API_URL, assertAuthResult, getAuthClient } from "./client";
@@ -246,11 +248,11 @@ export function AuthScreen({
       footer={
         <View
           style={{
-            paddingHorizontal: 14,
-            paddingTop: 12,
-            paddingBottom: 14,
+            paddingHorizontal: LAYOUT.screenPadding,
+            paddingTop: SP.md,
+            paddingBottom: LAYOUT.screenPadding,
             gap: 6,
-            marginHorizontal: view === "welcome" ? 0 : 14,
+            marginHorizontal: view === "welcome" ? 0 : LAYOUT.screenPadding,
             ...(view !== "welcome" && {
               paddingHorizontal: 0,
               borderTopWidth: 2,

@@ -41,17 +41,51 @@ export const F = Platform.select({
   },
 });
 
+/** Spacing scale on a 4pt grid, for padding, margins and gaps. */
+export const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
+
+/**
+ * Named layout measurements. The original design lays screens out on 14pt
+ * page padding and 10/12pt block gaps, and the layout tests compare against
+ * those boxes, so these keep the source values instead of rounding to SP.
+ */
+export const LAYOUT = {
+  /** Horizontal padding of every screen's content. */
+  screenPadding: 14,
+  /** Gap between blocks of a fixed (non-scrolling) screen and of forms. */
+  blockGap: 10,
+  /** Gap between blocks of a scrolling screen and of list rows. */
+  sectionGap: 12,
+  headerHeight: 48,
+  compactHeaderHeight: 44,
+  /** Smallest tappable height or width. */
+  touchTarget: 44,
+  tabItemHeight: 52,
+  panelPadding: 16,
+  panelPaddingCompact: 14,
+  sheetPaddingX: 18,
+  sheetPaddingTop: 10,
+  sheetPaddingBottom: 22,
+  sheetGap: 14,
+  /** Distance of floating banners from the screen sides. */
+  toastInset: 12,
+} as const;
+
 export const S = StyleSheet.create({
   fill: { flex: 1 },
-  row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  gap: { gap: 12 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: LAYOUT.blockGap,
+  },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: SP.sm },
+  gap: { gap: LAYOUT.sectionGap },
   panel: {
     backgroundColor: C.paper,
     borderWidth: 2.5,
     borderColor: C.ink,
     borderRadius: 16,
-    padding: 16,
+    padding: LAYOUT.panelPadding,
     boxShadow: `4px 4px 0 ${C.ink}`,
   },
   h1: { fontFamily: F.display, fontSize: 26, lineHeight: 38, color: C.white },
@@ -71,13 +105,13 @@ export const S = StyleSheet.create({
     borderColor: C.ink,
     borderRadius: 12,
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: LAYOUT.blockGap },
   choice: {
     borderRadius: 12,
     borderWidth: 2,
     borderColor: C.ink,
-    padding: 10,
-    minHeight: 44,
+    padding: LAYOUT.blockGap,
+    minHeight: LAYOUT.touchTarget,
     justifyContent: "center",
     backgroundColor: C.paper,
   },

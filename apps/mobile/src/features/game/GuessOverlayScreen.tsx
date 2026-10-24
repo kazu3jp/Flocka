@@ -33,6 +33,7 @@ import {
   type State,
 } from "@flocka/domain";
 import { useSheetFeedback } from "../../components/feedback";
+import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
 import { hapticSuccess } from "../haptics/haptics";
 
@@ -239,14 +240,16 @@ function GuessContent({ id }: { id: string }) {
               )}
             </Panel>
             <View style={[S.row, { justifyContent: "center" }]}>
-              <T
-                display
-                size={28}
-                color={C.yellow}
-                style={{ transform: [{ rotate: "-7deg" }] }}
-              >
-                {openingResult(guess, p.card, s.self.includes(p.card))}
-              </T>
+              <PopIn>
+                <T
+                  display
+                  size={28}
+                  color={C.yellow}
+                  style={{ transform: [{ rotate: "-7deg" }] }}
+                >
+                  {openingResult(guess, p.card, s.self.includes(p.card))}
+                </T>
+              </PopIn>
               {guess && guess !== p.card && Object.hasOwn(CARDS, guess) && (
                 <T size={13}>予想：{CARDS[guess].name}</T>
               )}
@@ -256,11 +259,17 @@ function GuessContent({ id }: { id: string }) {
               card={after}
               style={{ height: 300, width: 230, alignSelf: "center" }}
             />
-            <T display size={18} style={{ textAlign: "center" }}>
-              {became
-                ? "2人目の証言で、確認済みに！"
-                : `「${CARDS[p.card].name}」に証言+1`}
-            </T>
+            {became ? (
+              <PopIn>
+                <T display size={18} style={{ textAlign: "center" }}>
+                  2人目の証言で、確認済みに！
+                </T>
+              </PopIn>
+            ) : (
+              <T display size={18} style={{ textAlign: "center" }}>
+                {`「${CARDS[p.card].name}」に証言+1`}
+              </T>
+            )}
           </>
         )}
       </ScrollView>

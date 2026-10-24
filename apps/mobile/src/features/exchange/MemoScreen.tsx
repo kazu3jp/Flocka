@@ -10,6 +10,7 @@ import {
   MemoStory,
   MemoStrengths,
 } from "./memo-controls";
+import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
 import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
@@ -105,9 +106,15 @@ export function Memo() {
               「{receipt.story}」
             </T>
           </Panel>
-          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
-            封筒で贈りました
-          </T>
+          <PopIn>
+            <T
+              display
+              size={20}
+              style={{ textAlign: "center", lineHeight: 28 }}
+            >
+              封筒で贈りました
+            </T>
+          </PopIn>
           <T
             size={12.5}
             color={C.pale}

@@ -1,5 +1,4 @@
 import React from "react";
-import { View } from "react-native";
 import {
   Board,
   BoardList,
@@ -9,6 +8,7 @@ import {
   StrengthCard,
   T,
 } from "../../components/ui";
+import { StaggerItem } from "../../components/motion";
 import { useApp } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 
@@ -35,8 +35,13 @@ export function Collection() {
             </T>
           </Panel>
         }
-        renderItem={({ item }) => (
-          <View style={{ flex: 1, height: 220 }}>
+        renderItem={({ item, index }) => (
+          // minWidth 0 lets a cell shrink below its card's content width on the web.
+          <StaggerItem
+            itemKey={`collection:${item?.key ?? "empty"}`}
+            index={index}
+            style={{ flex: 1, minWidth: 0, height: 220 }}
+          >
             {item && (
               <StrengthCard
                 card={item}
@@ -44,7 +49,7 @@ export function Collection() {
                 onPress={() => nav.push("card", { key: item.key })}
               />
             )}
-          </View>
+          </StaggerItem>
         )}
       />
     </Board>
