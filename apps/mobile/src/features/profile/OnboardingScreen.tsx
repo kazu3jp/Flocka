@@ -169,11 +169,11 @@ export function Onboarding() {
           <LegalDocument title={legal} />
         </Sheet>
       )}
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {error}
         </T>
-      )}
+      ) : null}
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
           <Pressable

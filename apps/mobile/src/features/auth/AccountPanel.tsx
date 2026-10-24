@@ -46,7 +46,7 @@ export function AccountPanel() {
           <T size={13}>
             この端末のログイン状態を解除します。保存したデータは同じアカウントでログインすると開けます。
           </T>
-          {error && <T color={C.danger}>{error}</T>}
+          {error ? <T color={C.danger}>{error}</T> : null}
           <Btn
             plain
             label="やめる"

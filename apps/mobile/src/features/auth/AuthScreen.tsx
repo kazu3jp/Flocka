@@ -21,6 +21,7 @@ import {
 import { API_URL, assertAuthResult, getAuthClient } from "./client";
 import { SessionStatus, useAuth } from "./provider";
 import { WelcomeTour } from "./WelcomeTour";
+import { markFreshSignIn } from "./fresh-sign-in";
 import { useBackStep } from "../navigation/use-back-step";
 import {
   PasswordField,
@@ -60,6 +61,8 @@ export function AuthScreen({
     [providers, setProviders] = useState<string[]>([]);
   const mounted = useRef(true),
     running = useRef(false);
+  // Whoever signs in from this screen starts on the home screen.
+  useEffect(() => markFreshSignIn(), []);
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
@@ -487,11 +490,11 @@ export function AuthScreen({
         </>
       )}
       <InlineError text={error} size={13} />
-      {notice && (
+      {notice ? (
         <T accessibilityLiveRegion="polite" color={C.pale} size={13}>
           {notice}
         </T>
-      )}
+      ) : null}
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
           <LegalDocument title={legal} />

@@ -206,19 +206,19 @@ export function Connections() {
           onPress={() => nav.push("memo")}
         />
       )}
-      {removal.selectedId && (
+      {removal.selectedId ? (
         <Sheet title="交換を解除しますか？" onClose={removal.close}>
           <T size={14} color={C.muted} style={{ lineHeight: 22.4 }}>
             届いた証言は消えません。
           </T>
-          {removal.error && (
+          {removal.error ? (
             <T color={C.danger} accessibilityRole="alert">
               {removal.acknowledged
                 ? "解除は完了しました。最新データの取得に失敗しました。"
                 : ""}
               {removal.error}
             </T>
-          )}
+          ) : null}
           <View style={[S.row, { marginTop: 2 }]}>
             <Btn
               plain
@@ -237,7 +237,7 @@ export function Connections() {
             />
           </View>
         </Sheet>
-      )}
+      ) : null}
     </Board>
   );
 }

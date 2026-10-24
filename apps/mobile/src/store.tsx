@@ -1,7 +1,13 @@
 import { createUndoAction } from "./features/sync/undo-action";
+import { consumeFreshSignIn } from "./features/auth/fresh-sign-in";
 import { keepIfSame } from "./features/sync/same-data";
 import { forEachWithLimit } from "./features/sync/limited-concurrency";
 import { userFacingError } from "./features/sync/user-facing-error";
+import {
+  createSaveRetry,
+  saveStateOf,
+  type SaveState,
+} from "./features/sync/save-retry";
 import {
   useNotificationResponse,
   type NoticeKind,
@@ -61,6 +67,8 @@ export const routeFor = (entry: Entry): Href => ({
   pathname: "/[page]",
   params: { page: entry.id, ...entry.params },
 });
+const STORAGE_SAVE_ERROR =
+  "端末へ保存できませんでした。空き容量を確認して、もう一度お試しください";
 const CONFLICT_MESSAGE =
   "別の端末で更新されています。編集を比較して選択してください";
 const DELETING_CLEANUP_FAILED =
@@ -123,6 +131,10 @@ type ContextValue = {
 /** Status that changes on its own timer, kept apart so screens do not redraw with it. */
 type StatusValue = {
   syncing: boolean;
+  saveState: SaveState;
+  /** Failed because two devices edited at once: waiting for the user, not retrying. */
+  savePaused: boolean;
+  retrySave: () => void;
   notification: Toast | null;
   dismissToast: () => void;
 };
@@ -164,6 +176,10 @@ export function Provider({
     [saveError, setSaveError] = useState<string | null>(null),
     [syncError, setSyncError] = useState<string | null>(null),
     [syncing, setSyncing] = useState(false),
+    [savingPreferences, setSavingPreferences] = useState(false),
+    [savedJson, setSavedJson] = useState(() =>
+      JSON.stringify(preferencesOf(fresh())),
+    ),
     [peers, setPeers] = useState<Record<string, RemotePlayer>>({}),
     [isAdmin, setIsAdmin] = useState(false),
     [preferenceConflict, setPreferenceConflict] = useState<{
@@ -235,6 +251,11 @@ export function Provider({
       action ? 5000 : 2600,
     );
   }, []);
+  /** Records what the server holds and tells the status that "unsaved" may have changed. */
+  const markSaved = useCallback((json: string) => {
+    savedPreferences.current = json;
+    setSavedJson(json);
+  }, []);
   const synchronize = useCallback(async () => {
     const snapshot = await api.getSnapshot();
     if (!mounted.current) return;
@@ -299,7 +320,7 @@ export function Provider({
       setSaveError(CONFLICT_MESSAGE);
     } else prefsRevision.current = snapshot.preferences.revision;
     if (!dirty) {
-      savedPreferences.current = JSON.stringify(snapshot.preferences.data);
+      markSaved(JSON.stringify(snapshot.preferences.data));
       // Nothing is left to compare once local edits match the server copy.
       if (preferenceConflictRef.current) {
         preferenceConflictRef.current = null;
@@ -317,7 +338,7 @@ export function Provider({
     );
     setPeers((current) => keepIfSame(current, nextPeers));
     setIsAdmin(snapshot.isAdmin);
-  }, [api]);
+  }, [api, markSaved]);
   const refresh = useCallback(() => {
     const task = syncQueue.current
       .catch(() => {})
@@ -391,7 +412,7 @@ export function Provider({
       cachedPreferences.current = null;
       if (!mounted.current) return;
       prefsRevision.current = saved.revision;
-      savedPreferences.current = JSON.stringify(saved.data);
+      markSaved(JSON.stringify(saved.data));
       stateRef.current = withPreferences(stateRef.current, saved.data);
       setS(stateRef.current);
       setSaveError(null);
@@ -417,7 +438,7 @@ export function Provider({
           "この端末に残っていた設定をサーバーへ保存できませんでした。表示中の内容はサーバーのものです",
         );
     }
-  }, [api, synchronize, toast]);
+  }, [api, markSaved, synchronize, toast]);
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -432,7 +453,11 @@ export function Provider({
         // An unreadable cache starts fresh because the server holds the real data.
         const cached = restoreCachedState(raw);
         stateRef.current = fresh();
-        navRef.current = restoreCachedNav(rawNav);
+        // A sign-in starts on the home screen; a relaunch restores the last one.
+        navRef.current =
+          storageScope !== "signed-out" && consumeFreshSignIn()
+            ? initNav()
+            : restoreCachedNav(rawNav);
         setN(navRef.current);
         if (storageScope !== "signed-out") {
           let registered = true;
@@ -522,10 +547,7 @@ export function Provider({
       .then(() => AsyncStorage.multiSet(entries))
       .catch(() => {
         // Storage errors carry native details; the user only needs what to do next.
-        if (mounted.current)
-          setSaveError(
-            "端末へ保存できませんでした。空き容量を確認して、もう一度お試しください",
-          );
+        if (mounted.current) setSaveError(STORAGE_SAVE_ERROR);
       });
   }, []);
   /** The state and the last server-confirmed preferences, so unsaved edits survive a sign-out. */
@@ -583,11 +605,12 @@ export function Provider({
           return;
         // Saving over an unresolved conflict would overwrite the other device's edit.
         if (preferenceConflictRef.current) throw new Error(CONFLICT_MESSAGE);
+        setSavingPreferences(true);
         try {
           const saved = await api.savePreferences(data, prefsRevision.current);
           if (!mounted.current) return;
           prefsRevision.current = saved.revision;
-          savedPreferences.current = json;
+          markSaved(json);
           // Newer local edits supersede preferences cached before sign-in.
           cachedPreferences.current = null;
           setSaveError(null);
@@ -602,11 +625,13 @@ export function Provider({
             await synchronize().catch(() => {});
           }
           throw error;
+        } finally {
+          if (mounted.current) setSavingPreferences(false);
         }
       });
     syncQueue.current = task;
     return task;
-  }, [api, synchronize, writeStateNow]);
+  }, [api, markSaved, synchronize, writeStateNow]);
   const resolvePreferences = useCallback(
     (choice: "server" | "local") => {
       // A second tap while saving joins the running resolution instead of saving twice.
@@ -620,13 +645,13 @@ export function Provider({
             stateRef.current = withPreferences(stateRef.current, conflict.data);
             setS(stateRef.current);
             prefsRevision.current = conflict.revision;
-            savedPreferences.current = JSON.stringify(conflict.data);
+            markSaved(JSON.stringify(conflict.data));
           } else {
             const data = preferencesOf(stateRef.current);
             try {
               const saved = await api.savePreferences(data, conflict.revision);
               prefsRevision.current = saved.revision;
-              savedPreferences.current = JSON.stringify(data);
+              markSaved(JSON.stringify(data));
             } catch (error) {
               if (error instanceof ApiClientError && error.status === 409)
                 // The server changed again; refresh the comparison before the next choice.
@@ -648,7 +673,7 @@ export function Provider({
       syncQueue.current = task;
       return task;
     },
-    [api, synchronize],
+    [api, markSaved, synchronize],
   );
   const derived = useMemo(() => derive(s), [s]);
   const preferencesJson = useMemo(() => JSON.stringify(preferencesOf(s)), [s]);
@@ -836,14 +861,73 @@ export function Provider({
       });
     });
   }, [auth, clearDeletedAccount, sessionFailures]);
-  const retrySave = useCallback(() => {
-    persist();
-    if (cachedPreferences.current)
+  /** Sends everything still unsaved; true once the server holds all of it. */
+  const attemptSave = useCallback(async () => {
+    if (cachedPreferences.current) {
       syncQueue.current = syncQueue.current
         .catch(() => {})
         .then(uploadCachedPreferences);
-    void flushPreferences().catch(() => {});
-  }, [flushPreferences, persist, uploadCachedPreferences]);
+      await syncQueue.current;
+    }
+    await flushPreferences().catch(() => {});
+    const nothingLeft =
+      !cachedPreferences.current &&
+      JSON.stringify(preferencesOf(stateRef.current)) ===
+        savedPreferences.current;
+    // A device-storage error is not fixed by reaching the server.
+    if (nothingLeft && mounted.current)
+      setSaveError((current) =>
+        current === STORAGE_SAVE_ERROR ? current : null,
+      );
+    return nothingLeft;
+  }, [flushPreferences, uploadCachedPreferences]);
+  const retrySave = useCallback(() => {
+    persist();
+    void attemptSave();
+  }, [attemptSave, persist]);
+  // A failed save is retried by itself with growing waits (5, 10, 20, then 30 s).
+  const retryNow = useRef<(() => void) | null>(null);
+  const waitingForChoice = preferenceConflict !== null;
+  const serverSaveFailed =
+    saveError !== null && saveError !== STORAGE_SAVE_ERROR;
+  useEffect(() => {
+    if (
+      !ready ||
+      !s.onboarded ||
+      storageScope === "signed-out" ||
+      !serverSaveFailed ||
+      waitingForChoice
+    )
+      return;
+    const retry = createSaveRetry({
+      clock: {
+        setTimeout: (run, ms) => setTimeout(run, ms),
+        clearTimeout: (handle) =>
+          clearTimeout(handle as ReturnType<typeof setTimeout>),
+      },
+      attempt: attemptSave,
+    });
+    retry.start();
+    retryNow.current = retry.retryNow;
+    return () => {
+      retryNow.current = null;
+      retry.stop();
+    };
+  }, [
+    ready,
+    s.onboarded,
+    storageScope,
+    serverSaveFailed,
+    waitingForChoice,
+    attemptSave,
+  ]);
+  useEffect(() => {
+    // Coming back to the app is the likeliest moment the connection is back.
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") retryNow.current?.();
+    });
+    return () => listener.remove();
+  }, []);
   const dismissToast = useCallback(() => setNotification(null), []);
   const value = useMemo<ContextValue>(
     () => ({
@@ -898,9 +982,29 @@ export function Provider({
       offerUndo,
     ],
   );
+  const unsaved = s.onboarded && preferencesJson !== savedJson;
+  const saveState = saveStateOf({
+    failed: serverSaveFailed,
+    saving: savingPreferences,
+    unsaved,
+  });
   const status = useMemo<StatusValue>(
-    () => ({ syncing, notification, dismissToast }),
-    [syncing, notification, dismissToast],
+    () => ({
+      syncing,
+      saveState,
+      savePaused: waitingForChoice,
+      retrySave,
+      notification,
+      dismissToast,
+    }),
+    [
+      syncing,
+      saveState,
+      waitingForChoice,
+      retrySave,
+      notification,
+      dismissToast,
+    ],
   );
   return (
     <Context.Provider value={value}>

@@ -164,11 +164,11 @@ export function Settings() {
                       ? "対応なし"
                       : "確認済み"}
             </T>
-            {r.resolution && (
+            {r.resolution ? (
               <T color={C.muted} size={13}>
                 {r.resolution}
               </T>
-            )}
+            ) : null}
             {!r.withdrawn && r.status === "pending" && (
               <LinkButton
                 color={C.ink}
