@@ -12,7 +12,10 @@
     "ALLOWED_ORIGINS": "https://api.flocka.zofax.net",
     "BETTER_AUTH_URL": "https://api.flocka.zofax.net",
     "RESEND_FROM": "Flocka <no-reply@flocka.zofax.net>",
+    // Workers AI model for self-PR drafts. Rates live in packages/domain/src/ai-neurons.ts.
+    "PR_AI_MODEL": "@cf/google/gemma-4-26b-a4b-it",
   },
+  "ai": { "binding": "AI" },
   "routes": [{ "pattern": "api.flocka.zofax.net", "custom_domain": true }],
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [

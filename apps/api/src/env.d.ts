@@ -8,4 +8,6 @@ interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   APPLE_CLIENT_ID?: string;
   APPLE_CLIENT_SECRET?: string;
+  /** Overrides the 25 second model deadline. Only tests set it. */
+  PR_AI_TIMEOUT_MS?: string;
 }

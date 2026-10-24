@@ -9,6 +9,7 @@ import { ApiError, type ApiContext } from "./http";
 import { accountRoutes } from "./routes/accounts";
 import { avatarRoutes } from "./routes/avatars";
 import { exchangeRoutes } from "./routes/exchanges";
+import { prAiRoutes } from "./routes/pr-ai";
 import { testimonyRoutes } from "./routes/testimonies";
 import { adminRoutes } from "./routes/admin";
 import { deviceRoutes } from "./routes/devices";
@@ -82,6 +83,7 @@ app.route("/v1", deviceRoutes);
 app.route("/v1", avatarRoutes);
 app.route("/v1", exchangeRoutes);
 app.route("/v1", testimonyRoutes);
+app.route("/v1", prAiRoutes);
 app.notFound((c) =>
   c.json(
     {
