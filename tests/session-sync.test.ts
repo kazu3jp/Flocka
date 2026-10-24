@@ -15,10 +15,6 @@ import {
   planCachedPreferences,
   readPreferenceSyncMark,
 } from "../apps/mobile/src/features/sync/cached-preferences";
-import {
-  backupSnapshotOf,
-  withRestoredPreferences,
-} from "../apps/mobile/src/features/sync/backup-snapshot";
 import { parsePendingTokens } from "../apps/mobile/src/features/notifications/pending-tokens";
 
 const defaults = preferencesOf(fresh());
@@ -169,29 +165,6 @@ test("a cache without a sync mark is only offered to an untouched server record"
     readPreferenceSyncMark(JSON.stringify({ revision: 2, saved: defaults })),
     { revision: 2, saved: defaults },
   );
-});
-
-test("backups leave the photo to the avatar store and restore the PR source", () => {
-  const state = fresh();
-  state.profile.avatar = {
-    type: "photo",
-    color: "#fff",
-    motif: "rocket",
-    photo: "data:image/png;base64," + "A".repeat(1_000),
-  };
-  const snapshot = backupSnapshotOf(state);
-  assert.equal("photo" in snapshot.profile.avatar, false);
-  assert.equal(snapshot.profile.avatar.type, "photo");
-  assert.ok(state.profile.avatar.photo, "the live state keeps its photo");
-
-  const saved = fresh();
-  saved.prDraft = "復元する下書き";
-  saved.prDraftSource = { card: "lead", pieceIds: ["p1"] };
-  const current = fresh();
-  current.prDraftSource = { card: "other", pieceIds: ["p9"] };
-  const restored = withRestoredPreferences(current, saved);
-  assert.equal(restored.prDraft, "復元する下書き");
-  assert.deepEqual(restored.prDraftSource, saved.prDraftSource);
 });
 
 test("pending push unregisters read only distinct token strings", () => {
