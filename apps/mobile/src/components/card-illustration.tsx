@@ -1,9 +1,11 @@
-import { C } from "./theme";
 import { selfClaimColor } from "./card-colors";
-import React, { memo, useEffect, useState, useId, useMemo } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
-import { CachedSvgXml } from "./cached-svg-xml";
+import React, { memo, useEffect, useState, useMemo } from "react";
+import { AccessibilityInfo, Animated, Easing } from "react-native";
+import { DropShadowSvg } from "./drop-shadow-svg";
 import vectors from "../vectors.json";
+
+// The source's drop-shadow(2px 3px 0 ink / .35) on card artwork.
+const ART_SHADOW = { dx: 2, dy: 3, opacity: 0.35 };
 
 /** `artHeight` is the art box the card already measures; this view is 84% of it. */
 export const CardIllustration = memo(function CardIllustration({
@@ -19,20 +21,10 @@ export const CardIllustration = memo(function CardIllustration({
 }) {
   const [progress] = useState(() => new Animated.Value(0));
   const floatDistance = artHeight * 0.84 * 0.05;
-  const instanceId = useId().replace(/:/g, "");
-  // Native SVG roots scope their own filters, so identical artwork can share one parse.
-  const filterId = "artShadow" + (Platform.OS === "web" ? instanceId : "");
   const xml = useMemo(() => {
-    let source = (vectors.cards as Record<string, string>)[cardKey];
-    if (selfOnly) source = source.replace(/#[0-9a-f]{6}/gi, selfClaimColor);
-    return source
-      .replace(
-        /<svg[^>]*>/,
-        (tag) =>
-          `${tag}<defs><filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="2" dy="3" stdDeviation="0" flood-color="${C.ink}" flood-opacity=".35" /></filter></defs><g filter="url(#${filterId})">`,
-      )
-      .replace("</svg>", "</g></svg>");
-  }, [cardKey, selfOnly, filterId]);
+    const source = (vectors.cards as Record<string, string>)[cardKey];
+    return selfOnly ? source.replace(/#[0-9a-f]{6}/gi, selfClaimColor) : source;
+  }, [cardKey, selfOnly]);
   useEffect(() => {
     let active = true,
       loop: Animated.CompositeAnimation | undefined;
@@ -97,7 +89,7 @@ export const CardIllustration = memo(function CardIllustration({
         transform,
       }}
     >
-      <CachedSvgXml xml={xml} width="100%" height="100%" />
+      <DropShadowSvg xml={xml} shadow={ART_SHADOW} />
     </Animated.View>
   );
 });
