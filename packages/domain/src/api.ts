@@ -1,4 +1,5 @@
 import { PR_DRAFT_MAX_LENGTH } from "./limits";
+import { PR_AI_MAX_CHARACTERS } from "./pr-ai-prompt";
 import { decorationSchema } from "./decoration-schema";
 import { z } from "zod";
 import { CARDS } from "./catalog";
@@ -172,7 +173,7 @@ const requestSchema = z.object({
   at: z.string(),
   withdrawn: z.boolean().optional(),
 });
-const prDraftSourceSchema = z
+export const prDraftSourceSchema = z
   .object({
     card: strengthKeySchema,
     pieceIds: z
@@ -325,3 +326,16 @@ export const pendingModerationPageSchema = z.object({
   next: moderationCursorSchema.nullable(),
 });
 export type PendingModeration = z.infer<typeof pendingModerationSchema>;
+
+/** Self-PR draft written by Workers AI from the caller's own confirmed testimonies. */
+export const prAiRequestSchema = z.object({ card: strengthKeySchema });
+export const prAiDraftSchema = z.object({
+  text: z.string().min(1).max(PR_AI_MAX_CHARACTERS),
+  source: z.object({
+    card: strengthKeySchema,
+    pieceIds: z.array(z.string().min(1).max(100)).min(2).max(3),
+  }),
+  model: z.string().min(1).max(100),
+  generatedAt: z.string(),
+});
+export type PRAiDraft = z.infer<typeof prAiDraftSchema>;

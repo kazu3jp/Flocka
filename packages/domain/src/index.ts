@@ -10,3 +10,7 @@ export * from "./legal";
 
 export * from "./pr-document";
 export * from "./limits";
+export * from "./ai-neurons";
+export * from "./pr-ai-prompt";
+export * from "./pr-ai-output";
+export * from "./pr-ai-response";
