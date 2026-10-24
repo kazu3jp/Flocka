@@ -2,7 +2,7 @@
 
 ## 責務
 
-Expoの画面は `apps/mobile/src/features` 内の画面単位のファイルに置きます。表示部品は `components`、端末内の保存とナビゲーションは `store.tsx`、サーバーへの自動保存・再試行・保存状態の表示は `features/sync`（`save-retry.ts`、`SaveStatus.tsx`）に分けています。
+Expoの画面は `apps/mobile/src/features` 内の画面単位のファイルに置きます。表示部品は `components`、端末内の保存とナビゲーションは `store.tsx`、サーバーへの自動保存・再試行は `features/sync`（`save-retry.ts`）に分けています。
 
 共有ロジックは `packages/domain` の `game.ts`、`state.ts`、`exchange.ts`、`navigation.ts`、`types.ts` に分けています。React NativeにもCloudflareにも依存しません。`api.ts` のZodスキーマをWorkersとHTTPクライアントの双方で使います。
 

@@ -1,5 +1,4 @@
 import { AccountPanel } from "../auth/AccountPanel";
-import { SaveStatus } from "../sync/SaveStatus";
 import { View } from "react-native";
 
 import {
@@ -50,7 +49,6 @@ export function Me() {
           }
         />
       ))}
-      <SaveStatus />
       <AccountPanel />
     </Board>
   );
