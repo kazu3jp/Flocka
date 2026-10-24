@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import expo.modules.interfaces.permissions.PermissionsStatus
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.util.UUID
@@ -34,11 +35,20 @@ class FlockaNearbyModule : Module() {
       if (permissions == null) { promise.reject("PERMISSIONS_UNAVAILABLE", "権限サービスを利用できません", null); return@AsyncFunction }
       val required = if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
         else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-      permissions.askForPermissions({ result ->
+      val resolvePermissions = expo.modules.interfaces.permissions.PermissionsResponseListener { result ->
         val denied = result.values.filter { it.status != PermissionsStatus.GRANTED }
         promise.resolve(mapOf("granted" to denied.isEmpty(), "canAskAgain" to denied.all { it.canAskAgain }))
+      }
+      // requestPermissions launches Android's permission activity even for grants
+      // we already have. That pause/resume used to restart the radio endlessly.
+      permissions.getPermissions({ result ->
+        val missing = required.filter { result[it]?.status != PermissionsStatus.GRANTED }
+        if (missing.isEmpty()) resolvePermissions.onResult(result)
+        else permissions.askForPermissions({
+          permissions.getPermissions(resolvePermissions, *required)
+        }, *missing.toTypedArray())
       }, *required)
-    }
+    }.runOnQueue(Queues.MAIN)
     AsyncFunction("start") { code: String, promise: Promise ->
       val context = appContext.reactContext
       if (context == null || !Regex("^[A-Za-z0-9_-]{43}$").matches(code)) { promise.reject("INVALID_CODE", "交換コードまたは端末情報が不正です", null); return@AsyncFunction }

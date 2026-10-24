@@ -31,6 +31,7 @@ import {
   showsNearbyTips,
 } from "./nearby-status";
 import { useSearchedFor } from "./use-searched-for";
+import { createNearbyRadioSession } from "./nearby-radio-session";
 
 /** How long a checked code is trusted before asking the API again. */
 const PREVIEW_TTL_MS = 60_000;
@@ -111,6 +112,29 @@ export function NearbyScreen() {
     if (!focused || !invite || !Nearby) return;
     const bluetooth = Nearby;
     let active = true;
+    const radio = createNearbyRadioSession(
+      {
+        requestPermissions: () => bluetooth.requestPermissions(),
+        start: () => bluetooth.start(invite.code),
+        stop: () => bluetooth.stop(),
+        onStarting: setStarting,
+        onReady: (ready) => {
+          if (ready) {
+            setRadioError(null);
+            setPeerError(null);
+          }
+          setReady(ready);
+        },
+        onDenied: (permissions) =>
+          setRadioError({
+            message: BLUETOOTH_PERMISSION_MESSAGE,
+            settings: permissions.canAskAgain ? undefined : "app",
+          }),
+        onError: (error) =>
+          setRadioError(nearbyRadioError(nativeErrorCode(error))),
+      },
+      AppState.currentState !== "background",
+    );
     // Peers re-advertise continuously; each code is checked with the API once per TTL.
     const previews = new Map<
       string,
@@ -169,51 +193,16 @@ export function NearbyScreen() {
       setPeers({});
     });
     const resumed = bluetooth.addListener("onReady", () => {
-      if (!active) return;
-      setRadioError(null);
-      setPeerError(null);
-      setReady(true);
+      radio.ready();
     });
-    const start = async () => {
-      const permissions = await bluetooth.requestPermissions();
-      if (!active) return;
-      if (!permissions.granted) {
-        setRadioError({
-          message: BLUETOOTH_PERMISSION_MESSAGE,
-          settings: permissions.canAskAgain ? undefined : "app",
-        });
-        return;
-      }
-      await bluetooth.start(invite.code);
-      if (!active) return;
-      setRadioError(null);
-      setReady(true);
-    };
-    const startRadio = () => {
-      setStarting(true);
-      void start()
-        .catch((error: unknown) => {
-          const code = nativeErrorCode(error);
-          // CANCELLED only comes from our own stop() or a newer start().
-          if (active && code !== "CANCELLED")
-            setRadioError(nearbyRadioError(code));
-        })
-        .finally(() => {
-          if (active) setStarting(false);
-        });
-    };
-    startRadio();
-    // Permission alerts and Control Center only make the app "inactive"; stopping there would cancel
-    // the pending start. The radio stops in the background and restarts when the app returns.
-    let stoppedInBackground = false;
+    radio.start();
+    // Android permission activities can report background, even for existing grants.
+    // Keep the permission attempt single-flight; only an actual radio is stopped.
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "background") {
-        stoppedInBackground = true;
-        setReady(false);
-        void bluetooth.stop().catch(() => {});
-      } else if (state === "active" && stoppedInBackground) {
-        stoppedInBackground = false;
-        startRadio();
+        radio.background();
+      } else if (state === "active") {
+        radio.foreground();
       }
     });
     const timer = setInterval(
@@ -239,7 +228,7 @@ export function NearbyScreen() {
       discovered.remove();
       failures.remove();
       resumed.remove();
-      void bluetooth.stop().catch(() => {});
+      radio.dispose();
     };
   }, [api, focused, invite]);
   const peerList = Object.values(peers);
