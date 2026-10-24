@@ -72,3 +72,10 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 - `Sheet` はModal（別ウィンドウ）のため、非表示の画面ではシートを描かない。画面に戻るとシートも戻る。
 - e2eでは、非表示の画面に `testID="hidden-screen"` を付け、`getByText` / `getByTestId` から除外する（`e2e/visual/test.ts`）。`getByRole` は元から非表示の要素を除外する。`persistent-screens.spec.ts` で、戻る・タブ切り替えの後も同じ画面が残っていることを確認する。
 - Fabricの非表示処理（`cloneHiddenInstance`）を使うため、ネイティブ端末での表示と、Profilerによる改善量の計測は未実施。
+## カード絵とシールの影（2026-10-21）
+
+原本のカード絵（`drop-shadow(2px 3px 0 ink / .35)`）とシール（`1px 2px 0 / .3`）の影は、SVGの `feDropShadow` で描いていた。react-native-svgはAndroidでフィルターとグループの不透明度をソフトウェアのビットマップへ描くため、カード絵1枚ごとに画面外の描画が発生していた。
+
+- ネイティブでは、絵をインク色で塗った複製を影の量だけずらして下に敷き、その複製を包むViewの不透明度で薄める（`components/drop-shadow-svg.tsx`）。`needsOffscreenAlphaCompositing` により、AndroidはGPUのレイヤー、iOSはグループ不透明度で合成されるため、図形の重なりが濃くならない。ずらす量はフィルターと同じSVG座標系で指定する。
+- Webは基準画像と一致させるため、従来どおり `feDropShadow` を使う。
+- Chromiumで全33素材（カード絵21、シール12）を描き比べ、フィルターと今回の方式の差が最大1ピクセル（160×160の描画内）であることを確認した。ネイティブ端末での描画と速度の計測は未実施。

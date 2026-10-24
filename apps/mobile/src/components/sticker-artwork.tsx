@@ -1,8 +1,10 @@
-import React, { memo, useId, useMemo } from "react";
-import { Platform } from "react-native";
+import React, { memo } from "react";
 import { CachedSvgXml } from "./cached-svg-xml";
+import { DropShadowSvg } from "./drop-shadow-svg";
 import vectors from "../vectors.json";
-import { C } from "./theme";
+
+// The source's drop-shadow(1px 2px 0 ink / .3) on stickers placed on a card.
+const STICKER_SHADOW = { dx: 1, dy: 2, opacity: 0.3 };
 
 /** Original sticker paths, with the source CSS shadow for stickers placed on a card. */
 export const StickerArtwork = memo(function StickerArtwork({
@@ -12,19 +14,10 @@ export const StickerArtwork = memo(function StickerArtwork({
   stickerKey: string;
   shadow?: boolean;
 }) {
-  const instanceId = useId().replace(/:/g, "");
-  // Native SVG roots scope their own filters, so identical stickers can share one parse.
-  const filterId = "stickerShadow" + (Platform.OS === "web" ? instanceId : "");
-  const xml = useMemo(() => {
-    const source = (vectors.stickers as Record<string, string>)[stickerKey];
-    if (!shadow) return source;
-    return source
-      .replace(
-        /<svg[^>]*>/,
-        (tag) =>
-          `${tag}<defs><filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="1" dy="2" stdDeviation="0" flood-color="${C.ink}" flood-opacity=".3" /></filter></defs><g filter="url(#${filterId})">`,
-      )
-      .replace("</svg>", "</g></svg>");
-  }, [stickerKey, shadow, filterId]);
-  return <CachedSvgXml xml={xml} width="100%" height="100%" />;
+  const xml = (vectors.stickers as Record<string, string>)[stickerKey];
+  return shadow ? (
+    <DropShadowSvg xml={xml} shadow={STICKER_SHADOW} />
+  ) : (
+    <CachedSvgXml xml={xml} width="100%" height="100%" />
+  );
 });
