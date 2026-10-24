@@ -487,11 +487,11 @@ export function AuthScreen({
         </>
       )}
       <InlineError text={error} size={13} />
-      {notice && (
+      {notice ? (
         <T accessibilityLiveRegion="polite" color={C.pale} size={13}>
           {notice}
         </T>
-      )}
+      ) : null}
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
           <LegalDocument title={legal} />
