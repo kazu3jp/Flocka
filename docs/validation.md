@@ -224,11 +224,13 @@ Expo SDK 57の[対応表](https://docs.expo.dev/versions/v57.0.0/)と、React Na
 ## セッション・同期・アカウント操作の修正（2026-10-21）
 
 背景のセッション再確認の失敗で画面を消さない、401/削除処理中への対応、未保存設定の再送とリビジョン照合、バックアップの競合と写真の除外、復元の段階別エラー、削除確定のタイムアウト、ログアウト時の通知解除の保留と再試行、認証429の日本語化、Androidの戻る操作を修正しました。純粋な判定は `tests/session-sync.test.ts` で検証します。`npm run typecheck`、`npm run lint`、`npm test`（55件成功）、`npm run export:web`、`npm run export:native` は成功しました。VRTはWindows環境で実行できないため未実施です。実機・実サーバーでの401、タイムアウト、通知トークン更新の確認は未実施です。
+
 ## 相手情報の共有範囲・書き込み条件・索引（2026-10-21）
 
 [peer-privacy.integration.test.ts](../tests/peer-privacy.integration.test.ts) で、どちらの方向のブロックでも同期・交換取得・写真・公開証言が相手の情報を返さないこと、保留中の交換で写真を返さないこと、解除済みの交換を同期に含めず再解除を409にすること、公開証言が送り主ID・交換ID・予想を含まず閲覧者側のブロックに従うこと、場面のメモの1日5件の制限、同期のカーソルが途中で削除された行の後続を飛ばさないことを実APIで検査します。[account-deletion.integration.test.ts](../tests/account-deletion.integration.test.ts) では、削除する人の証言を引用しない交換相手の下書きが残ること、管理者の監査記録が匿名化されて残ることを検査します。
 
 テストは0010を含むすべてのマイグレーションをローカルD1へ適用します。ローカルの既存D1にも `npm run db:migrate` で0010を適用できました。本番D1への0010の適用とデプロイは実施していません。APIの配布前に本番へ0010を適用する必要があります。ブロック中・解除済みの判定をSQLへ移した並行実行の競合そのものは、決定的に再現するテストを用意していません。バックアップと未参照画像削除の競合も、R2のアップロード時刻を操作できないため自動テストでは検査していません。
+
 ## 近距離交換のBluetooth状態への追従（2026-10-21）
 
 Bluetooth（Android 11以下では位置情報も）が途中でオフになると、ネイティブ側は広告・探索・接続・GATTサービスを片付けて `onError`（`BLUETOOTH_OFF` / `LOCATION_OFF`）を送り、画面が開いている間はセッションを保持します。オンに戻ると自動で設定し直し、探索が実際に始まった時点で `onReady` を送ります。開始時点でオフの場合も `start()` はそのコードで失敗し、同じく `onReady` で復帰します。権限なし（`PERMISSION_DENIED`）・非対応（`UNSUPPORTED`）・その他の失敗（`BLUETOOTH_FAILED`）はセッションを終了します。画面はコードごとの日本語文と「設定を開く」（権限はアプリ設定、AndroidのBluetooth・位置情報は各設定画面）を表示します。
@@ -236,3 +238,9 @@ Bluetooth（Android 11以下では位置情報も）が途中でオフになる�
 アプリが `inactive`（iOSの権限ダイアログ・コントロールセンター）になっても停止せず、`background` でだけ停止し、戻ったときに再開します。自分の `stop()` による `CANCELLED` は表示しません。Androidは30秒に5回を超える `startScan` を黙って無視するため、超える開始は空きができるまで遅らせます（その間 `start()` は完了しません）。
 
 `npm run typecheck`、`npm run lint -w @flocka/mobile`、`npm test`、`npm run export:native` に加え、Windows上で `expo prebuild --platform android --no-install` 後に `./gradlew :flocka-nearby:compileDebugKotlin -Pandroid.overridePathCheck=true` が通過しました（作業パスに非ASCII文字があるためAGPのパス確認だけを外しています）。SwiftはWindowsではコンパイルできず未検証です。Bluetooth・位置情報の切り替え、権限ダイアログ、スキャン回数制限の実機確認も未検証です。
+
+## AIによる自己PRの下書き
+
+[pr-ai.test.ts](../tests/pr-ai.test.ts) がプロンプト（指示文を含む証言をデータとして囲むこと）、出力検証（捏造した引用・数字、長さ、形式、`<think>` の除去）、応答の2形式の読み取り、Neuron計算を検査します。[pr-ai.integration.test.ts](../tests/pr-ai.integration.test.ts) は、MiniflareのWorkerとして差し込んだ偽の `AI` バインディング（良い出力・捏造した引用・思考ブロック・`usage` なし・旧形式・エラー・4006・タイムアウト）で、証言をD1から読むこと、1人1日5回、全体予算の並行予約、認証、失敗時に下書きを返さないこと、返した出典が `PUT /v1/me/preferences` の検証を通ることを実APIで検査します。[eval-pr-ai.test.ts](../tests/eval-pr-ai.test.ts) は評価ツールの認証情報なし拒否と `--dry-run` を検査します。
+
+実際のWorkers AIは呼んでおらず、モデルの出力品質と実Neuron消費は未検証です。モバイルの確認シートは型・lint・書き出しのみで、実機・ブラウザでの操作は未確認です。
