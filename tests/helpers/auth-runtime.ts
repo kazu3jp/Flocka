@@ -20,6 +20,45 @@ const emailSchema = z.object({
   html: z.string(),
 });
 export type TestEmail = z.infer<typeof emailSchema>;
+/** Scripted answer of the fake Workers AI binding for one call. */
+export type FakeAiScript = {
+  result?: unknown;
+  error?: string;
+  delayMs?: number;
+};
+/** Entrypoint behind the AI binding: it forwards every run() to the test's script. */
+const FAKE_AI_WORKER = `
+import { WorkerEntrypoint } from "cloudflare:workers";
+export default class extends WorkerEntrypoint {
+  async run(model, inputs) {
+    const response = await this.env.CONTROL.fetch("http://control/run", {
+      method: "POST",
+      body: JSON.stringify({ model, inputs }),
+    });
+    const script = await response.json();
+    if (script.delayMs) await new Promise((resolve) => setTimeout(resolve, script.delayMs));
+    if (script.error) throw new Error(script.error);
+    return script.result;
+  }
+}`;
+const quotesIn = (inputs: unknown) => {
+  const { messages } = inputs as { messages: { content: string }[] };
+  return [
+    ...messages[1].content.matchAll(/<quote n="\d+">(.*?)<\/quote>/gs),
+  ].map((match) => match[1]);
+};
+/** A valid OpenAI-style answer that quotes the first testimony verbatim. */
+export const goodAiResult = (inputs: unknown, completionTokens = 300) => ({
+  choices: [
+    {
+      message: {
+        role: "assistant",
+        content: `私の強みは、仲間から評価してもらえたところです。仲間から「${quotesIn(inputs)[0]}」という言葉をもらいました。これからも大切にします。`,
+      },
+    },
+  ],
+  usage: { prompt_tokens: 1200, completion_tokens: completionTokens },
+});
 export async function createAuthRuntime(
   input: {
     port?: number;
@@ -45,6 +84,12 @@ export async function createAuthRuntime(
     status: 200,
     tickets: [] as unknown[],
     receipts: {} as Record<string, unknown>,
+  };
+  const ai = {
+    calls: [] as { model: string; inputs: unknown }[],
+    script: ((inputs: unknown): FakeAiScript => ({
+      result: goodAiResult(inputs),
+    })) as (inputs: unknown) => FakeAiScript,
   };
   const options = {
     host: "127.0.0.1",
@@ -82,6 +127,8 @@ export async function createAuthRuntime(
                 }
               : {}),
             DB: { type: "d1", id: "test-flocka" },
+            AI: { type: "worker" as const, worker: "flocka-ai-fake" },
+            PR_AI_TIMEOUT_MS: { type: "json" as const, value: "1500" },
             AVATARS: { type: "r2", name: "test-avatars" },
             ALLOWED_ORIGINS: { type: "json", value: webOrigin },
             BETTER_AUTH_URL: {
@@ -159,6 +206,36 @@ export async function createAuthRuntime(
                 JSON.stringify({ id: crypto.randomUUID() }),
                 { headers: { "Content-Type": "application/json" } },
               );
+            },
+          },
+        },
+      },
+      {
+        config: {
+          name: "flocka-ai-fake",
+          compatibilityDate: "2026-10-13",
+          manifest: {
+            mainModule: "index.js",
+            modules: {
+              "index.js": { type: "esm", contents: FAKE_AI_WORKER },
+            },
+          },
+          env: {
+            CONTROL: {
+              type: "fetcher" as const,
+              handler: async (request: TestRequest) => {
+                const call = (await request.json()) as {
+                  model: string;
+                  inputs: unknown;
+                };
+                ai.calls.push(call);
+                return new TestResponse(
+                  JSON.stringify(ai.script(call.inputs)),
+                  {
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+              },
             },
           },
         },
@@ -285,6 +362,7 @@ export async function createAuthRuntime(
       runtime,
       db,
       applyMigration,
+      ai,
       base,
       emails,
       mailStatus,

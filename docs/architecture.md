@@ -12,26 +12,27 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 
 `/api/auth/*` にBetter Authのハンドラーを配置しています。`/v1/*` はすべて有効なBetter Authセッションとメール確認を要求します。`POST /v1/accounts` は認証済みユーザーにプロフィールと自己申告カード2〜3枚を作成します。ユーザーIDとプレイヤーIDを共通にし、他人のIDをリクエストから採用しません。APIクライアントはWebでCookieを送信し、ネイティブでExpoプラグインのSecureStoreからCookieを取得して送信します。
 
-| メソッド・パス                                             | 内容                                                                 |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| `GET /health`                                              | D1接続を含む稼働確認                                                 |
-| `GET /auth/config`                                         | 設定済みのApple/Googleプロバイダー名のみを返す                       |
-| `GET/POST /api/auth/*`                                     | Better Authのメール登録・確認・ログイン・再設定・ログアウト          |
-| `POST /v1/accounts`                                        | 認証済みユーザーのプレイヤープロフィール作成（再試行時は既存を返す） |
-| `GET/PATCH /v1/me`                                         | 自分のプロフィール取得・更新                                         |
-| `PUT /v1/me/settings`                                      | 証言の受け取り設定                                                   |
-| `POST /v1/invites`                                         | 10分有効・1人が使用できる交換コード                                  |
-| `GET/POST /v1/exchanges`                                   | 自分の交換一覧・コードから交換開始                                   |
-| `GET /v1/exchanges/:id`                                    | 参加者だけが交換を取得                                               |
-| `POST /v1/exchanges/:id/approve`                           | 自分の出会いのメモと承認を保存                                       |
-| `POST /v1/exchanges/:id/cancel`                            | 参加者が有効な交換を取り消す（解除済みは409、ブロック中は403）       |
-| `GET/POST /v1/testimonies`                                 | 届いた証言取得・承認済み相手へ贈る                                   |
-| `PATCH /v1/testimonies/:id`                                | 受信者だけが開封・予想・公開範囲を更新                               |
-| `POST /v1/blocks` / `DELETE /v1/blocks/:id`                | ブロック・解除                                                       |
-| `POST /v1/moderation` / `POST /v1/moderation/:id/withdraw` | 通報・削除依頼の記録・取り下げ                                       |
-| `GET/PUT /v1/me/backup`                                    | 本人だけが端末データを保存・取得                                     |
-| `GET/PUT /v1/me/avatar`                                    | 本人のR2写真を保存・取得                                             |
-| `GET /v1/me/backup/avatar`                                 | 保存済みバックアップに対応する写真を取得                             |
+| メソッド・パス                                             | 内容                                                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `GET /health`                                              | D1接続を含む稼働確認                                                          |
+| `GET /auth/config`                                         | 設定済みのApple/Googleプロバイダー名のみを返す                                |
+| `GET/POST /api/auth/*`                                     | Better Authのメール登録・確認・ログイン・再設定・ログアウト                   |
+| `POST /v1/accounts`                                        | 認証済みユーザーのプレイヤープロフィール作成（再試行時は既存を返す）          |
+| `GET/PATCH /v1/me`                                         | 自分のプロフィール取得・更新                                                  |
+| `PUT /v1/me/settings`                                      | 証言の受け取り設定                                                            |
+| `POST /v1/invites`                                         | 10分有効・1人が使用できる交換コード                                           |
+| `GET/POST /v1/exchanges`                                   | 自分の交換一覧・コードから交換開始                                            |
+| `GET /v1/exchanges/:id`                                    | 参加者だけが交換を取得                                                        |
+| `POST /v1/exchanges/:id/approve`                           | 自分の出会いのメモと承認を保存                                                |
+| `POST /v1/exchanges/:id/cancel`                            | 参加者が有効な交換を取り消す（解除済みは409、ブロック中は403）                |
+| `GET/POST /v1/testimonies`                                 | 届いた証言取得・承認済み相手へ贈る                                            |
+| `PATCH /v1/testimonies/:id`                                | 受信者だけが開封・予想・公開範囲を更新                                        |
+| `POST /v1/blocks` / `DELETE /v1/blocks/:id`                | ブロック・解除                                                                |
+| `POST /v1/moderation` / `POST /v1/moderation/:id/withdraw` | 通報・削除依頼の記録・取り下げ                                                |
+| `GET/PUT /v1/me/backup`                                    | 本人だけが端末データを保存・取得                                              |
+| `GET/PUT /v1/me/avatar`                                    | 本人のR2写真を保存・取得                                                      |
+| `GET /v1/me/backup/avatar`                                 | 保存済みバックアップに対応する写真を取得                                      |
+| `POST /v1/me/pr-draft/ai`                                  | 本人の証言からWorkers AIで自己PRの下書きを作る（[詳細](ai-pr-generation.md)） |
 
 `GET /v1/sync` は100件ずつページ送りします。応答の `nextCursor` は一覧ごとの `(created_at, id)`（ブロック一覧は相手ID）を持つ読み込み位置で、`?cursor=` で続きを取得すると途中で行が消えても後続を飛ばしません。`nextCursor` を返さない旧APIと、`?page=` を使う旧アプリには従来のページ番号も返します（ページ番号では途中の削除で行がずれる既知の制約があります）。通報の受付記録はD1に保存し、運営は `GET /v1/admin/moderation` と `POST /v1/admin/moderation/:id/resolve` で対応します。未対応一覧は `(created_at, id)` のカーソル（`afterAt` / `afterId`、応答の `next`）でページ送りし、対応済みが抜けても次ページの項目を飛ばしません（`ADMIN_USER_IDS` のアカウントのみ。対応は `moderation_audit` に記録）。`PUT/DELETE /v1/me/push-devices` でExpo Pushトークンを登録します。
 
@@ -44,6 +45,8 @@ Workersの入口は `apps/api/src/index.ts`。CORS、認証、共通エラーを
 同じ2人の有効な交換、同じ送り主から相手への印象1件を、一意インデックスで守ります。証言の送り主と受信者はセッション・交換参加者から決め、クライアントが任意の相手を詐称できないようにします。交換が成立しただけで封筒を自動生成しません。
 
 端末データのバックアップは共同作業で受信した証言とは別の保存領域です。更新番号が一致しない保存には409を返します。モバイルは通信失敗や競合を画面へ表示します。
+
+`ai_usage_days` と `ai_usage_accounts`（0011）はWorkers AIの1日あたりの推定Neuronと1人あたりの回数を保存します。呼び出し前に条件付きUPDATEで予約し、使用量で精算します。cronが7日より古い行を削除します。
 
 ## R2
 

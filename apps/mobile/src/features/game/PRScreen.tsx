@@ -18,10 +18,13 @@ import { useApp } from "../../store";
 import { usePRDocument } from "./use-pr-document";
 import { useTypedPR } from "./use-typed-pr";
 import { PRBody } from "./pr-body";
+import { AiDraftSheet } from "./AiDraftSheet";
+import { useAiPRDraft } from "./use-ai-pr-draft";
 
 export function PR() {
   const { d, nav, setOpening, peers } = useApp();
   const editor = usePRDocument();
+  const ai = useAiPRDraft(editor.generatedCardKey);
   const { progress, reveal } = useTypedPR(
     editor.draft,
     editor.manual,
@@ -262,9 +265,20 @@ export function PR() {
           </View>
         </View>
       </Panel>
-      {editor.error && !editor.confirmReset && (
+      {(editor.error || ai.generateError) && !editor.confirmReset && (
         <T accessibilityRole="alert" color={C.yellow}>
-          {editor.error}
+          {editor.error ?? ai.generateError}
+        </T>
+      )}
+      {ai.generating && (
+        <T
+          testID="pr-ai-progress"
+          accessibilityLiveRegion="polite"
+          size={12.5}
+          color={C.pale}
+          style={{ textAlign: "center", lineHeight: 19.375 }}
+        >
+          AIが文章を整えています。数秒かかります…
         </T>
       )}
       <T
@@ -273,8 +287,19 @@ export function PR() {
         color={C.pale}
         style={{ textAlign: "center", lineHeight: 19.375 }}
       >
-        仲間の実際の言葉だけで組み立てた下書きです。経験や成果は足していません。
+        {editor.manual
+          ? "手直しやAIで整えた文章です。仲間の言葉と違う内容が入っていないか確認してから使ってください。"
+          : "仲間の実際の言葉だけで組み立てた下書きです。経験や成果は足していません。"}
       </T>
+      {!editor.editing && editor.canRegenerate && (
+        <Btn
+          plain
+          label="AIで文章を整える"
+          loading={ai.generating}
+          disabled={!ai.available || editor.busy}
+          onPress={ai.generate}
+        />
+      )}
       <View testID="pr-actions" style={{ flexDirection: "row", gap: 10 }}>
         <Btn
           style={S.fill}
@@ -310,6 +335,15 @@ export function PR() {
           onPress={editor.copy}
         />
       </View>
+      {ai.preview && (
+        <AiDraftSheet
+          draft={ai.preview}
+          busy={ai.adopting}
+          error={ai.adoptError}
+          onAdopt={ai.adopt}
+          onDiscard={ai.discard}
+        />
+      )}
       {editor.confirmReset && editor.canRegenerate && (
         <Sheet title="もう一度書き出す？" onClose={editor.closeReset}>
           <T>

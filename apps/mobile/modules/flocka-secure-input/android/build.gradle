@@ -1,0 +1,18 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'jp.kazu3.flocka.secureinput'
+version = '0.1.0'
+
+android {
+  namespace "jp.kazu3.flocka.secureinput"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lint {
+    abortOnError false
+  }
+}
