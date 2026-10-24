@@ -251,3 +251,20 @@ Bluetooth（Android 11以下では位置情報も）が途中でオフになる�
 「自分」画面のバックアップ（保存・復元）を廃止し、設定・自己PRの下書き・装飾を常にサーバーへ保存する表示に置き換えました。これらは従来から `PUT /v1/me/preferences` で自動保存され、ログイン時の同期で復元されていたため、削除で失われるデータはありません。サーバーのバックアップAPI・参照整合・退会処理・写真の保持は変更せず、`@flocka/api-client` と `@flocka/domain` のスキーマも互換のため残しています（モバイルは呼びません）。
 
 保存に失敗したときは、競合の確認中を除き、5・10・20・30秒（上限）で自動再試行し、成功で間隔を戻します。アプリが前面に戻ったときと「今すぐ再試行」では待たずに送ります。未保存の変更は端末にも残り、次回起動時に保存時の更新番号と照合し、新しいサーバーの内容を黙って上書きしません。再試行の判定は [save-retry.test.ts](../tests/save-retry.test.ts)、通信失敗から自動復帰までの表示は [save-status.spec.ts](../e2e/visual/save-status.spec.ts) で検査します。接続の復帰検知（expo-network）は使っておらず、タイマーと前面復帰に頼ります。実機のオフラインからの復帰は未確認です。
+
+## Androidで近距離探索が「準備中」を繰り返す問題（2026-10-24）
+
+履歴機能とは別の `fix/nearby-startup`（`origin/master` の `73afa93` から分岐）で修正。実機のAndroidイベントログでは、Bluetooth権限がすべて許可済みでも `GrantPermissionsActivity` が繰り返し起動し、そのたびにMainActivityが中断・復帰していた。BluetoothログでもGATTサービスと広告の作成・停止を短い間隔で繰り返しており、単に相手がいない状態ではなかった。
+
+Androidのネイティブモジュールは、権限の現在値を先に取得し、不足分だけをメインスレッドで要求する。すべて許可済みなら権限画面は起動しない。要求後は必要な権限すべてを再確認する。画面側も開始処理を単一化し、権限画面から戻っただけでは開始中の処理を重ねず、バックグラウンドでは実際に要求済みの無線だけを止める。再開は前回の停止完了を待ち、画面を離れた後の権限結果や遅い成功応答で探索中にしない。拒否・ネイティブの失敗も成功に置き換えない。
+
+検査:
+
+- `tests/nearby-radio-session.test.ts`：権限画面による中断・復帰、背景での権限結果、拒否後のループ防止、停止完了待ち、遅い成功・onReady、離脱後の結果、背景での復元、ネイティブ失敗を検査。
+- `npm run validate`：型検査・Lint・108テスト。Web・iOS・Androidの書き出しも成功。
+- Android SDK 36 / JDK 21で実機用arm64-v8aのDebug APKを作成。WindowsのCMakeパス長制限を避けるため専用worktreeを `C:\dev\nb` に移し、生成された古い絶対パスのキャッシュだけを退避して再生成した。アプリのビルド設定や依存関係は変更していない。
+- APK：`apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`。SHA-256：`DB02CEC771B59ED2F80D755A981D3113E26E4400F6257CD6762D1D2A333AE9D9`。
+- Nothing A001 / Android 16へ `adb install -r` で上書き。データ消去・ログアウト・交換データの追加や削除なし。専用Metro 8083と既存ローカルAPI 8787を使用。
+- 実機で「近くの人を探しています…」への遷移、12秒後の相手未発見の案内、ホームへ退避した後の復帰、画面の「探索をやり直す」を確認。Androidの `dumpsys bluetooth_manager` でも `jp.kazu3.flocka` が登録済みで、FlockaのサービスUUID `6b7d9110-e86b-47d8-a5c1-a17c0f10ca01` を使うLOW_LATENCYの継続中スキャンを確認した。表示だけを探索中に変更した検査ではない。
+
+実機画像はローカルの `C:\Users\kazu3\AppData\Local\Temp\opencode` の `flocka-nearby-fixed.png`、`flocka-nearby-fixed-resume.png`、`flocka-nearby-fixed-retry.png`、OSのスキャン記録は `flocka-nearby-scan-fixed.txt`。個人プロフィールを含むためGitには追加していない。2台目がないため相互発見・交換成立は未検証。初回の権限拒否・許可を実機でやり直す検査、iOS実機・Swiftビルドも未実施であり、単一端末の探索開始確認とは区別する。本番の作成・デプロイはしていない。
