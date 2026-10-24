@@ -1,4 +1,5 @@
 import { createUndoAction } from "./features/sync/undo-action";
+import { consumeFreshSignIn } from "./features/auth/fresh-sign-in";
 import { keepIfSame } from "./features/sync/same-data";
 import { forEachWithLimit } from "./features/sync/limited-concurrency";
 import { userFacingError } from "./features/sync/user-facing-error";
@@ -432,7 +433,11 @@ export function Provider({
         // An unreadable cache starts fresh because the server holds the real data.
         const cached = restoreCachedState(raw);
         stateRef.current = fresh();
-        navRef.current = restoreCachedNav(rawNav);
+        // A sign-in starts on the home screen; a relaunch restores the last one.
+        navRef.current =
+          storageScope !== "signed-out" && consumeFreshSignIn()
+            ? initNav()
+            : restoreCachedNav(rawNav);
         setN(navRef.current);
         if (storageScope !== "signed-out") {
           let registered = true;
