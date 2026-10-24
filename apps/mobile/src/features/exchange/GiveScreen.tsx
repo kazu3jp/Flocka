@@ -13,6 +13,7 @@ import {
   Panel,
   S,
   T,
+  InlineError,
 } from "../../components/ui";
 import { VIBE_CARD, summarize } from "@flocka/domain";
 import { PopIn } from "../../components/motion";
@@ -163,11 +164,6 @@ export function Give({ cid }: { cid: string }) {
           </View>
         }
       />
-      {error && (
-        <T color={C.yellow} accessibilityRole="alert">
-          {error}
-        </T>
-      )}
       <View testID="give-instructions">
         <T display size={20} style={{ lineHeight: 28 }}>
           相手のいいなと思ったところは？
@@ -189,13 +185,12 @@ export function Give({ cid }: { cid: string }) {
           {[c.context.place, c.context.trigger].filter(Boolean).join(" ／ ") ||
             "まだ記入されていません"}
         </T>
-        {!sel && !text && (
-          <LinkButton
-            label="出会いのメモを編集"
-            color={C.ink}
-            onPress={() => nav.push("confirm", { cid })}
-          />
-        )}
+        {/* Always shown: hiding it once a choice is made pulled the options up under the finger. */}
+        <LinkButton
+          label="出会いのメモを編集"
+          color={C.ink}
+          onPress={() => nav.push("confirm", { cid })}
+        />
       </Panel>
       <GiveMode mode={mode} onChange={setMode} />
       {mode === "pick" && <VibeOptions selected={sel} onChange={setSel} />}
@@ -264,6 +259,7 @@ export function Give({ cid }: { cid: string }) {
         }
         onPress={send}
       />
+      <InlineError text={error} />
       <LinkButton
         label="あとで"
         disabled={busy}

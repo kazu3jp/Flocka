@@ -16,6 +16,7 @@ import {
   Envelope,
   Header,
   Icon,
+  InlineError,
   LinkButton,
   Panel,
   S,
@@ -137,11 +138,6 @@ function GuessContent({ id }: { id: string }) {
           </Pressable>
         }
       />
-      {error && (
-        <T accessibilityRole="alert" color={C.yellow}>
-          {error}
-        </T>
-      )}
       <ScrollView
         contentContainerStyle={{ gap: 16, paddingBottom: 16 }}
         style={S.fill}
@@ -273,6 +269,7 @@ function GuessContent({ id }: { id: string }) {
           </>
         )}
       </ScrollView>
+      <InlineError text={error} />
       {stage === "open" && remaining.length > 0 && (
         <Btn
           label={`次の封筒を開ける（残り${remaining.length}通）`}

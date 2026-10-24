@@ -86,3 +86,8 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 - Webの `RefreshControl` は一覧の `style` をもう一度適用して左右の負の余白を二重にする。引っ張って再読み込みはWebでは動かないので、Webでは付けない。
 - Androidで文字が箱の中央に見えるかは未検証（Dela Gothic One / Zen Kaku は ascent 1.16em・descent 0.288em で上下が非対称）。Webでは文字の実インクの中心がボタンの中心から0.5px以内に収まっているのを確認した。
 
+### レイアウトの安定（2026-10-24）
+
+- 入力や押下でほかの要素が動かない決まり: 欄のメッセージは余白に重ね（`FieldMessage`）、操作の結果は押したものの下に出し（`InlineError`）、状態で出入りする文は場所を先に確保する。ボタンの読み込み表示は大きさを変えない。押下は transform だけ。
+- キーボード（Android）: `Board` と `Sheet` の `KeyboardAvoidingView` は `behavior="height"` のままにした。React Native 0.86 の `ReactRootView` は `adjustResize` のとき `screenY` に表示領域の下端を渡し、`behavior="height"` は「欄の下端と画面の下端の重なり」だけを引くので、ウィンドウが縮んだ場合は重なりが0になり二重には効かない。縮まない場合（edge-to-edge）は重なり分だけ縮める。縮む場合は、イベントとレイアウトの順で一瞬だけずれうる。実機で未確認。
+

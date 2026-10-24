@@ -15,6 +15,7 @@ import {
   S,
   T,
   Sheet,
+  InlineError,
 } from "../../components/ui";
 import { useApp, useAppStatus } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
@@ -70,11 +71,6 @@ export function Settings() {
           })
         }
       />
-      {error && (
-        <T accessibilityRole="alert" color={C.yellow}>
-          {error}
-        </T>
-      )}
       <Panel style={S.gap}>
         {(
           [
@@ -115,6 +111,7 @@ export function Settings() {
           )
         }
       />
+      <InlineError text={error} reserveLines={2} />
       <T display size={18}>
         ブロック中
       </T>

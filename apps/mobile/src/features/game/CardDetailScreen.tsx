@@ -55,7 +55,16 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         label="このカードをデコる"
         onPress={() => nav.push("deco", { key: cardKey })}
       />
-      <T size={14} style={{ textAlign: "center", lineHeight: 22.4 }}>
+      <T
+        size={14}
+        // The confirmed wording changes length with the reaction below, so
+        // that case keeps two lines and the reaction panel stays put.
+        style={{
+          textAlign: "center",
+          lineHeight: 22.4,
+          minHeight: card.confirmed ? 44.8 : undefined,
+        }}
+      >
         {explanation}
       </T>
       {showResponse && (
@@ -100,15 +109,22 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
               </Choice>
             ))}
           </View>
-          {s.resp[cardKey] === "disagree" && (
-            <T
-              size={12.5}
-              color={C.muted}
-              style={{ fontFamily: F.bold, lineHeight: 19.375 }}
-            >
-              このカードは自己PRに使いません。証言はそのまま残ります。
-            </T>
-          )}
+          {/* Always laid out; it only shows after "違うかも", so the panel keeps its height. */}
+          <T
+            size={12.5}
+            color={C.muted}
+            accessibilityElementsHidden={s.resp[cardKey] !== "disagree"}
+            importantForAccessibility={
+              s.resp[cardKey] === "disagree" ? "auto" : "no-hide-descendants"
+            }
+            style={{
+              fontFamily: F.bold,
+              lineHeight: 19.375,
+              opacity: s.resp[cardKey] === "disagree" ? 1 : 0,
+            }}
+          >
+            自己PRには使いません。証言は残ります。
+          </T>
         </Panel>
       )}
       <T size={16} style={{ fontFamily: F.bold, lineHeight: 24 }}>

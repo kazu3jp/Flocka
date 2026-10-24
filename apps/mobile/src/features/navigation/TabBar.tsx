@@ -128,6 +128,7 @@ export function TabBar({
               <Icon name={icon} color={active ? C.ink : C.tabInactive} />
               <T
                 size={12}
+                numberOfLines={1}
                 color={active ? C.ink : C.tabInactive}
                 style={{ fontFamily: F.bold, lineHeight: 19.8 }}
               >

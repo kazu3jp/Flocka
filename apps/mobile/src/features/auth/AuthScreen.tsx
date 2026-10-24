@@ -10,6 +10,7 @@ import {
   C,
   F,
   Icon,
+  InlineError,
   LAYOUT,
   LinkButton,
   S,
@@ -29,6 +30,7 @@ import {
   validEmail,
   validPassword,
 } from "./fields";
+import { useDeferredValidation } from "./use-deferred-validation";
 
 type AuthView = "welcome" | "signup" | "verify" | "login" | "reset";
 export function AuthScreen({
@@ -52,7 +54,6 @@ export function AuthScreen({
     [error, setError] = useState<string | null>(null),
     [notice, setNotice] = useState<string | null>(null),
     [deliverySent, setDeliverySent] = useState(false),
-    [touched, setTouched] = useState(false),
     [legal, setLegal] = useState<"利用規約" | "プライバシーポリシー" | null>(
       null,
     ),
@@ -86,13 +87,18 @@ export function AuthScreen({
     const timer = setTimeout(() => setWait((n) => n - 1), 1000);
     return () => clearTimeout(timer);
   }, [wait]);
-  const go = useCallback((next: AuthView) => {
-    setView(next);
-    setTouched(false);
-    setError(null);
-    setNotice(null);
-    setPassword("");
-  }, []);
+  const emailCheck = useDeferredValidation(email, validEmail);
+  const resetEmailCheck = emailCheck.reset;
+  const go = useCallback(
+    (next: AuthView) => {
+      setView(next);
+      resetEmailCheck();
+      setError(null);
+      setNotice(null);
+      setPassword("");
+    },
+    [resetEmailCheck],
+  );
   const back = useCallback(() => {
     if (!busy)
       go(view === "verify" ? "signup" : view === "reset" ? "login" : "welcome");
@@ -211,7 +217,10 @@ export function AuthScreen({
       label="メールアドレス"
       value={email}
       onChangeText={setEmail}
-      onBlur={() => setTouched(true)}
+      onBlur={emailCheck.onBlur}
+      error={
+        emailCheck.invalid ? "メールアドレスの形式を確認してください" : null
+      }
       keyboardType="email-address"
       autoComplete="email"
       autoCapitalize="none"
@@ -387,11 +396,6 @@ export function AuthScreen({
                   </View>
                 )}
                 {mailField}
-                {touched && !!email && !emailOk && (
-                  <T size={12} color={C.yellow}>
-                    メールアドレスの形式を確認してください
-                  </T>
-                )}
                 {(view === "signup" || view === "login") && (
                   <PasswordField
                     value={password}
@@ -482,11 +486,7 @@ export function AuthScreen({
           </View>
         </>
       )}
-      {error && (
-        <T accessibilityRole="alert" color={C.yellow} size={13}>
-          {error}
-        </T>
-      )}
+      <InlineError text={error} size={13} />
       {notice && (
         <T accessibilityLiveRegion="polite" color={C.pale} size={13}>
           {notice}

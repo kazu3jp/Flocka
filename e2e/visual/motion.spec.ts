@@ -33,8 +33,14 @@ test("a revealed screen fades in, rises and settles when motion is allowed", asy
   const now = await page.evaluate(() => Date.now());
   await page.clock.pauseAt(new Date(now + 1000));
   // Let the first screen's own entrance finish before switching tabs.
-  await page.clock.runFor(600);
-  await expect(page.getByTestId("screen-entrance")).toHaveCSS("opacity", "1");
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(100);
+      return page
+        .getByTestId("screen-entrance")
+        .evaluate((element) => getComputedStyle(element).opacity);
+    })
+    .toBe("1");
 
   await page.getByRole("tab", { name: "交換", exact: true }).click();
   const screen = page.getByTestId("screen-entrance");

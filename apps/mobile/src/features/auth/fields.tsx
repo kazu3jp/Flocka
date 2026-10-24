@@ -6,7 +6,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { C, F, Field, Icon, S, T } from "../../components/ui";
+import { C, F, Field, FieldMessage, Icon, S, T } from "../../components/ui";
 
 /** The shared form geometry from the original authentication screens. */
 export function AuthHeader({
@@ -48,9 +48,14 @@ export function AuthHeader({
 
 export function AuthField({
   label,
+  error,
   style,
   ...props
-}: TextInputProps & { label: string }) {
+}: TextInputProps & {
+  label: string;
+  /** Shown in the gap under the input, so it never moves the next field. */
+  error?: string | null;
+}) {
   return (
     <View style={{ gap: 10 }}>
       <T
@@ -59,12 +64,15 @@ export function AuthField({
       >
         {label}
       </T>
-      <Field
-        {...props}
-        label={label}
-        hideLabel
-        style={[{ minHeight: 52, lineHeight: 26.4 }, style]}
-      />
+      <View>
+        <Field
+          {...props}
+          label={label}
+          hideLabel
+          style={[{ minHeight: 52, lineHeight: 26.4 }, style]}
+        />
+        <FieldMessage text={error} />
+      </View>
     </View>
   );
 }

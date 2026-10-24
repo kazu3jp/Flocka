@@ -108,19 +108,49 @@ export function Btn({
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={disabled ? C.pale : danger ? C.white : C.ink}
-        />
+      {/* The spinner takes the icon's slot, or floats at the left edge when
+          there is no icon, so loading never changes the button's size. */}
+      {icon ? (
+        <View
+          style={{
+            width: iconSize,
+            height: iconSize,
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color={disabled ? C.pale : danger ? C.white : C.ink}
+            />
+          ) : (
+            <Icon
+              name={icon}
+              size={iconSize}
+              style={iconStyle}
+              color={danger ? C.white : C.ink}
+            />
+          )}
+        </View>
       ) : (
-        icon && (
-          <Icon
-            name={icon}
-            size={iconSize}
-            style={[Platform.OS !== "web" && { flexShrink: 0 }, iconStyle]}
-            color={danger ? C.white : C.ink}
-          />
+        loading && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: small ? SP.sm : SP.lg,
+              top: 0,
+              bottom: 0,
+              justifyContent: "center",
+            }}
+          >
+            <ActivityIndicator
+              size="small"
+              color={disabled ? C.pale : danger ? C.white : C.ink}
+            />
+          </View>
         )
       )}
       <T
