@@ -3,7 +3,7 @@ import { TextInput, View } from "react-native";
 import { CachedSvgXml } from "../../components/cached-svg-xml";
 import { CARDS, SELF_OPTIONS } from "@flocka/domain";
 import vectors from "../../vectors.json";
-import { C, Choice, F, Panel, S, T } from "../../components/ui";
+import { C, Choice, F, Panel, S, SP, T } from "../../components/ui";
 
 export function GiveReason({
   mode,
@@ -100,7 +100,7 @@ export function ImpressionSummary({
   onChange: (card: string) => void;
 }) {
   return (
-    <Panel style={{ padding: 12 }}>
+    <Panel style={{ padding: SP.md }}>
       <ImpressionLabel label={summary.label} title="要約" />
       <T
         size={12.5}

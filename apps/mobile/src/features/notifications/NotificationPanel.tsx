@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Btn, C, Panel, S, T } from "../../components/ui";
+import { Btn, C, InlineError, Panel, S, T } from "../../components/ui";
 import { useAuth } from "../auth/provider";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
@@ -40,11 +40,6 @@ export function NotificationPanel() {
       <T color={C.muted} size={13}>
         封筒の到着、交換の成立、通報への対応をこの端末へお知らせします。
       </T>
-      {error || loadError ? (
-        <T accessibilityRole="alert" color={C.danger}>
-          {error || loadError}
-        </T>
-      ) : null}
       <Btn
         disabled={busy || !accountId}
         label={
@@ -69,6 +64,11 @@ export function NotificationPanel() {
             setLoadError(null);
           })
         }
+      />
+      <InlineError
+        text={error || loadError}
+        color={C.danger}
+        reserveLines={2}
       />
     </Panel>
   );

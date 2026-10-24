@@ -13,6 +13,7 @@ import {
   S,
   StrengthCard,
   T,
+  InlineError,
 } from "../../components/ui";
 import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
@@ -94,11 +95,6 @@ export function PieceDetail({ id }: { id: string }) {
   return (
     <Board scroll>
       <Header title="証言" onBack={nav.pop} />
-      {error ? (
-        <T accessibilityRole="alert" color={C.yellow}>
-          {error}
-        </T>
-      ) : null}
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
           {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
@@ -107,11 +103,11 @@ export function PieceDetail({ id }: { id: string }) {
         <T display color={C.ink} size={20}>
           「{wordsOf(p)}」
         </T>
-        {p.label ? (
+        {p.label && (
           <T color={C.muted} size={13}>
             要約：{p.label}
           </T>
-        ) : null}
+        )}
         <T color={C.muted} size={13}>
           {new Date(p.createdAt).toLocaleString("ja-JP")}
         </T>
@@ -244,6 +240,7 @@ export function PieceDetail({ id }: { id: string }) {
           )
         }
       />
+      <InlineError text={error} />
       {dialog}
     </Board>
   );

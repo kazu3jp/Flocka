@@ -72,6 +72,26 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 - `Sheet` はModal（別ウィンドウ）のため、非表示の画面ではシートを描かない。画面に戻るとシートも戻る。
 - e2eでは、非表示の画面に `testID="hidden-screen"` を付け、`getByText` / `getByTestId` から除外する（`e2e/visual/test.ts`）。`getByRole` は元から非表示の要素を除外する。`persistent-screens.spec.ts` で、戻る・タブ切り替えの後も同じ画面が残っていることを確認する。
 - Fabricの非表示処理（`cloneHiddenInstance`）を使うため、ネイティブ端末での表示と、Profilerによる改善量の計測は未実施。
+
+## 動きと余白をそろえる（2026-10-24）
+
+実機で「アニメーションが少ない」「中央ズレや余白の統一が無い」と指摘があり、動きの部品と余白の定数を作った。
+
+- 動きの部品は `apps/mobile/src/components/motion/` に1ファイル1部品で置く。時間とイージングは原本のCSS（`--ease`、`--pop`、0.1秒の押下、`slideUp`、`toastIn`、`flash`）の値で、操作に関わる動きは0.25秒以内。
+- 「動きを減らす」は `useReduceMotion`（`AccessibilityInfo.isReduceMotionEnabled` と `reduceMotionChanged`）に一本化した。Webでは同じメディアクエリを最初の描画から同期で読むので、テストは最終状態を即座に見る。ネイティブは起動直後の問い合わせが返るまで動かさない。
+- ネイティブドライバ: 押下、画面・一覧・通知・成功の登場、タブの札、バッジ、進みバーは transform と opacity だけなのでネイティブドライバ。選択肢の色（`SelectionFill`）は色なのでJSドライバで、押下の transform とは別の層に置いて同じノードを共有しない。Webはどれもネイティブドライバが使えないのでJSドライバ。すべて `isInteraction: false` で、入力を待たせない。
+- 画面の登場は `ScreenStacks` の画面ごとに `ScreenEntrance` で包み、`useScreenFocused` が false から true に変わった瞬間（と最初の表示）だけ再生する。`Activity` で隠れている画面は動かさず、一覧の登場済みの印は画面ごとに持つので、戻ったりスクロールで戻したりしても再生しない。
+- シートの背景は `Modal` の `animationType="slide"` に任せ、別にフェードさせていない（`Modal` を `none` にして自前で動かすと閉じる動きを失うため）。
+- 余白は `theme.ts` の `SP`（4pt刻み）と `LAYOUT`（原本の14pt・10/12pt などの名前付き寸法）を使う。レイアウト比較テストが原本の箱と照合するため、原本の寸法は丸めない。
+- Webの `RefreshControl` は一覧の `style` をもう一度適用して左右の負の余白を二重にする。引っ張って再読み込みはWebでは動かないので、Webでは付けない。
+- Androidで文字が箱の中央に見えるかは未検証（Dela Gothic One / Zen Kaku は ascent 1.16em・descent 0.288em で上下が非対称）。Webでは文字の実インクの中心がボタンの中心から0.5px以内に収まっているのを確認した。
+
+### レイアウトの安定（2026-10-24）
+
+- 入力や押下でほかの要素が動かない決まり: 欄のメッセージは余白に重ね（`FieldMessage`）、操作の結果は押したものの下に出し（`InlineError`）、状態で出入りする文は場所を先に確保する。ボタンの読み込み表示は大きさを変えない。押下は transform だけ。
+- キーボード（Android）: `Board` と `Sheet` の `KeyboardAvoidingView` は `behavior="height"` のままにした。React Native 0.86 の `ReactRootView` は `adjustResize` のとき `screenY` に表示領域の下端を渡し、`behavior="height"` は「欄の下端と画面の下端の重なり」だけを引くので、ウィンドウが縮んだ場合は重なりが0になり二重には効かない。縮まない場合（edge-to-edge）は重なり分だけ縮める。縮む場合は、イベントとレイアウトの順で一瞬だけずれうる。実機で未確認。
+
+
 ## カード絵とシールの影（2026-10-21）
 
 原本のカード絵（`drop-shadow(2px 3px 0 ink / .35)`）とシール（`1px 2px 0 / .3`）の影は、SVGの `feDropShadow` で描いていた。react-native-svgはAndroidでフィルターとグループの不透明度をソフトウェアのビットマップへ描くため、カード絵1枚ごとに画面外の描画が発生していた。

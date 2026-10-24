@@ -2,7 +2,16 @@ import { useTestimonySend } from "./use-testimony-send";
 import { DeliveryFeedback } from "./delivery-feedback";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
-import { Board, Btn, C, Header, Panel, F, T } from "../../components/ui";
+import {
+  Board,
+  Btn,
+  C,
+  F,
+  Header,
+  InlineError,
+  Panel,
+  T,
+} from "../../components/ui";
 import { CARDS } from "@flocka/domain";
 import {
   MemoProgress,
@@ -10,6 +19,7 @@ import {
   MemoStory,
   MemoStrengths,
 } from "./memo-controls";
+import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
 import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
@@ -105,9 +115,15 @@ export function Memo() {
               「{receipt.story}」
             </T>
           </Panel>
-          <T display size={20} style={{ textAlign: "center", lineHeight: 28 }}>
-            封筒で贈りました
-          </T>
+          <PopIn>
+            <T
+              display
+              size={20}
+              style={{ textAlign: "center", lineHeight: 28 }}
+            >
+              封筒で贈りました
+            </T>
+          </PopIn>
           <T
             size={12.5}
             color={C.pale}
@@ -123,11 +139,6 @@ export function Memo() {
   return (
     <Board scroll form>
       <Header title="" onBack={back} right={<MemoProgress step={step} />} />
-      {error ? (
-        <T color={C.yellow} accessibilityRole="alert">
-          {error}
-        </T>
-      ) : null}
       <T testID="memo-heading" display size={26} style={{ lineHeight: 36.4 }}>
         {step === 0
           ? "誰に贈る？"
@@ -192,6 +203,7 @@ export function Memo() {
         }
         onPress={() => (step < 2 ? setStep(step + 1) : send())}
       />
+      <InlineError text={error} />
       {dialog}
     </Board>
   );
