@@ -9,9 +9,11 @@ import {
   Icon,
   Panel,
   S,
+  SP,
   T,
   Avatar,
 } from "../../components/ui";
+import { StaggerItem } from "../../components/motion";
 import type { RemotePlayer } from "@flocka/domain";
 import { ApiClientError } from "@flocka/api-client";
 import { useApp } from "../../store";
@@ -21,6 +23,14 @@ import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
 import { userFacingError } from "../sync/user-facing-error";
+import { NearbyRadarPanel } from "./NearbyRadarPanel";
+import { NearbyTips, NearbyUnavailable } from "./NearbyTips";
+import {
+  NEARBY_TIPS_AFTER_MS,
+  nearbyStatus,
+  showsNearbyTips,
+} from "./nearby-status";
+import { useSearchedFor } from "./use-searched-for";
 
 /** How long a checked code is trusted before asking the API again. */
 const PREVIEW_TTL_MS = 60_000;
@@ -32,6 +42,10 @@ const SEEN_REFRESH_INTERVAL_MS = 5000;
 const BLUETOOTH_PERMISSION_MESSAGE = "近距離交換にはBluetoothの許可が必要です";
 const BLUETOOTH_UNAVAILABLE_MESSAGE =
   "Bluetoothを利用できません。Bluetoothがオンになっているか確認してください";
+const WEB_UNAVAILABLE_MESSAGE =
+  "近距離交換はiOS・Androidアプリで利用できます。";
+const NO_MODULE_MESSAGE =
+  "Bluetooth機能を含む開発ビルドを起動してください。Expo Goでは利用できません。";
 const SETTINGS_FAILED_MESSAGE =
   "設定を開けませんでした。端末の設定アプリから変更してください";
 /** Where 「設定を開く」 leads. Bluetooth and Location screens can only be opened on Android. */
@@ -79,13 +93,18 @@ function openSettings(target: SettingsTarget) {
 }
 
 export function NearbyScreen() {
-  const { api, refresh, nav } = useApp(),
+  const { api, refresh, nav, s } = useApp(),
     { invite, error: inviteError, renew } = useInvite(),
     focused = useScreenFocused(),
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
     >({}),
     [radioError, setRadioError] = useState<RadioError | null>(null),
+    // A peer's code that could not be checked: shown, but scanning itself is still live.
+    [peerError, setPeerError] = useState<string | null>(null),
+    // `starting`: start() was requested and has not answered. `ready`: scanning really runs.
+    [starting, setStarting] = useState(false),
+    [ready, setReady] = useState(false),
     { busy, error, run } = useAction(),
     startVisit = useScreenVisit();
   useEffect(() => {
@@ -124,7 +143,10 @@ export function NearbyScreen() {
             player,
             expiresAt: Date.now() + PREVIEW_TTL_MS,
           });
-          if (active) markSeen(player, code);
+          if (active) {
+            setPeerError(null);
+            markSeen(player, code);
+          }
         })
         .catch((error) => {
           // A rejected code stays quiet until the TTL instead of failing on every advertisement.
@@ -136,19 +158,21 @@ export function NearbyScreen() {
               Date.now() + (offline ? OFFLINE_RETRY_MS : PREVIEW_TTL_MS),
           });
           if (active)
-            setRadioError({
-              message: userFacingError(error, "相手を確認できませんでした"),
-            });
+            setPeerError(userFacingError(error, "相手を確認できませんでした"));
         });
     });
     // Bluetooth or Location turned off: the native session pauses and resumes by itself (onReady).
     const failures = bluetooth.addListener("onError", ({ code }) => {
       if (!active) return;
       setRadioError(nearbyRadioError(code));
+      setReady(false);
       setPeers({});
     });
     const resumed = bluetooth.addListener("onReady", () => {
-      if (active) setRadioError(null);
+      if (!active) return;
+      setRadioError(null);
+      setPeerError(null);
+      setReady(true);
     });
     const start = async () => {
       const permissions = await bluetooth.requestPermissions();
@@ -161,15 +185,23 @@ export function NearbyScreen() {
         return;
       }
       await bluetooth.start(invite.code);
-      if (active) setRadioError(null);
+      if (!active) return;
+      setRadioError(null);
+      setReady(true);
     };
-    const startRadio = () =>
-      void start().catch((error: unknown) => {
-        const code = nativeErrorCode(error);
-        // CANCELLED only comes from our own stop() or a newer start().
-        if (active && code !== "CANCELLED")
-          setRadioError(nearbyRadioError(code));
-      });
+    const startRadio = () => {
+      setStarting(true);
+      void start()
+        .catch((error: unknown) => {
+          const code = nativeErrorCode(error);
+          // CANCELLED only comes from our own stop() or a newer start().
+          if (active && code !== "CANCELLED")
+            setRadioError(nearbyRadioError(code));
+        })
+        .finally(() => {
+          if (active) setStarting(false);
+        });
+    };
     startRadio();
     // Permission alerts and Control Center only make the app "inactive"; stopping there would cancel
     // the pending start. The radio stops in the background and restarts when the app returns.
@@ -177,6 +209,7 @@ export function NearbyScreen() {
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "background") {
         stoppedInBackground = true;
+        setReady(false);
         void bluetooth.stop().catch(() => {});
       } else if (state === "active" && stoppedInBackground) {
         stoppedInBackground = false;
@@ -199,6 +232,8 @@ export function NearbyScreen() {
     );
     return () => {
       active = false;
+      setReady(false);
+      setStarting(false);
       clearInterval(timer);
       listener.remove();
       discovered.remove();
@@ -207,84 +242,107 @@ export function NearbyScreen() {
       void bluetooth.stop().catch(() => {});
     };
   }, [api, focused, invite]);
+  const peerList = Object.values(peers);
+  const supported = Platform.OS !== "web";
+  const status = nearbyStatus({
+    supported,
+    hasModule: Boolean(Nearby),
+    starting: starting || (focused && !invite && !inviteError),
+    ready,
+    error: Boolean(radioError || inviteError),
+    peerCount: peerList.length,
+    focused,
+  });
+  const searchedLong = useSearchedFor(
+    status === "searching",
+    NEARBY_TIPS_AFTER_MS,
+  );
+  const message =
+    radioError?.message ?? inviteError ?? error ?? peerError ?? null;
+  const scanQr = () => nav.replace("scan");
   return (
     <Board scroll>
       <Header title="近くの人と交換" onBack={nav.pop} />
-      <View style={{ alignItems: "center", padding: 14 }}>
-        <Icon name="radar" size={60} />
-      </View>
-      {Platform.OS === "web" ? (
-        <T>近距離交換はiOS・Androidアプリで利用できます。</T>
+      <NearbyRadarPanel
+        status={status}
+        peerCount={peerList.length}
+        message={message}
+        name={s.profile.name}
+        avatar={s.profile.avatar}
+      />
+      {!supported ? (
+        <NearbyUnavailable message={WEB_UNAVAILABLE_MESSAGE} onScan={scanQr} />
       ) : !Nearby ? (
-        <T>
-          Bluetooth機能を含む開発ビルドを起動してください。Expo
-          Goでは利用できません。
-        </T>
+        <NearbyUnavailable message={NO_MODULE_MESSAGE} onScan={scanQr} />
       ) : (
-        <T size={13}>
-          近くでこの画面を開いている人をBluetoothで探しています。画面を閉じると探索と公開を停止します。
-        </T>
-      )}
-      {(radioError || inviteError || error) && (
-        <T color={C.yellow} accessibilityRole="alert">
-          {radioError?.message || inviteError || error}
-        </T>
-      )}
-      {radioError?.settings && (
-        <Btn
-          plain
-          small
-          label="設定を開く"
-          onPress={() => {
-            const target = radioError.settings;
-            if (!target) return;
-            void openSettings(target).catch(() =>
-              setRadioError({ message: SETTINGS_FAILED_MESSAGE }),
-            );
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: SP.sm,
+            minHeight: 44,
           }}
-        />
-      )}
-      {Object.values(peers).map(({ player, code }) => (
-        <Pressable
-          key={player.id}
-          accessibilityRole="button"
-          disabled={busy}
-          onPress={() =>
-            void run(async () => {
-              const sameVisit = startVisit();
-              const exchange = await api.startExchange(code);
-              await refresh();
-              // A late response must not replace a later visit or another screen.
-              if (sameVisit()) nav.replace("confirm", { cid: exchange.id });
-            })
-          }
         >
-          <Panel style={S.row}>
-            <Avatar name={player.profile.name} avatar={player.profile.avatar} />
-            <View style={S.fill}>
-              <T display color={C.ink} size={17}>
-                {player.profile.name}
-              </T>
-              <T color={C.muted} size={12}>
-                {player.profile.role}
-              </T>
-            </View>
-            <Icon name="chev" color={C.ink} />
-          </Panel>
-        </Pressable>
+          {radioError?.settings ? (
+            <Btn
+              plain
+              small
+              label="設定を開く"
+              onPress={() => {
+                const target = radioError.settings;
+                if (!target) return;
+                void openSettings(target).catch(() =>
+                  setRadioError({ message: SETTINGS_FAILED_MESSAGE }),
+                );
+              }}
+            />
+          ) : null}
+          <Btn
+            plain
+            small
+            label="探索をやり直す"
+            disabled={busy}
+            onPress={() => void renew()}
+          />
+        </View>
+      )}
+      {peerList.map(({ player, code }, index) => (
+        <StaggerItem key={player.id} itemKey={player.id} index={index}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() =>
+              void run(async () => {
+                const sameVisit = startVisit();
+                const exchange = await api.startExchange(code);
+                await refresh();
+                // A late response must not replace a later visit or another screen.
+                if (sameVisit()) nav.replace("confirm", { cid: exchange.id });
+              })
+            }
+          >
+            <Panel style={S.row}>
+              <Avatar
+                name={player.profile.name}
+                avatar={player.profile.avatar}
+              />
+              <View style={S.fill}>
+                <T display color={C.ink} size={17}>
+                  {player.profile.name}
+                </T>
+                <T color={C.muted} size={12}>
+                  {player.profile.role}
+                </T>
+              </View>
+              <Icon name="chev" color={C.ink} />
+            </Panel>
+          </Pressable>
+        </StaggerItem>
       ))}
-      {Nearby && !Object.keys(peers).length && (
-        <T size={13}>交換できる人が見つかると、ここに表示されます。</T>
-      )}
-      {Nearby && (
-        <Btn
-          plain
-          small
-          label="探索をやり直す"
-          disabled={busy}
-          onPress={() => void renew()}
-        />
-      )}
+      {showsNearbyTips(status, searchedLong ? NEARBY_TIPS_AFTER_MS : 0) ? (
+        <NearbyTips onScan={scanQr} />
+      ) : null}
     </Board>
   );
 }

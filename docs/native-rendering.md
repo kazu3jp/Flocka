@@ -79,6 +79,7 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 
 - 動きの部品は `apps/mobile/src/components/motion/` に1ファイル1部品で置く。時間とイージングは原本のCSS（`--ease`、`--pop`、0.1秒の押下、`slideUp`、`toastIn`、`flash`）の値で、操作に関わる動きは0.25秒以内。
 - 「動きを減らす」は `useReduceMotion`（`AccessibilityInfo.isReduceMotionEnabled` と `reduceMotionChanged`）に一本化した。Webでは同じメディアクエリを最初の描画から同期で読むので、テストは最終状態を即座に見る。ネイティブは起動直後の問い合わせが返るまで動かさない。
+- 近くの人と交換の探索表示は `features/exchange/nearby-status.ts`（純粋な状態）から決める。輪（`RadarRipple`）と脈打つ点（`PulseDot`）は、`searching`／`found`（`start()` の完了またはネイティブの `onReady` 後、画面が見えている間）だけ、`transform` と `opacity` をネイティブドライバで `isInteraction: false` のループにする。画面を離れる・探索が止まる・動きを減らすで止まり、12秒の「見つからない」タイマーもその間は破棄する。実機のAndroidでの描画負荷とBluetoothの実際の状態遷移は未検証。
 - ネイティブドライバ: 押下、画面・一覧・通知・成功の登場、タブの札、バッジ、進みバーは transform と opacity だけなのでネイティブドライバ。選択肢の色（`SelectionFill`）は色なのでJSドライバで、押下の transform とは別の層に置いて同じノードを共有しない。Webはどれもネイティブドライバが使えないのでJSドライバ。すべて `isInteraction: false` で、入力を待たせない。
 - 画面の登場は `ScreenStacks` の画面ごとに `ScreenEntrance` で包み、`useScreenFocused` が false から true に変わった瞬間（と最初の表示）だけ再生する。`Activity` で隠れている画面は動かさず、一覧の登場済みの印は画面ごとに持つので、戻ったりスクロールで戻したりしても再生しない。
 - シートの背景は `Modal` の `animationType="slide"` に任せ、別にフェードさせていない（`Modal` を `none` にして自前で動かすと閉じる動きを失うため）。
