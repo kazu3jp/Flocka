@@ -33,6 +33,36 @@ const numeric = (...values: unknown[]) => {
   return 0;
 };
 
+// How much wider than its measured width a Text box is made, in em. Android can
+// lay a line out against a box that is exactly as wide as its content and then
+// leave the last character on a second line that the box height hides (seen as
+// 「バックアップを復」). A little spare width keeps the whole line on one line.
+const END_ROOM_EM = 0.25;
+
+/**
+ * Spare width at the end of the line, taken from padding and given back by a
+ * negative margin so the layout and the visual centring do not change.
+ */
+function endRoom(style: TextStyle): TextStyle {
+  const { fontSize } = style;
+  if (!fontSize) return {};
+  if (style.backgroundColor || style.borderWidth || style.borderRightWidth)
+    return {};
+  const padding = numeric(
+    style.paddingRight,
+    style.paddingHorizontal,
+    style.padding,
+  );
+  const margin = numeric(
+    style.marginRight,
+    style.marginHorizontal,
+    style.margin,
+  );
+  if (padding === null || margin === null) return {};
+  const room = Math.ceil(fontSize * END_ROOM_EM);
+  return { paddingRight: padding + room, marginRight: margin - room };
+}
+
 /**
  * Android TextView clips glyphs to its own box. When the source CSS uses a
  * line-height tighter than the font, extend the box with padding and pull the
@@ -59,6 +89,7 @@ function androidGlyphRoom(style: TextStyle) {
     Bottom: fontSize * (extents.bottom - FONT_DESCENT) - halfLeading,
   };
   const room: TextStyle = {};
+  Object.assign(room, endRoom(style));
   for (const side of ["Top", "Bottom"] as const) {
     const padding = numeric(
       style[`padding${side}`],
