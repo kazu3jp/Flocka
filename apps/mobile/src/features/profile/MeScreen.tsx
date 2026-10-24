@@ -1,5 +1,5 @@
 import { AccountPanel } from "../auth/AccountPanel";
-import { BackupPanel } from "../sync/BackupPanel";
+import { SaveStatus } from "../sync/SaveStatus";
 import { View } from "react-native";
 
 import {
@@ -50,7 +50,7 @@ export function Me() {
           }
         />
       ))}
-      <BackupPanel />
+      <SaveStatus />
       <AccountPanel />
     </Board>
   );
