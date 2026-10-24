@@ -6,6 +6,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { useHiddenPasswordCharacters } from "../../components/use-hidden-password-characters";
 import { C, F, Field, Icon, S, T } from "../../components/ui";
 
 /** The shared form geometry from the original authentication screens. */
@@ -91,6 +92,7 @@ export function PasswordField({
   signup?: boolean;
 }) {
   const [show, setShow] = useState(false);
+  const { container, applyOnFocus } = useHiddenPasswordCharacters(!show);
   return (
     <View style={{ gap: 10 }}>
       <View style={S.row}>
@@ -109,9 +111,14 @@ export function PasswordField({
           </T>
         )}
       </View>
-      <View style={{ position: "relative" }}>
+      <View
+        ref={container}
+        collapsable={false}
+        style={{ position: "relative" }}
+      >
         <Field
           label="パスワード"
+          onFocus={applyOnFocus}
           hideLabel
           value={value}
           onChangeText={onChange}
