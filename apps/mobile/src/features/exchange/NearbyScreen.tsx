@@ -225,11 +225,11 @@ export function NearbyScreen() {
           近くでこの画面を開いている人をBluetoothで探しています。画面を閉じると探索と公開を停止します。
         </T>
       )}
-      {(radioError || inviteError || error) && (
+      {radioError || inviteError || error ? (
         <T color={C.yellow} accessibilityRole="alert">
           {radioError?.message || inviteError || error}
         </T>
-      )}
+      ) : null}
       {radioError?.settings && (
         <Btn
           plain

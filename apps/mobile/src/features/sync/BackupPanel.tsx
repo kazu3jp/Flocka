@@ -214,7 +214,7 @@ export function BackupPanel() {
               />
             </>
           }
-        </>{" "}
+        </>
         <InlineError text={error} color={C.danger} size={13} />
       </Panel>
       {dialog}

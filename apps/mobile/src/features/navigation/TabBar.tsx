@@ -134,7 +134,7 @@ export function TabBar({
               >
                 {label}
               </T>
-              {badge && (
+              {badge ? (
                 <PopOnChange
                   trigger={badge}
                   pointerEvents="none"
@@ -162,7 +162,7 @@ export function TabBar({
                     {badge}
                   </T>
                 </PopOnChange>
-              )}
+              ) : null}
             </SquishPressable>
           );
         })}
