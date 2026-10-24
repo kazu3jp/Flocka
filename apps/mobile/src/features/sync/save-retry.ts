@@ -9,19 +9,6 @@ export function retryDelayMs(failures: number): number {
   return RETRY_DELAYS_MS[index];
 }
 
-export type SaveState = "saved" | "saving" | "failed";
-
-/** What the user sees: a failed save outranks everything, then unsaved edits count as saving. */
-export function saveStateOf(input: {
-  failed: boolean;
-  saving: boolean;
-  unsaved: boolean;
-}): SaveState {
-  if (input.failed) return "failed";
-  if (input.saving || input.unsaved) return "saving";
-  return "saved";
-}
-
 export type RetryClock = {
   setTimeout: (run: () => void, ms: number) => unknown;
   clearTimeout: (handle: unknown) => void;

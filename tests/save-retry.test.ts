@@ -4,7 +4,6 @@ import {
   RETRY_DELAYS_MS,
   createSaveRetry,
   retryDelayMs,
-  saveStateOf,
   type RetryClock,
 } from "../apps/mobile/src/features/sync/save-retry";
 
@@ -46,14 +45,6 @@ test("waits grow to a 30 second cap", () => {
     [5_000, 10_000, 20_000, 30_000, 30_000, 30_000],
   );
   assert.equal(retryDelayMs(-3), RETRY_DELAYS_MS[0]);
-});
-
-test("the shown state puts failure first and counts unsent edits as saving", () => {
-  const base = { failed: false, saving: false, unsaved: false };
-  assert.equal(saveStateOf(base), "saved");
-  assert.equal(saveStateOf({ ...base, unsaved: true }), "saving");
-  assert.equal(saveStateOf({ ...base, saving: true }), "saving");
-  assert.equal(saveStateOf({ ...base, failed: true, saving: true }), "failed");
 });
 
 test("failed attempts back off, then stop after a success", async () => {

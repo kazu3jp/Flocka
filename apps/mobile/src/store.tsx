@@ -3,11 +3,7 @@ import { consumeFreshSignIn } from "./features/auth/fresh-sign-in";
 import { keepIfSame } from "./features/sync/same-data";
 import { forEachWithLimit } from "./features/sync/limited-concurrency";
 import { userFacingError } from "./features/sync/user-facing-error";
-import {
-  createSaveRetry,
-  saveStateOf,
-  type SaveState,
-} from "./features/sync/save-retry";
+import { createSaveRetry } from "./features/sync/save-retry";
 import {
   useNotificationResponse,
   type NoticeKind,
@@ -131,10 +127,6 @@ type ContextValue = {
 /** Status that changes on its own timer, kept apart so screens do not redraw with it. */
 type StatusValue = {
   syncing: boolean;
-  saveState: SaveState;
-  /** Failed because two devices edited at once: waiting for the user, not retrying. */
-  savePaused: boolean;
-  retrySave: () => void;
   notification: Toast | null;
   dismissToast: () => void;
 };
@@ -176,10 +168,6 @@ export function Provider({
     [saveError, setSaveError] = useState<string | null>(null),
     [syncError, setSyncError] = useState<string | null>(null),
     [syncing, setSyncing] = useState(false),
-    [savingPreferences, setSavingPreferences] = useState(false),
-    [savedJson, setSavedJson] = useState(() =>
-      JSON.stringify(preferencesOf(fresh())),
-    ),
     [peers, setPeers] = useState<Record<string, RemotePlayer>>({}),
     [isAdmin, setIsAdmin] = useState(false),
     [preferenceConflict, setPreferenceConflict] = useState<{
@@ -251,10 +239,9 @@ export function Provider({
       action ? 5000 : 2600,
     );
   }, []);
-  /** Records what the server holds and tells the status that "unsaved" may have changed. */
+  /** Records what the server holds. */
   const markSaved = useCallback((json: string) => {
     savedPreferences.current = json;
-    setSavedJson(json);
   }, []);
   const synchronize = useCallback(async () => {
     const snapshot = await api.getSnapshot();
@@ -605,7 +592,6 @@ export function Provider({
           return;
         // Saving over an unresolved conflict would overwrite the other device's edit.
         if (preferenceConflictRef.current) throw new Error(CONFLICT_MESSAGE);
-        setSavingPreferences(true);
         try {
           const saved = await api.savePreferences(data, prefsRevision.current);
           if (!mounted.current) return;
@@ -625,8 +611,6 @@ export function Provider({
             await synchronize().catch(() => {});
           }
           throw error;
-        } finally {
-          if (mounted.current) setSavingPreferences(false);
         }
       });
     syncQueue.current = task;
@@ -982,29 +966,9 @@ export function Provider({
       offerUndo,
     ],
   );
-  const unsaved = s.onboarded && preferencesJson !== savedJson;
-  const saveState = saveStateOf({
-    failed: serverSaveFailed,
-    saving: savingPreferences,
-    unsaved,
-  });
   const status = useMemo<StatusValue>(
-    () => ({
-      syncing,
-      saveState,
-      savePaused: waitingForChoice,
-      retrySave,
-      notification,
-      dismissToast,
-    }),
-    [
-      syncing,
-      saveState,
-      waitingForChoice,
-      retrySave,
-      notification,
-      dismissToast,
-    ],
+    () => ({ syncing, notification, dismissToast }),
+    [syncing, notification, dismissToast],
   );
   return (
     <Context.Provider value={value}>
