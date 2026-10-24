@@ -83,6 +83,7 @@ export function usePRDocument() {
     // only a currently confirmed card can replace it.
     canRegenerate: generated !== null,
     regenerationStrength: generated?.card.name,
+    generatedCardKey: generated?.card.key,
     draft,
     manual: s.prDraft !== null,
     editing,
