@@ -212,7 +212,7 @@ export function BackupPanel() {
               />
             </>
           }
-        </>{" "}
+        </>
         {error && (
           <T color={C.danger} size={13}>
             {error}
