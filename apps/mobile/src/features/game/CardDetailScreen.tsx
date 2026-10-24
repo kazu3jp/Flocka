@@ -174,7 +174,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
                   : ""}
                 「{wordsOf(piece)}」
               </T>
-              {piece.kind === "vibe" && piece.text && (
+              {piece.kind === "vibe" && piece.text ? (
                 <View
                   style={[
                     S.row,
@@ -206,7 +206,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
                     {piece.label}
                   </T>
                 </View>
-              )}
+              ) : null}
             </Panel>
           </Pressable>
         );

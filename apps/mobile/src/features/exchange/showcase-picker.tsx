@@ -90,11 +90,11 @@ export function ShowcasePicker({
           );
         })}
       </View>
-      {selection.error && (
+      {selection.error ? (
         <T accessibilityRole="alert" color={C.danger}>
           {selection.error}
         </T>
-      )}
+      ) : null}
       <Btn
         label={selection.busy ? "保存中…" : "決定"}
         disabled={selection.busy}

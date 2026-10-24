@@ -103,11 +103,11 @@ export function PieceDetail({ id }: { id: string }) {
         <T display color={C.ink} size={20}>
           「{wordsOf(p)}」
         </T>
-        {p.label && (
+        {p.label ? (
           <T color={C.muted} size={13}>
             要約：{p.label}
           </T>
-        )}
+        ) : null}
         <T color={C.muted} size={13}>
           {new Date(p.createdAt).toLocaleString("ja-JP")}
         </T>

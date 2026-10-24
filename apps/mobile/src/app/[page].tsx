@@ -211,7 +211,7 @@ export default function Screen() {
           />
         </Sheet>
       )}
-      {(saveError || syncError || auth.error) && (
+      {saveError || syncError || auth.error ? (
         <View
           pointerEvents="box-none"
           style={{
@@ -223,7 +223,7 @@ export default function Screen() {
             gap: SP.sm,
           }}
         >
-          {saveError && (
+          {saveError ? (
             <ErrorBanner
               text={`${saveError} · タップして再試行`}
               hint="保存を再試行します"
@@ -231,14 +231,14 @@ export default function Screen() {
                 preferenceConflict ? setResolvingConflict(true) : retrySave()
               }
             />
-          )}
-          {syncError && (
+          ) : null}
+          {syncError ? (
             <ErrorBanner
               text={`${syncError} · タップして再同期`}
               hint="サーバーと再同期します"
               onPress={() => void refresh().catch(() => {})}
             />
-          )}
+          ) : null}
           {auth.error && (
             <ErrorBanner
               text="ログイン状態を確認できませんでした · タップして再確認"
@@ -247,7 +247,7 @@ export default function Screen() {
             />
           )}
         </View>
-      )}
+      ) : null}
     </ScreenFeedback>
   );
 }

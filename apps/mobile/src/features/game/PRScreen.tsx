@@ -265,11 +265,11 @@ export function PR() {
           </View>
         </View>
       </Panel>
-      {(editor.error || ai.generateError) && !editor.confirmReset && (
+      {(editor.error || ai.generateError) && !editor.confirmReset ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {editor.error ?? ai.generateError}
         </T>
-      )}
+      ) : null}
       {ai.generating && (
         <T
           testID="pr-ai-progress"
@@ -350,11 +350,11 @@ export function PR() {
             手で編集した内容を消して、「{editor.regenerationStrength}
             」の現在の証言から下書きを作ります。
           </T>
-          {editor.error && (
+          {editor.error ? (
             <T accessibilityRole="alert" color={C.danger}>
               {editor.error}
             </T>
-          )}
+          ) : null}
           <Btn
             label={editor.busy ? "保存中…" : "書き出す"}
             loading={editor.busy}
