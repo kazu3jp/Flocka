@@ -136,11 +136,11 @@ function GuessContent({ id }: { id: string }) {
           </Pressable>
         }
       />
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {error}
         </T>
-      )}
+      ) : null}
       <ScrollView
         contentContainerStyle={{ gap: 16, paddingBottom: 16 }}
         style={S.fill}
@@ -232,11 +232,11 @@ function GuessContent({ id }: { id: string }) {
               <T display size={20} color={C.ink}>
                 「{wordsOf(p)}」
               </T>
-              {p.label && (
+              {p.label ? (
                 <T color={C.muted} size={13}>
                   要約：{p.label}
                 </T>
-              )}
+              ) : null}
             </Panel>
             <View style={[S.row, { justifyContent: "center" }]}>
               <T
@@ -247,9 +247,9 @@ function GuessContent({ id }: { id: string }) {
               >
                 {openingResult(guess, p.card, s.self.includes(p.card))}
               </T>
-              {guess && guess !== p.card && Object.hasOwn(CARDS, guess) && (
+              {guess && guess !== p.card && Object.hasOwn(CARDS, guess) ? (
                 <T size={13}>予想：{CARDS[guess].name}</T>
-              )}
+              ) : null}
             </View>
             <StrengthCard
               large
@@ -307,8 +307,8 @@ export function GuessOverlay() {
       animationType="fade"
       onRequestClose={() => setOpening(null)}
     >
-      {opening && <GuessContent id={opening} key={opening} />}
-      {opening && feedback}
+      {opening ? <GuessContent id={opening} key={opening} /> : null}
+      {opening ? feedback : null}
     </Modal>
   );
 }

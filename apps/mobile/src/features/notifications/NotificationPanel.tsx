@@ -40,11 +40,11 @@ export function NotificationPanel() {
       <T color={C.muted} size={13}>
         封筒の到着、交換の成立、通報への対応をこの端末へお知らせします。
       </T>
-      {(error || loadError) && (
+      {error || loadError ? (
         <T accessibilityRole="alert" color={C.danger}>
           {error || loadError}
         </T>
-      )}
+      ) : null}
       <Btn
         disabled={busy || !accountId}
         label={

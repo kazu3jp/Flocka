@@ -21,7 +21,7 @@ export function AvatarEdit() {
       <T size={13}>
         写真は160×160に整え、保存時に非公開のストレージへ送信します。
       </T>
-      {error && <T color={C.yellow}>{error}</T>}
+      {error ? <T color={C.yellow}>{error}</T> : null}
       <Btn
         label={busy ? "保存中…" : "保存する"}
         disabled={busy}

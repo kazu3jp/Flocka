@@ -68,7 +68,7 @@ export function Confirm({ cid }: { cid: string }) {
           <T size={12}>{c.status === "accepted" ? "交換成立" : "内容確認"}</T>
         }
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error ? <T color={C.yellow}>{error}</T> : null}
       <Player peerId={c.peerId} />
       {!pending && c.status !== "cancelled" && (
         <Panel style={{ padding: 10 }}>

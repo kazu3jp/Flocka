@@ -65,11 +65,11 @@ export function ResetPasswordScreen() {
           />
         </>
       )}
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {error}
         </T>
-      )}
+      ) : null}
     </Board>
   );
 }

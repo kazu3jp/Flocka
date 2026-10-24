@@ -7,11 +7,11 @@ export function SignOutAction() {
   const { busy, error, pushPending, signOut } = useSignOut();
   return (
     <>
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow} size={13}>
           {error}
         </T>
-      )}
+      ) : null}
       <Btn
         plain
         label={busy ? "ログアウト中…" : "ログアウト"}

@@ -155,11 +155,11 @@ export function Give({ cid }: { cid: string }) {
           </View>
         }
       />
-      {error && (
+      {error ? (
         <T color={C.yellow} accessibilityRole="alert">
           {error}
         </T>
-      )}
+      ) : null}
       <View testID="give-instructions">
         <T display size={20} style={{ lineHeight: 28 }}>
           相手のいいなと思ったところは？

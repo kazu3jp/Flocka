@@ -123,11 +123,11 @@ export function Memo() {
   return (
     <Board scroll form>
       <Header title="" onBack={back} right={<MemoProgress step={step} />} />
-      {error && (
+      {error ? (
         <T color={C.yellow} accessibilityRole="alert">
           {error}
         </T>
-      )}
+      ) : null}
       <T testID="memo-heading" display size={26} style={{ lineHeight: 36.4 }}>
         {step === 0
           ? "誰に贈る？"

@@ -26,7 +26,7 @@ export function SelfEdit() {
         value={profile.role}
         onChangeText={(role) => setProfile({ ...profile, role })}
       />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error ? <T color={C.yellow}>{error}</T> : null}
       <CardPicker selected={sel} onChange={setSel} />
       <InterestsPicker
         selected={profile.interests}

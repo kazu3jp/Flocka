@@ -45,7 +45,7 @@ export function Moderation() {
   return (
     <Board scroll>
       <Header title="通報の対応" onBack={nav.pop} />
-      {error && <T color={C.yellow}>{error}</T>}
+      {error ? <T color={C.yellow}>{error}</T> : null}
       {loaded && !items.length && (
         <T size={13}>
           {next === null

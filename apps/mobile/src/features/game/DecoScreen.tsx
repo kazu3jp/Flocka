@@ -217,11 +217,11 @@ export function Deco({ cardKey }: { cardKey: string }) {
           ))}
         </View>
       </ScrollView>
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {error}
         </T>
-      )}
+      ) : null}
       <Btn
         label={busy ? "保存中…" : "完了"}
         disabled={busy}

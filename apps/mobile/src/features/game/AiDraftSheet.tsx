@@ -36,11 +36,11 @@ export function AiDraftSheet({
       <T testID="pr-ai-text" selectable style={{ lineHeight: 26 }}>
         {draft.text}
       </T>
-      {error && (
+      {error ? (
         <T accessibilityRole="alert" color={C.danger}>
           {error}
         </T>
-      )}
+      ) : null}
       <Btn label="この下書きを使う" loading={busy} onPress={onAdopt} />
       <Btn plain label="やめる" disabled={busy} onPress={onDiscard} />
     </Sheet>
