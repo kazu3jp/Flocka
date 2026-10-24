@@ -131,7 +131,8 @@ test("decoration tabs, sticker limits, failed saves and durable preferences", as
     await saveGate;
     await route.continue();
   });
-  await page.getByRole("button", { name: "水玉", exact: true }).click();
+  // The card was just restored to dots; pick another pattern so a save starts.
+  await page.getByRole("button", { name: "ストライプ", exact: true }).click();
   const savedResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/v1/me/preferences" &&
