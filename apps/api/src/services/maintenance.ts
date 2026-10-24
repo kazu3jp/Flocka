@@ -1,4 +1,5 @@
 import { retryAccountDeletions } from "./account-deletion";
+import { AiUsageRepository } from "../repositories/ai-usage";
 import { ORPHAN_AVATAR_GRACE_MS } from "./avatar-retention";
 const OUTBOX_RETENTION_MS = 7 * 24 * 3600_000;
 /** Longer than any Better Auth rate-limit window (the longest is 60 seconds). */
@@ -75,6 +76,10 @@ export function maintenanceTasks(
   return [
     ["maintenance.account_deletions", () => retryAccountDeletions(env, now)],
     ["maintenance.expired_rows", () => deleteExpiredRows(env.DB, now)],
+    [
+      "maintenance.ai_usage",
+      () => new AiUsageRepository(env.DB).deleteOlderThan(now),
+    ],
     ["maintenance.orphan_avatars", () => deleteOrphanAvatars(env, now)],
   ];
 }

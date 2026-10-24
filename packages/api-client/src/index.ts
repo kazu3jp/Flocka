@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   apiErrorSchema,
+  prAiDraftSchema,
   syncSchema,
   preferencesRecordSchema,
   settingsSchema,
@@ -19,6 +20,9 @@ import {
   type State,
 } from "@flocka/domain";
 
+const REQUEST_TIMEOUT_MS = 15_000;
+/** The server waits up to 25 seconds for the model, so the client waits longer. */
+const PR_AI_TIMEOUT_MS = 35_000;
 export class ApiClientError extends Error {
   constructor(
     public readonly status: number,
@@ -95,6 +99,7 @@ export class FlockaApiClient {
     method = "GET",
     body?: unknown,
     contentType = "application/json",
+    timeoutMs = REQUEST_TIMEOUT_MS,
   ): Promise<T> {
     let payload: BodyInit | undefined;
     if (body !== undefined) {
@@ -111,7 +116,7 @@ export class FlockaApiClient {
       timer = setTimeout(() => {
         controller.abort();
         reject(timeoutError());
-      }, 15_000);
+      }, timeoutMs);
     });
     const operation = async () => {
       let cookie: string | undefined;
@@ -186,12 +191,15 @@ export class FlockaApiClient {
     schema: z.ZodType<T>,
     method = "GET",
     body?: unknown,
+    timeoutMs = REQUEST_TIMEOUT_MS,
   ): Promise<T> {
     return this.request(
       path,
       (response) => this.parseResponse(response, schema),
       method,
       body,
+      "application/json",
+      timeoutMs,
     );
   }
   async getSnapshot() {
@@ -251,6 +259,16 @@ export class FlockaApiClient {
       data,
       revision,
     });
+  }
+  /** Asks the server to write a draft from the caller's own testimonies for `card`. */
+  generatePRDraftWithAI(card: string) {
+    return this.json(
+      "/v1/me/pr-draft/ai",
+      prAiDraftSchema,
+      "POST",
+      { card },
+      PR_AI_TIMEOUT_MS,
+    );
   }
   saveSettings(settings: z.infer<typeof settingsSchema>) {
     return this.json("/v1/me/settings", settingsSchema, "PUT", settings);
