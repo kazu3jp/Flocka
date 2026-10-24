@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useIsFocused } from "expo-router";
+import { useScreenFocused } from "../../components/screen-focus";
 import QRCode from "react-native-qrcode-svg";
 import {
   Avatar,
@@ -25,7 +25,7 @@ export function Scan() {
   const { s, api, refresh, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
     [permission, requestPermission] = useCameraPermissions(),
-    focused = useIsFocused(),
+    focused = useScreenFocused(),
     scanned = useRef(false),
     rescanTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     startVisit = useScreenVisit(),

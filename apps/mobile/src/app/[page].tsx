@@ -8,27 +8,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import {
-  AvatarEdit,
-  Me,
-  Onboarding,
-  PieceDetail,
-  Pieces,
-  SelfEdit,
-  Settings,
-} from "../features/profile";
-import { Moderation } from "../features/admin";
-import { CardDetail, Deck, Deco, GuessOverlay, PR } from "../features/game";
-import { Collection } from "../features/game/CollectionScreen";
-import {
-  Confirm,
-  Connections,
-  Exchange,
-  Give,
-  Memo,
-  Nearby,
-  Scan,
-} from "../features/exchange";
+import { GuessOverlay } from "../features/game";
+import { ScreenStacks, screenFor } from "../features/navigation/ScreenStacks";
 import {
   Board,
   BoardInsets,
@@ -95,17 +76,7 @@ const FOCUSED = ["give", "memo", "scan", "confirm", "nearby", "onboarding"];
 export default function Screen() {
   const safeInsets = useSafeAreaInsets();
   const auth = useAuth();
-  const {
-      page: screen,
-      key,
-      cid,
-      id,
-    } = useLocalSearchParams<{
-      page: string;
-      key?: string;
-      cid?: string;
-      id?: string;
-    }>(),
+  const { page: screen } = useLocalSearchParams<{ page: string }>(),
     {
       toast,
       ready,
@@ -168,50 +139,6 @@ export default function Screen() {
         href={{ pathname: "/[page]", params: { page: "onboarding" } }}
       />
     );
-  const render = () => {
-    switch (screen) {
-      case "onboarding":
-        return <Onboarding />;
-      case "deck":
-        return <Deck />;
-      case "collection":
-        return <Collection />;
-      case "card":
-        return <CardDetail cardKey={key || ""} />;
-      case "deco":
-        return <Deco cardKey={key || ""} />;
-      case "me":
-        return <Me />;
-      case "avatar":
-        return <AvatarEdit />;
-      case "selfEdit":
-        return <SelfEdit />;
-      case "pieces":
-        return <Pieces />;
-      case "piece":
-        return <PieceDetail key={id} id={id || ""} />;
-      case "settings":
-        return <Settings />;
-      case "moderation":
-        return <Moderation />;
-      case "exchange":
-        return <Exchange />;
-      case "connections":
-        return <Connections />;
-      case "nearby":
-        return <Nearby />;
-      case "scan":
-        return <Scan />;
-      case "confirm":
-        return <Confirm cid={cid || ""} />;
-      case "give":
-        return <Give key={cid} cid={cid || ""} />;
-      case "memo":
-        return <Memo />;
-      case "pr":
-        return <PR />;
-    }
-  };
   const tabs: [Tab, string, string][] = [
     ["find", "デッキ", "deck"],
     ["exchange", "交換", "swap"],
@@ -225,8 +152,12 @@ export default function Screen() {
     >
       <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
       <BoardInsets.Provider value={{ top: false, bottom: focused }}>
-        <View key={screen + (key || cid || id || "")} style={S.fill}>
-          {render()}
+        <View style={S.fill}>
+          {screen === "onboarding" ? (
+            screenFor({ id: "onboarding" })
+          ) : (
+            <ScreenStacks nav={n} />
+          )}
         </View>
       </BoardInsets.Provider>
       {!focused && (

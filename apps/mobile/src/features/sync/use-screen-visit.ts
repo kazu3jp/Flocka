@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useRef } from "react";
 
 /**
@@ -8,7 +8,7 @@ import { useCallback, useRef } from "react";
  */
 export function useScreenVisit(key = "") {
   const focusedVisit = useRef<{ key: string } | null>(null);
-  useFocusEffect(
+  useScreenFocusEffect(
     useCallback(() => {
       const visit = { key };
       focusedVisit.current = visit;

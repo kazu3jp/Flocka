@@ -62,6 +62,16 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 
 プレイヤーカードは、表示領域の大きさが分かるまで手札を描かない作りのため、最初の1回の描画（手札なし）は残る。Webの画像比較（`test:vrt`）はWindowsでは `tools/vrt/build.mjs` の `spawnSync("npm")` が失敗するため実行していない。
 
+## 画面を作り直さないナビゲーション（2026-10-21）
+
+画面の移動はすべて同じ `[page]` ルートへの `router.replace` で行っていたため、戻る操作やタブの切り替えでも、表示する画面を毎回作り直していた（デッキならカード6枚分のSVGとレイアウト計測）。
+
+- ナビゲーションの状態（タブごとのスタック）は、これまでどおりstoreを正とする。画面間の移動では `router.setParams` でURLだけを書き換え、ルートは作り直さない。認証やアカウント削除など `[page]` 以外のルートからは、従来どおり `router.replace` で移動する。
+- `features/navigation/ScreenStacks.tsx` は、すべてのタブのスタックにある画面を保持し、表示するのは現在のタブの一番上だけにする。各画面は React 19.2 の `<Activity>` で包む。非表示の画面は状態を保ったまま副作用（カメラ、Bluetooth、ポーリング、カードの揺れ）が止まり、再描画も後回しになる。
+- 画面のフォーカスは `components/screen-focus.ts` の `useScreenFocused` / `useScreenFocusEffect` で判定する。ルートが1つなので、expo-routerの `useIsFocused` / `useFocusEffect` では画面を区別できない。戻って再表示した画面は新しい訪問として扱う。
+- `Sheet` はModal（別ウィンドウ）のため、非表示の画面ではシートを描かない。画面に戻るとシートも戻る。
+- e2eでは、非表示の画面に `testID="hidden-screen"` を付け、`getByText` / `getByTestId` から除外する（`e2e/visual/test.ts`）。`getByRole` は元から非表示の要素を除外する。`persistent-screens.spec.ts` で、戻る・タブ切り替えの後も同じ画面が残っていることを確認する。
+- Fabricの非表示処理（`cloneHiddenInstance`）を使うため、ネイティブ端末での表示と、Profilerによる改善量の計測は未実施。
 ## カード絵とシールの影（2026-10-21）
 
 原本のカード絵（`drop-shadow(2px 3px 0 ink / .35)`）とシール（`1px 2px 0 / .3`）の影は、SVGの `feDropShadow` で描いていた。react-native-svgはAndroidでフィルターとグループの不透明度をソフトウェアのビットマップへ描くため、カード絵1枚ごとに画面外の描画が発生していた。

@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useRef, useState } from "react";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
@@ -9,7 +9,7 @@ export function useShowcase() {
   const [open, setOpen] = useState(false);
   const { busy, error, run } = useAction();
   const visit = useRef<object | null>(null);
-  useFocusEffect(
+  useScreenFocusEffect(
     useCallback(() => {
       visit.current = {};
       return () => {

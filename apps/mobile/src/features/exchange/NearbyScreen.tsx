@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AppState, Linking, Platform, Pressable, View } from "react-native";
-import { useIsFocused } from "expo-router";
+import { useScreenFocused } from "../../components/screen-focus";
 import {
   Board,
   Btn,
@@ -81,7 +81,7 @@ function openSettings(target: SettingsTarget) {
 export function NearbyScreen() {
   const { api, refresh, nav } = useApp(),
     { invite, error: inviteError, renew } = useInvite(),
-    focused = useIsFocused(),
+    focused = useScreenFocused(),
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
     >({}),

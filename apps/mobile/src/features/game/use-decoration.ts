@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useRef, useState } from "react";
 import {
   defaultDeco,
@@ -17,7 +17,7 @@ export function useDecoration(cardKey: string) {
   const [tab, setTab] = useState<DecorationTab>("pattern");
   const { busy, error, run } = useAction();
   const focusedVisit = useRef<{ cardKey: string } | null>(null);
-  useFocusEffect(
+  useScreenFocusEffect(
     useCallback(() => {
       focusedVisit.current = { cardKey };
       return () => {
