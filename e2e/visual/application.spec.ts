@@ -240,6 +240,9 @@ test("real collected cards, profile, settings and exchange", async ({
         name: "PR document",
         actual: page.getByTestId("pr-document"),
         reference: reference.locator(".prdoc"),
+        // The AI polish action (docs/ai-pr-generation.md) takes a row below the
+        // document, so the document is shorter than in the source.
+        skip: ["height"],
       },
       {
         name: "PR heading",
@@ -250,11 +253,13 @@ test("real collected cards, profile, settings and exchange", async ({
         name: "PR body",
         actual: page.getByTestId("pr-body"),
         reference: reference.locator(".prdoc-body"),
+        skip: ["height"],
       },
       {
         name: "PR sources",
         actual: page.getByTestId("pr-sources"),
         reference: reference.locator(".src-chips"),
+        skip: ["y"],
       },
       {
         name: "PR actions",

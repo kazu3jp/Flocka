@@ -14,6 +14,7 @@ import {
   Sheet,
   T,
 } from "../../components/ui";
+import { StaggerItem } from "../../components/motion";
 import { useApp } from "../../store";
 import { PeerAvatar } from "./player-card";
 import { useConnectionRemoval } from "./use-connection-removal";
@@ -130,8 +131,10 @@ export function Connections() {
                   ? "印象を贈りました"
                   : connection.context.place || "交換済み";
             return (
-              <View
+              <StaggerItem
                 key={connection.id}
+                itemKey={`connection:${connection.id}`}
+                index={index}
                 testID={`connection-${connection.id}`}
                 style={{
                   minHeight: 56,
@@ -191,7 +194,7 @@ export function Connections() {
                 >
                   <Icon name="x" size={18} color={C.ink} />
                 </Pressable>
-              </View>
+              </StaggerItem>
             );
           })}
         </View>

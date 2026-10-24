@@ -7,6 +7,7 @@ import {
   Choice,
   F,
   Header,
+  LAYOUT,
   Panel,
   S,
   StrengthCard,
@@ -54,11 +55,20 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         label="このカードをデコる"
         onPress={() => nav.push("deco", { key: cardKey })}
       />
-      <T size={14} style={{ textAlign: "center", lineHeight: 22.4 }}>
+      <T
+        size={14}
+        // The confirmed wording changes length with the reaction below, so
+        // that case keeps two lines and the reaction panel stays put.
+        style={{
+          textAlign: "center",
+          lineHeight: 22.4,
+          minHeight: card.confirmed ? 44.8 : undefined,
+        }}
+      >
         {explanation}
       </T>
       {showResponse && (
-        <Panel style={{ padding: 14, gap: 8 }}>
+        <Panel style={{ padding: LAYOUT.panelPaddingCompact, gap: 8 }}>
           <T
             size={16}
             color={C.ink}
@@ -80,12 +90,12 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
                 key={response}
                 selected={s.resp[cardKey] === response}
                 label={label}
+                selectedColor={C.pink}
                 style={{
                   flex: 1,
                   minHeight: 48,
                   borderWidth: 2.5,
-                  backgroundColor:
-                    s.resp[cardKey] === response ? C.pink : C.paper,
+                  alignItems: "center",
                 }}
                 onPress={() =>
                   update((state) => {
@@ -99,15 +109,22 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
               </Choice>
             ))}
           </View>
-          {s.resp[cardKey] === "disagree" && (
-            <T
-              size={12.5}
-              color={C.muted}
-              style={{ fontFamily: F.bold, lineHeight: 19.375 }}
-            >
-              このカードは自己PRに使いません。証言はそのまま残ります。
-            </T>
-          )}
+          {/* Always laid out; it only shows after "違うかも", so the panel keeps its height. */}
+          <T
+            size={12.5}
+            color={C.muted}
+            accessibilityElementsHidden={s.resp[cardKey] !== "disagree"}
+            importantForAccessibility={
+              s.resp[cardKey] === "disagree" ? "auto" : "no-hide-descendants"
+            }
+            style={{
+              fontFamily: F.bold,
+              lineHeight: 19.375,
+              opacity: s.resp[cardKey] === "disagree" ? 1 : 0,
+            }}
+          >
+            自己PRには使いません。証言は残ります。
+          </T>
         </Panel>
       )}
       <T size={16} style={{ fontFamily: F.bold, lineHeight: 24 }}>
@@ -137,7 +154,9 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
             key={piece.id}
             onPress={() => nav.push("piece", { id: piece.id })}
           >
-            <Panel style={{ padding: 14, borderRadius: 14 }}>
+            <Panel
+              style={{ padding: LAYOUT.panelPaddingCompact, borderRadius: 14 }}
+            >
               <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
                 {name}
                 {connection?.context.place

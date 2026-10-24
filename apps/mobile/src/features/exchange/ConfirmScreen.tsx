@@ -11,6 +11,7 @@ import {
   Panel,
   Sheet,
   T,
+  InlineError,
 } from "../../components/ui";
 import { useApp } from "../../store";
 import { Player } from "./player-card";
@@ -68,7 +69,6 @@ export function Confirm({ cid }: { cid: string }) {
           <T size={12}>{c.status === "accepted" ? "交換成立" : "内容確認"}</T>
         }
       />
-      {error && <T color={C.yellow}>{error}</T>}
       <Player peerId={c.peerId} />
       {!pending && c.status !== "cancelled" && (
         <Panel style={{ padding: 10 }}>
@@ -120,6 +120,7 @@ export function Confirm({ cid }: { cid: string }) {
           />
         </>
       )}
+      <InlineError text={error} />
       {memoOpen && c.status !== "cancelled" && (
         <Sheet title="出会いのメモ" onClose={() => setMemoOpen(false)}>
           <T size={13}>
@@ -144,7 +145,10 @@ export function Confirm({ cid }: { cid: string }) {
             disabled={!done || busy}
             onPress={approve}
           />
-          {!done && <T size={12}>2つの項目を入力すると進めます</T>}
+          {/* Kept in place and hidden once done, so the sheet keeps its height. */}
+          <T size={12} style={{ opacity: done ? 0 : 1 }}>
+            2つの項目を入力すると進めます
+          </T>
         </Sheet>
       )}
     </Board>

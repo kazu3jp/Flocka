@@ -78,6 +78,9 @@ test("impression forms and delivered content follow the original design", async 
         name: "free reason",
         actual: page.getByTestId("give-reason"),
         reference: reference.locator(".field"),
+        // The source removes "出会いのメモを編集" once something is typed,
+        // pulling the options up. Native keeps it (section 10 of the screen spec).
+        skip: ["y"],
       },
       {
         name: "summary button",
@@ -86,6 +89,7 @@ test("impression forms and delivered content follow the original design", async 
           name: "要約する",
           exact: true,
         }),
+        skip: ["y"],
       },
     ],
     testInfo,

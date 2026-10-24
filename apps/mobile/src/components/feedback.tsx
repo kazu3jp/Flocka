@@ -5,9 +5,10 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Pressable, View, type ViewProps } from "react-native";
+import { Animated, Pressable, View, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { C, F } from "./theme";
+import { C, F, LAYOUT, SP } from "./theme";
+import { usePresenceMotion } from "./motion";
 import { T } from "./text";
 
 type SheetFeedback = { content: React.ReactNode; register?: () => () => void };
@@ -42,33 +43,42 @@ export function useSheetFeedback() {
   return useContext(FeedbackContext);
 }
 
+type Notification = {
+  text: string;
+  action?: { label: string; fn: () => void };
+};
+
 export function ToastBanner({
   notification,
   dismiss,
   focused,
 }: {
-  notification: {
-    text: string;
-    action?: { label: string; fn: () => void };
-  } | null;
+  notification: Notification | null;
   dismiss: () => void;
   focused: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  if (!notification) return null;
+  // The banner eases out after the notification clears, so it keeps the last text.
+  const [last, setLast] = useState<Notification | null>(null);
+  if (notification && notification !== last) setLast(notification);
+  const { mounted, progress } = usePresenceMotion(!!notification);
+  const shown = notification ?? last;
+  if (!mounted || !shown) return null;
   return (
-    <View
+    <Animated.View
       testID="toast"
+      // Only the live notification takes touches while it eases out.
+      pointerEvents={notification ? "auto" : "none"}
       role="status"
       accessibilityLiveRegion="polite"
       style={{
         position: "absolute",
         bottom: (focused ? 96 : 80) + insets.bottom,
-        left: 12,
-        right: 12,
+        left: LAYOUT.toastInset,
+        right: LAYOUT.toastInset,
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: LAYOUT.blockGap,
         backgroundColor: C.yellow,
         borderWidth: 2.5,
         borderColor: C.ink,
@@ -77,11 +87,27 @@ export function ToastBanner({
         paddingLeft: 14,
         paddingRight: 10,
         boxShadow: `4px 4px 0 ${C.ink}`,
+        // The source's toastIn: rise 10px from 96% scale while fading in.
+        opacity: progress,
+        transform: [
+          {
+            translateY: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [10, 0],
+            }),
+          },
+          {
+            scale: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.96, 1],
+            }),
+          },
+        ],
       }}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={notification.text}
+        accessibilityLabel={shown.text}
         onPress={dismiss}
         style={{ flex: 1 }}
       >
@@ -90,20 +116,20 @@ export function ToastBanner({
           size={14}
           style={{ fontFamily: F.bold, lineHeight: 23.1 }}
         >
-          {notification.text}
+          {shown.text}
         </T>
       </Pressable>
-      {notification.action && (
+      {shown.action && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={notification.action.label}
+          accessibilityLabel={shown.action.label}
           onPress={() => {
-            notification.action?.fn();
+            shown.action?.fn();
             dismiss();
           }}
           style={{
-            minHeight: 44,
-            paddingHorizontal: 8,
+            minHeight: LAYOUT.touchTarget,
+            paddingHorizontal: SP.sm,
             justifyContent: "center",
           }}
         >
@@ -112,10 +138,10 @@ export function ToastBanner({
             color={C.ink}
             style={{ fontFamily: F.bold, textDecorationLine: "underline" }}
           >
-            {notification.action.label}
+            {shown.action.label}
           </T>
         </Pressable>
       )}
-    </View>
+    </Animated.View>
   );
 }

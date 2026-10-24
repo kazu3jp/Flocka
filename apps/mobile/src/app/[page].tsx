@@ -1,4 +1,6 @@
 import { ScreenFeedback, ToastBanner } from "../components/feedback";
+import { EnterOnMount } from "../components/motion";
+import { TabBar } from "../features/navigation/TabBar";
 import { useAuth, SessionStatus } from "../features/auth/provider";
 import { SignOutAction } from "../features/auth/SignOutAction";
 import React, { useEffect, useState } from "react";
@@ -15,10 +17,10 @@ import {
   BoardInsets,
   Btn,
   C,
-  F,
-  Icon,
+  LAYOUT,
   S,
   Sheet,
+  SP,
   T,
 } from "../components/ui";
 import { SCREENS, type ScreenId, type Tab } from "@flocka/domain";
@@ -49,7 +51,7 @@ function ErrorBanner({
   return (
     // A live region announces the banner without duplicating the screen's own
     // alert for the same failure.
-    <View accessibilityLiveRegion="polite">
+    <EnterOnMount accessibilityLiveRegion="polite">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={text}
@@ -62,13 +64,13 @@ function ErrorBanner({
           borderRadius: 10,
           borderWidth: 2.5,
           borderColor: C.ink,
-          padding: 12,
+          padding: SP.md,
           boxShadow: `3px 3px 0 ${C.ink}`,
         }}
       >
         <T size={12}>{text}</T>
       </Pressable>
-    </View>
+    </EnterOnMount>
   );
 }
 
@@ -161,76 +163,21 @@ export default function Screen() {
         </View>
       </BoardInsets.Provider>
       {!focused && (
-        <SafeAreaView edges={["bottom"]} style={{ backgroundColor: C.ink }}>
-          <View
-            style={{
-              flexDirection: "row",
-              paddingHorizontal: 10,
-              paddingTop: 4,
-              paddingBottom: Math.max(0, 10 - safeInsets.bottom),
-            }}
-          >
-            {tabs.map(([tab, label, icon]) => (
-              <Pressable
-                key={tab}
-                accessibilityRole="tab"
-                aria-selected={n.tab === tab}
-                accessibilityLabel={label}
-                onPress={() => nav.goTab(tab, undefined, n.tab === tab)}
-                style={{
-                  flex: 1,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 2,
-                  minHeight: 52,
-                  borderRadius: 12,
-                  backgroundColor: n.tab === tab ? C.yellow : "transparent",
-                }}
-              >
-                <Icon
-                  name={icon}
-                  color={n.tab === tab ? C.ink : C.tabInactive}
-                />
-                <T
-                  size={12}
-                  color={n.tab === tab ? C.ink : C.tabInactive}
-                  style={{ fontFamily: F.bold, lineHeight: 19.8 }}
-                >
-                  {label}
-                </T>
-                {((tab === "find" && d.unopened.length > 0) ||
-                  (tab === "pr" && d.prCard)) && (
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      left: "50%",
-                      marginLeft: 8,
-                      minWidth: 18,
-                      height: 18,
-                      paddingHorizontal: 5,
-                      borderRadius: 9,
-                      backgroundColor: C.pink,
-                      borderWidth: 2,
-                      borderColor: C.ink,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <T
-                      size={10.5}
-                      color={C.ink}
-                      style={{ fontFamily: F.bold, lineHeight: 14 }}
-                    >
-                      {tab === "find" ? d.unopened.length : "!"}
-                    </T>
-                  </View>
-                )}
-              </Pressable>
-            ))}
-          </View>
-        </SafeAreaView>
+        <TabBar
+          items={tabs.map(([tab, label, icon]) => ({
+            tab,
+            label,
+            icon,
+            badge:
+              tab === "find" && d.unopened.length > 0
+                ? String(d.unopened.length)
+                : tab === "pr" && d.prCard
+                  ? "!"
+                  : null,
+          }))}
+          current={n.tab}
+          onSelect={(tab) => nav.goTab(tab, undefined, n.tab === tab)}
+        />
       )}
       <GuessOverlay />
       {resolvingConflict && preferenceConflict && (
@@ -270,10 +217,10 @@ export default function Screen() {
           style={{
             position: "absolute",
             // Below the 48pt screen header so its back button stays reachable.
-            top: safeInsets.top + 56,
-            left: 14,
-            right: 14,
-            gap: 8,
+            top: safeInsets.top + LAYOUT.headerHeight + SP.sm,
+            left: LAYOUT.screenPadding,
+            right: LAYOUT.screenPadding,
+            gap: SP.sm,
           }}
         >
           {saveError && (
