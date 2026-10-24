@@ -56,13 +56,13 @@ export function InlineError({
   if (!text && !reserveLines) return null;
   return (
     <View style={{ minHeight: reserveLines * size * 1.5 }}>
-      {text && (
+      {text ? (
         <EnterOnMount from="bottom">
           <T accessibilityRole="alert" color={color} size={size}>
             {text}
           </T>
         </EnterOnMount>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -177,11 +177,11 @@ export function Scan() {
           />
         </View>
       )}
-      {(error || inviteError) && (
+      {error || inviteError ? (
         <T color={C.yellow} accessibilityRole="alert">
           {error || inviteError}
         </T>
-      )}
+      ) : null}
     </Board>
   );
 }

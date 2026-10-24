@@ -40,7 +40,7 @@ export function DeleteAccountScreen() {
             ? "プロフィール、写真、交換履歴、送受信した証言、バックアップとログイン情報を削除しました。"
             : "削除を受け付け、ログイン情報を無効にしました。写真や外部ログイン連携を含む削除が完了するまで、サーバーで再試行します。"}
         </T>
-        {cleanupError && (
+        {cleanupError ? (
           <>
             <T accessibilityRole="alert" color={C.yellow}>
               この端末の保存データを消去できませんでした：{cleanupError}
@@ -50,7 +50,7 @@ export function DeleteAccountScreen() {
               onPress={() => void retryCleanup()}
             />
           </>
-        )}
+        ) : null}
         <Btn
           label="ログイン画面へ"
           onPress={() => {
@@ -96,19 +96,19 @@ export function DeleteAccountScreen() {
             : "本人確認のため、登録済みメールアドレスに確認リンクを送ります。リンクを開くだけでは削除されません。"}
         </T>
       )}
-      {token && (
+      {token ? (
         <Choice
           label="削除すると元に戻せないことを確認しました"
           selected={agreed}
           onPress={() => setAgreed(!agreed)}
         />
-      )}
-      {error && (
+      ) : null}
+      {error ? (
         <T accessibilityRole="alert" color={C.yellow}>
           {error}
         </T>
-      )}
-      {token && error && (
+      ) : null}
+      {token && error ? (
         <Btn
           plain
           small
@@ -116,7 +116,7 @@ export function DeleteAccountScreen() {
           disabled={busy}
           onPress={() => void submitDeletion(false)}
         />
-      )}
+      ) : null}
       <Btn
         label={
           busy
