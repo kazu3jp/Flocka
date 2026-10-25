@@ -65,6 +65,7 @@ export async function createAuthRuntime(
     webOrigin?: string;
     authURL?: string;
     appleCredentials?: boolean;
+    infrastructure?: boolean;
     throughMigration?: string;
   } = {},
 ) {
@@ -79,6 +80,7 @@ export async function createAuthRuntime(
     status: 200,
     error: "invalid_token",
   };
+  const infrastructureCalls: string[] = [];
   const push = {
     calls: [] as { path: string; body: unknown }[],
     status: 200,
@@ -114,6 +116,14 @@ export async function createAuthRuntime(
             },
           },
           env: {
+            ...(input.infrastructure
+              ? {
+                  BETTER_AUTH_API_KEY: {
+                    type: "json" as const,
+                    value: "test-infra-key-never-sent",
+                  },
+                }
+              : {}),
             ...(input.appleCredentials
               ? {
                   APPLE_CLIENT_ID: {
@@ -155,6 +165,23 @@ export async function createAuthRuntime(
           outboundService: {
             type: "fetcher",
             handler: async (request: TestRequest) => {
+              if (
+                input.infrastructure &&
+                [
+                  "https://dash.better-auth.com",
+                  "https://kv.better-auth.com",
+                ].includes(new URL(request.url).origin)
+              ) {
+                infrastructureCalls.push(request.url);
+                return new TestResponse(
+                  JSON.stringify(
+                    new URL(request.url).pathname === "/security/check"
+                      ? { action: "allow" }
+                      : {},
+                  ),
+                  { headers: { "Content-Type": "application/json" } },
+                );
+              }
               if (
                 [
                   "https://appleid.apple.com/auth/revoke",
@@ -374,6 +401,7 @@ export async function createAuthRuntime(
       authenticate,
       setAdmins,
       revocations,
+      infrastructureCalls,
     };
   } catch (error) {
     await runtime.dispose();
