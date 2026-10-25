@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { ParagraphSkeleton } from "../../components/loading";
 import { View } from "react-native";
 import { Avatar, C, LinkButton, S, T, Sheet } from "../../components/ui";
 import { bareCard, type Card, type PublicTestimony } from "@flocka/domain";
@@ -149,7 +150,7 @@ export function Player({
       {showPublic && (
         <Sheet title="公開された証言" onClose={() => setShowPublic(false)}>
           {!published ? (
-            <T>読み込み中…</T>
+            <ParagraphSkeleton />
           ) : published.error ? (
             <T color={C.danger}>{published.error}</T>
           ) : !published.items.length ? (

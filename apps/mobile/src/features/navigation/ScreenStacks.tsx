@@ -103,7 +103,7 @@ export function ScreenStacks({ nav }: { nav: NavState }) {
               style={S.fill}
               testID={visible ? undefined : HIDDEN_SCREEN_TEST_ID}
             >
-              <ScreenEntrance testID="screen-entrance">
+              <ScreenEntrance testID="screen-entrance" push={index > 0}>
                 {screenFor(entry)}
               </ScreenEntrance>
             </View>

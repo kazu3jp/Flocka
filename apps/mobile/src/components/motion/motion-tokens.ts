@@ -13,6 +13,10 @@ export const MOTION_MS = {
   toast: 220,
   toastExit: 160,
   pop: 360,
+  /** One turn of the spinner. */
+  spinnerTurn: 800,
+  /** One half-cycle of the skeleton pulse. */
+  skeletonPulse: 700,
 } as const;
 
 export const MOTION_EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
@@ -30,3 +34,9 @@ export const STAGGER = {
 
 /** Distance a screen or list item rises while it fades in. */
 export const ENTER_RISE = { screen: 10, item: 8 } as const;
+
+/** Skeleton blocks pulse between these opacities; reduced motion holds the rest value. */
+export const SKELETON_OPACITY = { low: 0.45, high: 0.9, rest: 0.7 } as const;
+
+/** Distance a pushed screen slides in from the right while it fades in. */
+export const PUSH_SLIDE = 18;

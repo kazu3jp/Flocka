@@ -1,3 +1,4 @@
+import { LoadingNotice } from "../../components/loading";
 import { Btn, C, T } from "../../components/ui";
 
 export function DeliveryFeedback({
@@ -11,9 +12,11 @@ export function DeliveryFeedback({
 }) {
   if (busy)
     return (
-      <T size={13} accessibilityLiveRegion="polite">
-        最新データを取得中…
-      </T>
+      <LoadingNotice>
+        <T size={13} accessibilityLiveRegion="polite">
+          最新データを取得中…
+        </T>
+      </LoadingNotice>
     );
   if (!error) return null;
   return (
