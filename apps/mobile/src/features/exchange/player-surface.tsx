@@ -11,6 +11,7 @@ import {
   View,
   Platform,
   useWindowDimensions,
+  type LayoutChangeEvent,
 } from "react-native";
 import Svg, {
   Circle,
@@ -22,11 +23,26 @@ import Svg, {
 } from "react-native-svg";
 import type { Card } from "@flocka/domain";
 import { C, F, Icon, Panel, StrengthCard, T } from "../../components/ui";
+import {
+  fanCardHeightFor,
+  fitDisplayName,
+} from "../../components/responsive-scale";
 import { useTourTarget } from "../guided-tour/use-tour-target";
+import { useSectionHeights } from "./use-section-heights";
 
 /** The one-line message reads larger than the source design's 14px, which was too small on a phone. */
 const ROLE_FONT_SIZE = 17;
 const ROLE_LINE_HEIGHT = 1.6;
+/** Smallest name the card shrinks to before it lets a long name use two lines. */
+const NAME_MIN_SIZE = 16;
+/** Horizontal padding of the identity row, and the gap between avatar and name. */
+const IDENTITY_PADDING_X = 16;
+const IDENTITY_GAP = 12;
+/** Space the hand keeps above and below the cards, and the smallest card worth fanning. */
+const HAND_PADDING_Y = 12;
+const MIN_FAN_CARD_HEIGHT = 96;
+const CARD_ASPECT = 176 / 164;
+const PANEL_BORDER = 2.5;
 
 function fanPose(index: number, count: number) {
   if (count === 1) return { angle: 0, verticalOffset: 0 };
@@ -35,9 +51,40 @@ function fanPose(index: number, count: number) {
   return { angle: index === 0 ? -8 : 8, verticalOffset: 0.06 };
 }
 
+/** The shown cards by name, for panels too short to fan them out. */
+function StrengthNames({
+  cards,
+  inset = 16,
+  onLayout,
+}: {
+  cards: Card[];
+  inset?: number;
+  onLayout?: (event: LayoutChangeEvent) => void;
+}) {
+  return (
+    <T
+      testID="player-strength-names"
+      onLayout={onLayout}
+      size={14}
+      color={C.ink}
+      numberOfLines={2}
+      style={{
+        paddingHorizontal: inset,
+        fontFamily: F.bold,
+        lineHeight: 23.1,
+      }}
+    >
+      {cards.length
+        ? cards.map((card) => card.name).join("・")
+        : "まだ選んでいません"}
+    </T>
+  );
+}
+
 /** The source design uses the player container's size, not the window size. */
 export function PlayerSurface({
   avatar,
+  avatarSize,
   name,
   role,
   interests,
@@ -48,6 +95,8 @@ export function PlayerSurface({
   tourTargetId = null,
 }: {
   avatar: React.ReactNode;
+  /** Width the avatar takes in the identity row, which the name shares. */
+  avatarSize: number;
   name: string;
   role: string;
   interests: string[];
@@ -60,6 +109,8 @@ export function PlayerSurface({
 }) {
   const tourTarget = useTourTarget(tourTargetId);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [handHeight, setHandHeight] = useState(0);
+  const sections = useSectionHeights();
   const measuredView = useRef<View>(null);
   const { width, height, fontScale } = useWindowDimensions();
   const recordSize = useCallback((width: number, height: number) => {
@@ -83,18 +134,43 @@ export function PlayerSurface({
   const id = `player-${useId().replace(/:/g, "")}`;
   const contentHeight = size.height;
   const showHand = contentHeight > (compact ? 360 : 520);
-  const nameSize = compact
+  // The size the card's height allows. A narrow phone is as tall as a wide
+  // one, so the name must also fit the width left beside the avatar.
+  const roomySize = compact
     ? Math.max(26, Math.min(38, contentHeight * 0.075))
     : Math.max(34, Math.min(56, contentHeight * 0.14));
+  const nameSize = fitDisplayName({
+    name,
+    availableWidth:
+      size.width - 2 * IDENTITY_PADDING_X - avatarSize - IDENTITY_GAP,
+    maxSize: roomySize,
+    minSize: Math.min(NAME_MIN_SIZE, roomySize),
+    fontScale,
+  });
   const handWidth = Math.max(0, size.width - 36);
-  const cardWidth = handWidth * 0.64;
-  const cardHeight = cardWidth * (164 / 176);
+  const widthCardHeight = handWidth * 0.64 * (164 / 176);
+  // The fan takes the room the hand really has (a large font leaves less),
+  // so rotated cards never reach the label above or the footer below.
+  const fanCardHeight =
+    handHeight > 0
+      ? fanCardHeightFor(handHeight - HAND_PADDING_Y, MIN_FAN_CARD_HEIGHT)
+      : widthCardHeight;
+  const fanFits = fanCardHeight > 0;
+  const cardHeight = Math.min(widthCardHeight, fanCardHeight);
+  const cardWidth = Math.min(handWidth * 0.64, cardHeight * CARD_ASPECT);
+  const cardOverlap = cardWidth * (0.46 / 0.64);
+  // Least height the panel needs: its fixed parts and a two-line list of the
+  // strengths. A screen that offers less scrolls instead of clipping them.
+  const minimumHeight =
+    sections.total +
+    (showHand ? HAND_PADDING_Y + 2 * 23.1 * Math.max(1, fontScale) : 0) +
+    2 * PANEL_BORDER;
   return (
     <Panel
       testID="player-card"
       style={{
         flex: 1,
-        minHeight: 0,
+        minHeight: minimumHeight,
         padding: 0,
         borderRadius: 20,
         overflow: "hidden",
@@ -132,6 +208,7 @@ export function PlayerSurface({
         </Svg>
         <View
           testID="player-heading"
+          onLayout={sections.measure("heading")}
           style={{
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -150,11 +227,12 @@ export function PlayerSurface({
         <View
           {...tourTarget}
           testID="player-identity"
+          onLayout={sections.measure("identity")}
           style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 12,
-            paddingHorizontal: 16,
+            gap: IDENTITY_GAP,
+            paddingHorizontal: IDENTITY_PADDING_X,
             paddingTop: 14,
           }}
         >
@@ -164,6 +242,7 @@ export function PlayerSurface({
             display
             size={nameSize}
             color={C.ink}
+            numberOfLines={2}
             style={{
               flexShrink: 1,
               minWidth: 0,
@@ -175,6 +254,7 @@ export function PlayerSurface({
         </View>
         <T
           testID="player-role"
+          onLayout={sections.measure("role")}
           size={ROLE_FONT_SIZE}
           color={C.muted}
           style={{
@@ -188,6 +268,7 @@ export function PlayerSurface({
           <>
             <View
               testID="player-strength-label"
+              onLayout={sections.measure("strength-label")}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -230,64 +311,59 @@ export function PlayerSurface({
             </View>
             {/* Short panels keep the picker reachable and name the shown cards instead of the hand. */}
             {!showHand && (
-              <T
-                testID="player-strength-names"
-                size={14}
-                color={C.ink}
-                numberOfLines={2}
-                style={{
-                  paddingHorizontal: 16,
-                  fontFamily: F.bold,
-                  lineHeight: 23.1,
-                }}
-              >
-                {cards.length
-                  ? cards.map((card) => card.name).join("・")
-                  : "まだ選んでいません"}
-              </T>
+              <StrengthNames
+                cards={cards}
+                onLayout={sections.measure("strength-names")}
+              />
             )}
             {showHand && (
               <View
                 testID="player-hand"
                 accessibilityLabel="相手に見せる強み"
+                onLayout={({ nativeEvent: { layout } }) =>
+                  setHandHeight(layout.height)
+                }
                 style={{
                   flex: 1,
                   minHeight: 0,
                   flexDirection: "row",
                   justifyContent: "center",
-                  alignItems: "center",
+                  alignItems: fanFits ? "center" : "flex-start",
                   paddingHorizontal: 18,
                   paddingTop: 8,
                   paddingBottom: 4,
                 }}
               >
-                {cards.map((card, index) => {
-                  const pose = fanPose(index, cards.length);
-                  return (
-                    <StrengthCard
-                      key={card.key}
-                      card={card}
-                      style={{
-                        width: cardWidth,
-                        height: cardHeight,
-                        flexShrink: 0,
-                        marginLeft: index ? -handWidth * 0.46 : 0,
-                        zIndex: index === 1 ? 2 : 1,
-                        transform: [
-                          { rotate: `${pose.angle}deg` },
-                          { translateY: cardHeight * pose.verticalOffset },
-                        ],
-                      }}
-                      height={cardHeight}
-                    />
-                  );
-                })}
+                {!fanFits && <StrengthNames cards={cards} inset={0} />}
+                {fanFits &&
+                  cards.map((card, index) => {
+                    const pose = fanPose(index, cards.length);
+                    return (
+                      <StrengthCard
+                        key={card.key}
+                        card={card}
+                        style={{
+                          width: cardWidth,
+                          height: cardHeight,
+                          flexShrink: 0,
+                          marginLeft: index ? -cardOverlap : 0,
+                          zIndex: index === 1 ? 2 : 1,
+                          transform: [
+                            { rotate: `${pose.angle}deg` },
+                            { translateY: cardHeight * pose.verticalOffset },
+                          ],
+                        }}
+                        height={cardHeight}
+                      />
+                    );
+                  })}
               </View>
             )}
           </>
         )}
         <View
           testID="player-footer"
+          onLayout={sections.measure("footer")}
           style={{
             marginTop: "auto",
             paddingHorizontal: 16,

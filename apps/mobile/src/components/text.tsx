@@ -13,6 +13,10 @@ import {
 import { AV_COLORS, IC, type AvatarData } from "@flocka/domain";
 import vectors from "../vectors.json";
 import { CachedSvgXml } from "./cached-svg-xml";
+import {
+  BODY_FONT_MAX_MULTIPLIER,
+  DISPLAY_FONT_MAX_MULTIPLIER,
+} from "./responsive-scale";
 import { C, F } from "./theme";
 
 export const ForegroundColor = createContext<string>(C.white);
@@ -127,13 +131,23 @@ function plainGlyphRoom(style: TextStyle) {
   return room;
 }
 
+// `textWrap` is a web style that react-native-web passes to CSS.
+const BALANCED_WRAP = { textWrap: "balance" } as TextStyle;
+
 export function T({
   display = false,
   size = 15,
   color,
   style,
+  balanced = false,
   ...props
-}: TextProps & { display?: boolean; size?: number; color?: string }) {
+}: TextProps & {
+  display?: boolean;
+  size?: number;
+  color?: string;
+  /** Splits a wrapped title into even lines, so no single character is left on the last one. */
+  balanced?: boolean;
+}) {
   const inheritedColor = useContext(ForegroundColor);
   const baseStyle: TextStyle = {
     fontFamily: display ? F.display : F.body,
@@ -141,7 +155,11 @@ export function T({
     lineHeight: size * 1.5,
     color: color ?? inheritedColor,
   };
-  const textStyle: StyleProp<TextStyle> = [baseStyle, style];
+  const textStyle: StyleProp<TextStyle> = [
+    baseStyle,
+    style,
+    balanced && BALANCED_WRAP,
+  ];
   const glyphRoom =
     Platform.OS === "android"
       ? style
@@ -149,7 +167,15 @@ export function T({
         : plainGlyphRoom(baseStyle)
       : null;
   return (
-    <Text {...props} style={glyphRoom ? [textStyle, glyphRoom] : textStyle} />
+    <Text
+      // The system font scale may enlarge the heavy display face less than body text.
+      maxFontSizeMultiplier={
+        display ? DISPLAY_FONT_MAX_MULTIPLIER : BODY_FONT_MAX_MULTIPLIER
+      }
+      textBreakStrategy={balanced ? "balanced" : undefined}
+      {...props}
+      style={glyphRoom ? [textStyle, glyphRoom] : textStyle}
+    />
   );
 }
 

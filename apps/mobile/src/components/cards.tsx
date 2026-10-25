@@ -198,12 +198,15 @@ export const StrengthCard = memo(function StrengthCard({
   style,
   large = false,
   height,
+  onArtHeight,
 }: {
   card: Card;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   large?: boolean;
   height?: number;
+  /** Reports the illustration area's laid-out height, so a grid can tell when text has squeezed it. */
+  onArtHeight?: (height: number) => void;
 }) {
   const color = card.confirmed
     ? C.yellow
@@ -329,6 +332,7 @@ export const StrengthCard = memo(function StrengthCard({
       <View
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
+          onArtHeight?.(height);
           const next = {
             width: Math.max(1, width - 4),
             height: Math.max(1, height - 4),

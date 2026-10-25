@@ -118,6 +118,7 @@ export function Player({
       <PlayerSurface
         tourTargetId={peerId ? null : TOUR_TARGETS.playerCard}
         compact={!!peerId}
+        avatarSize={peerId ? 56 : 64}
         avatar={
           peerId ? (
             <PeerAvatar id={peerId} size={56} />
