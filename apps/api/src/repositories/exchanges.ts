@@ -20,6 +20,7 @@ type ExchangeViewRow = ExchangeRow & {
   settings_json: string;
   avatar_key: string | null;
   peer_created_at: string;
+  peer_sns_links_json: string;
 };
 /** Keyset position in the newest-first exchange list. */
 export type ExchangePosition = { at: string; id: string };
@@ -33,7 +34,7 @@ export function noBlockBetween(first: string, second: string): string {
 const viewQuery = `
   SELECT exchange.*, mine.approved_at AS my_approved, theirs.approved_at AS peer_approved,
     mine.place, mine.trigger, peer.id AS peer_id, peer.profile_json, peer.self_json,
-    peer.settings_json, peer.avatar_key, peer.created_at AS peer_created_at
+    peer.settings_json, peer.avatar_key, peer.created_at AS peer_created_at, peer.sns_links_json AS peer_sns_links_json
   FROM exchange_participants AS mine
   JOIN exchanges AS exchange ON exchange.id = mine.exchange_id
   JOIN exchange_participants AS theirs ON theirs.exchange_id = exchange.id AND theirs.account_id != mine.account_id
@@ -92,6 +93,7 @@ export class ExchangesRepository {
       settings_json: row.settings_json,
       avatar_key: row.avatar_key,
       created_at: row.peer_created_at,
+      sns_links_json: row.peer_sns_links_json,
     };
     return {
       id: row.id,
@@ -99,7 +101,11 @@ export class ExchangesRepository {
       myApproved: row.my_approved !== null,
       peerApproved: row.peer_approved !== null,
       context: { place: row.place, trigger: row.trigger },
-      peer: new AccountsRepository(this.db).toPlayer(peer),
+      // Self-declared SNS links are for accepted exchanges only, not a pending scan.
+      peer: new AccountsRepository(this.db).toPlayer(
+        peer,
+        row.status === "accepted",
+      ),
       createdAt: row.created_at,
     };
   }
@@ -171,6 +177,10 @@ export class ExchangesRepository {
         "EXCHANGE_CONFLICT",
         "交換の状態が更新されました。もう一度確認してください",
       );
-    return { ...view, status: "cancelled" };
+    return {
+      ...view,
+      status: "cancelled",
+      peer: { ...view.peer, profile: { ...view.peer.profile, snsLinks: [] } },
+    };
   }
 }

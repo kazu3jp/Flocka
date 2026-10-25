@@ -1,4 +1,5 @@
 import { CARDS } from "./catalog";
+import type { SnsLink } from "./sns-links";
 
 export type AvatarData = {
   type: "initial" | "motif" | "photo";
@@ -13,6 +14,8 @@ export type Profile = {
   interests: string[];
   avatar: AvatarData;
   links: { github: string };
+  /** Self-declared SNS handles. Peers receive them only after an accepted exchange. */
+  snsLinks: SnsLink[];
 };
 
 export type Piece = {

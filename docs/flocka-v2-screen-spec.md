@@ -238,7 +238,7 @@
 State {
   schemaVersion: 1
   onboarded: boolean
-  profile: { name, role, interests[], avatar{type: initial|motif|photo, color, motif, photo}, links{github} }
+  profile: { name, role, interests[], avatar{type: initial|motif|photo, color, motif, photo}, links{github}, snsLinks[]{platform: x|instagram|tiktok|youtube|github|line, value} }
   self: CardKey[]                 // 自己申告 2〜3枚
   showcase: CardKey[]             // 交換時に見せる強み（最大3）
   connections: Connection[]
