@@ -1,11 +1,13 @@
 import { test, expect } from "./test";
-import { capture } from "./helpers";
+import { capture, markTutorialSeen } from "./helpers";
 
 test("email signup, onboarding, logout and password reset", async ({
   page,
   context,
 }, testInfo) => {
   const email = `ui.signup.${testInfo.project.name}@example.test`;
+  // The first-launch tutorial has its own spec (tutorial.spec.ts).
+  await markTutorialSeen(context);
   await page.goto("/auth");
   await page
     .getByRole("button", { name: "アカウントを作成", exact: true })

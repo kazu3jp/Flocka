@@ -46,20 +46,24 @@ accountRoutes.post("/accounts", async (c) => {
       "利用規約とプライバシーポリシーへの同意が必要です",
     );
   const { photo: _photo, ...avatar } = input.profile.avatar;
+  const { snsLinks, ...shared } = input.profile;
   await c.env.DB.prepare(
-    "INSERT INTO accounts(id, profile_json, self_json, created_at) SELECT ?1, ?2, ?3, ?4 WHERE EXISTS(SELECT 1 FROM auth_users WHERE id = ?1) AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE account_id = ?1) ON CONFLICT(id) DO NOTHING",
+    "INSERT INTO accounts(id, profile_json, self_json, created_at, sns_links_json) SELECT ?1, ?2, ?3, ?4, ?5 WHERE EXISTS(SELECT 1 FROM auth_users WHERE id = ?1) AND NOT EXISTS(SELECT 1 FROM account_deletions WHERE account_id = ?1) ON CONFLICT(id) DO NOTHING",
   )
     .bind(
       id,
-      JSON.stringify({ ...input.profile, avatar }),
+      JSON.stringify({ ...shared, avatar }),
       JSON.stringify(input.self),
       at,
+      JSON.stringify(snsLinks ?? []),
     )
     .run();
-  return c.json(await new AccountsRepository(c.env.DB).getPlayer(id), 201);
+  return c.json(await new AccountsRepository(c.env.DB).getOwnPlayer(id), 201);
 });
 accountRoutes.get("/me", async (c) =>
-  c.json(await new AccountsRepository(c.env.DB).getPlayer(c.get("accountId"))),
+  c.json(
+    await new AccountsRepository(c.env.DB).getOwnPlayer(c.get("accountId")),
+  ),
 );
 accountRoutes.patch("/me", async (c) => {
   const input = await readJson(c, createAccountSchema);

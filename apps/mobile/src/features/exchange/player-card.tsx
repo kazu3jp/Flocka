@@ -5,6 +5,7 @@ import { Avatar, C, LinkButton, S, T, Sheet } from "../../components/ui";
 import { bareCard, type Card, type PublicTestimony } from "@flocka/domain";
 import { useApp } from "../../store";
 import { PlayerSurface } from "./player-surface";
+import { SnsLinkList } from "./SnsLinkList";
 
 export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
   const { peers } = useApp();
@@ -105,6 +106,12 @@ export function Player({
     [peerSelf, publishedItems, s.showcase, d.deck],
   );
   const interests = peer ? peer.profile.interests : s.profile.interests;
+  // The server sends a peer's links only after an accepted exchange; a pending card shows none.
+  const snsLinks = peer
+    ? accepted
+      ? peer.profile.snsLinks
+      : []
+    : s.profile.snsLinks;
   return (
     <>
       <PlayerSurface
@@ -126,12 +133,17 @@ export function Player({
         interests={interests}
         onPick={onPick}
         footer={
-          accepted ? (
-            <LinkButton
-              color={C.ink}
-              label="公開された証言を見る"
-              onPress={() => setShowPublic(true)}
-            />
+          snsLinks.length > 0 || accepted ? (
+            <>
+              <SnsLinkList links={snsLinks} />
+              {accepted && (
+                <LinkButton
+                  color={C.ink}
+                  label="公開された証言を見る"
+                  onPress={() => setShowPublic(true)}
+                />
+              )}
+            </>
           ) : undefined
         }
       />

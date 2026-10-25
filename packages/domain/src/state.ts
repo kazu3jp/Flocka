@@ -12,6 +12,7 @@ export const fresh = (): State => ({
     role: "",
     interests: [],
     links: { github: "" },
+    snsLinks: [],
     avatar: { type: "initial", color: AV_COLORS[0], motif: "rocket" },
   },
   self: [],

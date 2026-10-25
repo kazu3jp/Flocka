@@ -16,6 +16,7 @@ import { deviceRoutes } from "./routes/devices";
 import { dispatchNotifications, checkPushReceipts } from "./services/push";
 import { maintenanceTasks } from "./services/maintenance";
 import { allowedOrigins } from "./origins";
+import { isDashboardRequest } from "./auth/infrastructure";
 
 const app = new Hono<ApiContext>();
 app.use("*", async (c, next) => {
@@ -28,15 +29,11 @@ app.use("*", async (c, next) => {
 app.use("*", async (c, next) => {
   const origin = c.req.header("Origin"),
     allowed = allowedOrigins(c.env);
-  const appleCallback =
-    c.req.path === "/api/auth/callback/apple" &&
-    origin === "https://appleid.apple.com" &&
-    socialProviders(c.env).apple;
   if (
     origin &&
     !allowed.includes(origin) &&
     !origin.startsWith("flocka://") &&
-    !appleCallback
+    !isDashboardRequest(c.env, c.req.path, origin)
   )
     throw new ApiError(
       403,
@@ -49,7 +46,10 @@ app.use(
   "*",
   cors({
     origin: (origin, c) =>
-      allowedOrigins(c.env).includes(origin) ? origin : undefined,
+      allowedOrigins(c.env).includes(origin) ||
+      isDashboardRequest(c.env, c.req.path, origin)
+        ? origin
+        : undefined,
     credentials: true,
     allowHeaders: [
       "Content-Type",
@@ -57,10 +57,13 @@ app.use(
       "expo-origin",
       "x-skip-oauth-proxy",
       "X-Flocka-Account",
+      "X-Visitor-Id",
+      "X-Request-Id",
+      "X-PoW-Solution",
     ],
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     // Lets the web app read Better Auth's rate-limit wait time.
-    exposeHeaders: ["X-Retry-After"],
+    exposeHeaders: ["X-Retry-After", "X-PoW-Challenge", "X-PoW-Reason"],
   }),
 );
 app.get("/health", async (c) => {

@@ -3,9 +3,11 @@ interface Env {
   EXPO_ACCESS_TOKEN?: string;
   ADMIN_USER_IDS?: string;
   BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_API_KEY?: string;
   RESEND_API_KEY: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Legacy account deletion only; Apple sign-in is no longer supported. */
   APPLE_CLIENT_ID?: string;
   APPLE_CLIENT_SECRET?: string;
   /** Overrides the 25 second model deadline. Only tests set it. */

@@ -2,6 +2,27 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createAuthRuntime } from "./helpers/auth-runtime";
 
+test("Apple sign-in stays disabled even when legacy revocation credentials exist", async () => {
+  const f = await createAuthRuntime({ appleCredentials: true });
+  try {
+    const config = await fetch(f.base + "/auth/config");
+    assert.equal(config.status, 200);
+    assert.deepEqual(await config.json(), { providers: [] });
+    const signIn = await f.auth("/sign-in/social", {
+      provider: "apple",
+      callbackURL: "http://localhost:8081",
+    });
+    assert.equal(signIn.status, 404);
+    const callback = await fetch(f.base + "/api/auth/callback/apple", {
+      method: "POST",
+      headers: { Origin: "https://appleid.apple.com" },
+    });
+    assert.equal(callback.status, 403);
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
 test("Better Auth verifies email, rejects bad credentials, rotates sessions, and resets passwords via Resend", async () => {
   const f = await createAuthRuntime();
   try {

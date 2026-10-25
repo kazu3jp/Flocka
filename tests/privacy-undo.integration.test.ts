@@ -8,6 +8,8 @@ test("legacy privacy data migrates and stale undo cannot overwrite newer visibil
     throughMigration: "0008_deletion_write_guards.sql",
   });
   try {
+    // Independent of the privacy columns under test: the API reads accounts.sns_links_json.
+    await f.applyMigration("0012_sns_links.sql");
     const owner = await f.register("受け取り手"),
       peer = await f.register("贈り手");
     const invitation = await owner.api.createInvite();

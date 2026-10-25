@@ -12,6 +12,8 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { GuessOverlay } from "../features/game";
+import { TutorialSheet } from "../features/tutorial/TutorialSheet";
+import { useFirstLaunchTutorial } from "../features/tutorial/use-tutorial-seen";
 import { ScreenStacks, screenFor } from "../features/navigation/ScreenStacks";
 import {
   Board,
@@ -98,6 +100,12 @@ export default function Screen() {
       retrySave,
     } = useApp();
   const [resolvingConflict, setResolvingConflict] = useState(false);
+  const tutorial = useFirstLaunchTutorial({
+    signedIn: Boolean(auth.data),
+    accountReady: ready && !error,
+    onboarded: s.onboarded,
+    onboardingScreen: screen === "onboarding",
+  });
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const listener = (e: KeyboardEvent) => {
@@ -176,6 +184,7 @@ export default function Screen() {
         />
       )}
       <GuessOverlay />
+      {tutorial.open && <TutorialSheet onClose={tutorial.close} />}
       {resolvingConflict && preferenceConflict && (
         <Sheet
           title="別の端末で更新されています"

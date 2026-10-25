@@ -28,20 +28,38 @@ Webプレビューはフロント/APIでホストを一致させます。既定�
 
 メール確認専用にemailOTPプラグインを使います。OTPによるパスワードなしのログインや、リンクの代わりのOTP再設定は提供していません。
 
-## Apple / Google
+## Google
 
-`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`、`APPLE_CLIENT_ID` + `APPLE_CLIENT_SECRET` を設定したプロバイダーだけボタンを有効にします。サーバーは設定済みのプロバイダー名だけを返します。秘密情報はExpoへ渡しません。
+`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` を設定するとGoogleのボタンを有効にします。サーバーは設定済みの場合だけ `google` を返します。秘密情報はExpoへ渡しません。Appleログインは廃止し、ボタン・認証プロバイダー・Appleからのコールバックの特別許可を削除しています。
 
 OAuthプロバイダーに登録するリダイレクトURI:
 
 ```text
 https://<Workersのホスト>/api/auth/callback/google
-https://<Workersのホスト>/api/auth/callback/apple
 ```
 
 Expoの戻り先は `flocka://` です。安定したschemeを持つ開発ビルドを使ってください。Expo Goの `exp://` を本番用の許可オリジンへ追加しません。
 
-Appleの `APPLE_CLIENT_SECRET` はApple Developerの鍵で署名したJWTです。有効期限（最長6か月）までに更新してください。AppleのOAuthコールバックにはHTTPSのドメインが必要です。資格情報やApple Developerの設定を用意していないプロバイダーの実通信は検証していません。
+GoogleのローカルWeb開発では `http://localhost:8787/api/auth/callback/google` を登録します。Googleの資格情報を用意していないため、実際のOAuth通信は未検証です。
+
+過去に保存されたApple連携データを安全に削除するため、トークン失効処理だけは残しています。この互換処理用の `APPLE_CLIENT_ID` / `APPLE_CLIENT_SECRET` を設定してもAppleログインは有効になりません。新規設定では不要です。
+
+## Better Authダッシュボード / Sentinel
+
+`@better-auth/infra` をAPIとモバイルに導入しています。APIは `BETTER_AUTH_API_KEY` が設定された場合にだけ `dash({ apiKey })` と `sentinel({ apiKey })` を有効にします。未設定ではダッシュボード連携は無効です。Google OAuthの資格情報とは別です。
+
+1. [Better Authダッシュボード](https://dash.better-auth.com)でプロジェクトを作成し、APIキーを発行します。
+2. `apps/api/.dev.vars` に `BETTER_AUTH_API_KEY="発行されたキー"` を追加し、APIを再起動します。キーはGitや `EXPO_PUBLIC_*` へ入れません。
+3. ダッシュボードの接続先に認証APIのURL（ローカルWeb開発では `http://localhost:8787/api/auth`）を指定します。接続元から到達可能なURLが必要です。クラウドから接続する場合は公開HTTPSのAPIを使用します。
+4. Expoを再起動してログイン操作を行い、ダッシュボードでユーザーとイベントを確認します。設定しただけで接続成功とはみなしません。
+
+Webでは `dashClient()` / `sentinelClient()`、iOS・Androidでは `dashClient()` / `sentinelNativeClient()` を使用します。ネイティブの識別子はSecureStoreに保存します。`expo-crypto` を追加しているため、既存の開発ビルドに含まれていなければ作り直してください。
+
+WebのSentinelに必要な識別・PoWヘッダーをCORSで許可・公開し、ダッシュボードのオリジンはキー設定時の `/api/auth/dash/*` だけ許可しています。ダッシュボードの管理APIにはプラグインの署名検証も必要で、オリジンを許可しただけでは操作できません。Workersのバックグラウンド処理は `waitUntil` へ渡します。
+
+ユーザー情報・認証イベント・端末識別情報をBetter Authの外部サービスへ送る連携です。公開前にプライバシーポリシーと利用条件を確認してください。追加のアクティビティ追跡やディレクトリ同期は有効にしていないため、この設定でDBマイグレーションの追加はありません。
+
+本番で有効にする際は `apps/api` で `npx wrangler secret put BETTER_AUTH_API_KEY` を実行し、対応APIをデプロイします。本作業では本番Secretの登録・デプロイは行いません。
 
 ## 本番の秘密情報
 
@@ -51,18 +69,16 @@ Appleの `APPLE_CLIENT_SECRET` はApple Developerの鍵で署名したJWTです�
 cd apps/api
 npx wrangler secret put BETTER_AUTH_SECRET
 npx wrangler secret put RESEND_API_KEY
-# 必要なプロバイダーだけを登録
+# Googleを使う場合だけ登録
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
-npx wrangler secret put APPLE_CLIENT_ID
-npx wrangler secret put APPLE_CLIENT_SECRET
 ```
 
 `RESEND_FROM` は公開設定、APIキーは秘密情報です。公開URLを `.dev.vars` だけに変更しても本番設定には反映されません。本番のWrangler設定も更新する必要があります。
 
 規約・プライバシーポリシーの本文は `packages/domain/src/legal.ts` に集約し、登録時と設定画面に表示します。運営者から正式本文は提供されていないため、現在の本文は運営情報と実装を基に作成した内容です。運営者による文言確認は未実施です。旧匿名セッションと未認証の端末デッキを、新規の認証済みアカウントへ自動で結び付けません。旧データは削除しませんが、この認証フローの復元対象にはなりません。
 
-実装は [Better Auth Expo](https://better-auth.com/docs/integrations/expo)、[Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)、[Email OTP](https://better-auth.com/docs/plugins/email-otp)、[メール・パスワード](https://better-auth.com/docs/authentication/email-password)、[Apple](https://better-auth.com/docs/authentication/apple)、[Resend Workers](https://resend.com/docs/send-with-cloudflare-workers) の公式資料に基づきます。
+実装は [Better Auth Expo](https://better-auth.com/docs/integrations/expo)、[Drizzle adapter](https://better-auth.com/docs/adapters/drizzle)、[Email OTP](https://better-auth.com/docs/plugins/email-otp)、[メール・パスワード](https://better-auth.com/docs/authentication/email-password)、[Google](https://better-auth.com/docs/authentication/google)、[Resend Workers](https://resend.com/docs/send-with-cloudflare-workers) の公式資料に基づきます。
 
 Apple/Googleなどで登録し規約への同意が未記録の場合は、初回プロフィール登録で本文を提示し同意を確認します。`POST /v1/me/terms` は現在の文書の版と明示的な同意だけを受け付け、D1に版・時刻を記録します。同意のないアカウントは `POST /v1/accounts` で拒否します。メール登録時の同意はBetter Authの追加フィールドで記録しています。
 

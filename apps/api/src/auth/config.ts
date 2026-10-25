@@ -7,6 +7,7 @@ import { expo } from "@better-auth/expo";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
+import { DASHBOARD_ORIGIN, infrastructurePlugins } from "./infrastructure";
 import {
   sendAuthEmail,
   verificationEmail,
@@ -30,14 +31,6 @@ export function socialProviders(env: Env) {
           },
         }
       : {}),
-    ...(env.APPLE_CLIENT_ID && env.APPLE_CLIENT_SECRET
-      ? {
-          apple: {
-            clientId: env.APPLE_CLIENT_ID,
-            clientSecret: env.APPLE_CLIENT_SECRET,
-          },
-        }
-      : {}),
   };
 }
 export function createAuth(
@@ -57,7 +50,7 @@ export function createAuth(
     trustedOrigins: [
       ...allowedOrigins(env),
       "flocka://",
-      ...(socialProviders(env).apple ? ["https://appleid.apple.com"] : []),
+      ...(env.BETTER_AUTH_API_KEY?.trim() ? [DASHBOARD_ORIGIN] : []),
     ],
     database: drizzleAdapter(drizzle(env.DB), {
       provider: "sqlite",
@@ -129,7 +122,7 @@ export function createAuth(
             throw new APIError("BAD_REQUEST", {
               code: "PROVIDER_REAUTHENTICATION_REQUIRED",
               message:
-                "一度ログアウトし、連携しているAppleまたはGoogleでログインし直してから、確認メールをもう一度送信してください",
+                "連携先の認証情報を確認できません。Google連携の場合は、一度ログアウトし、Googleでログインし直してから、確認メールをもう一度送信してください。それ以外の場合は運営にお問い合わせください",
             });
           await beginAccountDeletion(env, user.id);
           if (!(await processAccountDeletion(env, user.id)))
@@ -274,6 +267,7 @@ export function createAuth(
       }),
     },
     plugins: [
+      ...infrastructurePlugins(env, execution),
       expo(),
       emailOTP({
         otpLength: 6,
