@@ -6,6 +6,7 @@ import {
   Btn,
   C,
   Field,
+  FIXED_LOOKING_BOARD,
   Header,
   LinkButton,
   Panel,
@@ -61,7 +62,7 @@ export function Confirm({ cid }: { cid: string }) {
   const setContext = (key: "place" | "trigger", value: string) =>
     setContextDraft((current) => ({ ...current, [key]: value }));
   return (
-    <Board>
+    <Board scroll contentStyle={FIXED_LOOKING_BOARD}>
       <Header
         title="交換"
         onBack={nav.pop}

@@ -1,5 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
+// Runs only in the "tiny" project, which sets its own viewport sizes.
+const SMALL_SCREEN_SPEC = "small-screen.spec.ts";
+
 export default defineConfig({
   testDir: "./e2e/visual",
   fullyParallel: false,
@@ -33,10 +36,36 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "mobile", use: { viewport: { width: 390, height: 844 } } },
-    { name: "narrow", use: { viewport: { width: 320, height: 740 } } },
-    { name: "short", use: { viewport: { width: 390, height: 640 } } },
-    { name: "desktop", use: { viewport: { width: 1280, height: 1000 } } },
+    {
+      name: "mobile",
+      testIgnore: SMALL_SCREEN_SPEC,
+      use: { viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: "narrow",
+      testIgnore: SMALL_SCREEN_SPEC,
+      use: { viewport: { width: 320, height: 740 } },
+    },
+    {
+      name: "short",
+      testIgnore: SMALL_SCREEN_SPEC,
+      use: { viewport: { width: 390, height: 640 } },
+    },
+    {
+      name: "desktop",
+      testIgnore: SMALL_SCREEN_SPEC,
+      use: { viewport: { width: 1280, height: 1000 } },
+    },
+    {
+      // Smallest phones at 3x density. small-screen.spec.ts sets its own
+      // sizes and font scales; only this project runs it.
+      name: "tiny",
+      testMatch: SMALL_SCREEN_SPEC,
+      use: {
+        viewport: { width: 320, height: 568 },
+        deviceScaleFactor: 3,
+      },
+    },
   ],
   webServer: {
     command: "npx tsx tools/vrt/serve.mts",

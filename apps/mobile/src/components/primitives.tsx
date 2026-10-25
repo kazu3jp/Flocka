@@ -412,6 +412,19 @@ const BoardScroll = createContext(false);
 // The view measures its own overlap with the keyboard, so a resized window adds no offset.
 const keyboardAvoidance = Platform.OS === "ios" ? "padding" : "height";
 
+/**
+ * Content style that makes a scrolling Board lay out like a fixed one (same
+ * gap and bottom padding). A screen whose main block fills the free height
+ * uses it, so it looks as before when everything fits and scrolls on a short
+ * screen or with a large font, instead of clipping.
+ */
+export const FIXED_LOOKING_BOARD: ViewStyle = {
+  // A scrolling Board pulls its header up by the top padding; the fixed one does not.
+  paddingTop: 2 * BOARD_TOP_PADDING,
+  gap: LAYOUT.blockGap,
+  paddingBottom: LAYOUT.sectionGap,
+};
+
 export function Board({
   children,
   scroll = false,

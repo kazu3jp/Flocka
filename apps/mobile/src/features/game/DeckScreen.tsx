@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -77,10 +77,23 @@ function MoreCardsTile({
   );
 }
 
+/** Smallest row height the deck grid shares out, and the height each row keeps once it scrolls. */
+const DECK_ROW_MIN_HEIGHT = 100;
+const DECK_SCROLLING_ROW_HEIGHT = 150;
+const DECK_GRID_GAP = 10;
+/**
+ * Smallest illustration a shared row may leave a card. The source design
+ * itself leaves 22 at 390x640 (30 at 320x740, 39 at 360x748); enlarged text
+ * squeezes it further (8 at 360x748 with a 1.3 font), and the system font
+ * scale is not always visible to the app, so the deck measures what is left.
+ */
+const DECK_CARD_MIN_ART_HEIGHT = 22;
+const DECK_ROUNDING_SLACK = 2;
+
 function BannerCaption({ children }: { children: React.ReactNode }) {
   // The source's inline .cap sits on the 15px body text's 24.75px line box.
   return (
-    <T size={15} color={C.ink} style={{ lineHeight: 24.75 }}>
+    <T size={15} color={C.ink} balanced style={{ lineHeight: 24.75 }}>
       <T size={12.5} color={C.ink} style={{ lineHeight: 19.375 }}>
         {children}
       </T>
@@ -93,6 +106,9 @@ export function Deck() {
     { height, fontScale } = useWindowDimensions(),
     pull = usePullRefresh(),
     [lockedHint, setLockedHint] = useState(false),
+    [gridHeight, setGridHeight] = useState(0),
+    [cardTextHeight, setCardTextHeight] = useState(0),
+    measured = useRef({ row: 0, art: Infinity, pending: false }),
     firstRowTarget = useTourTarget(TOUR_TARGETS.deckCards),
     questTarget = useTourTarget(TOUR_TARGETS.deckQuest),
     giveTarget = useTourTarget(TOUR_TARGETS.deckGive),
@@ -123,19 +139,65 @@ export function Deck() {
         ? nav.goTab("exchange", { id: "connections" })
         : nav.goTab("exchange");
   const largeText = fontScale > 1.2;
+  // The rows share the height left on the screen. When that is less than
+  // three readable rows (a short phone, or a font the screen cannot tell is
+  // enlarged), the rows keep their height and the grid scrolls.
+  // A card's text takes the same height whatever the row height (the
+  // illustration gets the rest), so the rows the grid needs follow from it,
+  // and the decision does not flip when scrolling changes the row height.
+  const rowNeed = Math.max(
+    DECK_ROW_MIN_HEIGHT,
+    cardTextHeight > 0 ? cardTextHeight + DECK_CARD_MIN_ART_HEIGHT : 0,
+  );
+  // Measured heights carry rounding; a pixel or two short is not a squeeze.
+  const scrollGrid =
+    largeText ||
+    (gridHeight > 0 &&
+      gridHeight + DECK_ROUNDING_SLACK < 3 * rowNeed + 2 * DECK_GRID_GAP);
+  const scrollingRowHeight = Math.max(
+    largeText ? 200 : DECK_SCROLLING_ROW_HEIGHT,
+    rowNeed,
+  );
+  // The illustration reports before its row does, so pair the two only once
+  // the whole layout pass has reported (on the next frame).
+  const reviewRows = () => {
+    if (measured.current.pending) return;
+    measured.current.pending = true;
+    requestAnimationFrame(() => {
+      const current = measured.current;
+      current.pending = false;
+      if (current.row <= 0 || !Number.isFinite(current.art)) return;
+      const text = current.row - current.art;
+      setCardTextHeight((previous) =>
+        Math.abs(text - previous) > 1 ? text : previous,
+      );
+    });
+  };
+  const measureArt = (artHeight: number) => {
+    measured.current.art = artHeight;
+    reviewRows();
+  };
   const compact = height <= 720;
   const grid = (
-    <View style={{ flex: largeText ? undefined : 1, gap: 10 }}>
+    <View style={{ flex: scrollGrid ? undefined : 1, gap: DECK_GRID_GAP }}>
       {[0, 1, 2].map((row) => (
         <View
           key={row}
           {...(row === 0 ? firstRowTarget : {})}
           testID={row === 0 ? "deck-first-row" : undefined}
+          onLayout={
+            row === 0
+              ? ({ nativeEvent: { layout } }) => {
+                  measured.current.row = layout.height;
+                  reviewRows();
+                }
+              : undefined
+          }
           style={{
-            flex: largeText ? undefined : 1,
-            height: largeText ? 200 : undefined,
+            flex: scrollGrid ? undefined : 1,
+            height: scrollGrid ? scrollingRowHeight : undefined,
             flexDirection: "row",
-            gap: 10,
+            gap: DECK_GRID_GAP,
           }}
         >
           {slots.slice(row * 2, row * 2 + 2).map((c, i) => {
@@ -156,6 +218,7 @@ export function Deck() {
                   <StrengthCard
                     card={c}
                     style={S.fill}
+                    onArtHeight={measureArt}
                     onPress={() => nav.push("card", { key: c.key })}
                   />
                 ) : (
@@ -272,7 +335,13 @@ export function Deck() {
               )}
             </View>
             <View style={S.fill}>
-              <T display size={17} color={C.ink} style={{ lineHeight: 21.25 }}>
+              <T
+                display
+                balanced
+                size={17}
+                color={C.ink}
+                style={{ lineHeight: 21.25 }}
+              >
                 {challenge
                   ? "予想チャレンジ！"
                   : unsent.length
@@ -304,25 +373,32 @@ export function Deck() {
           </Panel>
         </SquishPressable>
       )}
-      {largeText ? (
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 4 }}
-          style={S.fill}
-          refreshControl={
-            <RefreshControl
-              refreshing={pull.refreshing}
-              onRefresh={pull.onRefresh}
-              tintColor={C.yellow}
-              colors={[C.ink]}
-              progressBackgroundColor={C.yellow}
-            />
-          }
-        >
-          {grid}
-        </ScrollView>
-      ) : (
-        grid
-      )}
+      <View
+        style={{ flex: 1, minHeight: 0 }}
+        onLayout={({ nativeEvent: { layout } }) => {
+          setGridHeight(layout.height);
+        }}
+      >
+        {scrollGrid ? (
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 4 }}
+            style={S.fill}
+            refreshControl={
+              <RefreshControl
+                refreshing={pull.refreshing}
+                onRefresh={pull.onRefresh}
+                tintColor={C.yellow}
+                colors={[C.ink]}
+                progressBackgroundColor={C.yellow}
+              />
+            }
+          >
+            {grid}
+          </ScrollView>
+        ) : (
+          grid
+        )}
+      </View>
       <SquishPressable
         testID="deck-pr"
         pressScale={0.98}
