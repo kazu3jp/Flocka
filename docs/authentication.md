@@ -4,14 +4,14 @@
 
 `npm run setup:local` は `apps/api/.dev.vars` に32バイトの乱数によるシークレットを、`apps/mobile/.env.local` に接続先を設定します。存在するファイルは保持します。必要に応じて `.dev.vars.example` にある項目を既存ファイルへ追加してください。秘密情報をGitに追加しません。
 
-| 設定 | 役割 |
-| --- | --- |
-| `BETTER_AUTH_SECRET` | 少なくとも32文字の固有のシークレット。環境ごとに別の値 |
-| `BETTER_AUTH_URL` | Workersの外部URL。本番はHTTPS |
-| `RESEND_API_KEY` | Resendの送信権限を持つAPIキー |
-| `RESEND_FROM` | `Flocka <no-reply@flocka.zofax.net>` |
-| `ALLOWED_ORIGINS` | Webフロントの完全なオリジンをカンマ区切りで設定 |
-| `EXPO_PUBLIC_API_URL` | Expo側のWorkers接続先。秘密情報は入れない |
+| 設定                  | 役割                                                   |
+| --------------------- | ------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`  | 少なくとも32文字の固有のシークレット。環境ごとに別の値 |
+| `BETTER_AUTH_URL`     | Workersの外部URL。本番はHTTPS                          |
+| `RESEND_API_KEY`      | Resendの送信権限を持つAPIキー                          |
+| `RESEND_FROM`         | `Flocka <no-reply@flocka.zofax.net>`                   |
+| `ALLOWED_ORIGINS`     | Webフロントの完全なオリジンをカンマ区切りで設定        |
+| `EXPO_PUBLIC_API_URL` | Expo側のWorkers接続先。秘密情報は入れない              |
 
 Resendで `flocka.zofax.net` を追加し、管理画面に示されたDNSレコードを設定して検証を完了します。DNSレコードの値を推測で設定しません。APIキーとDNS設定は本実装に含めて公開しません。
 
@@ -52,6 +52,8 @@ GoogleのローカルWeb開発では `http://localhost:8787/api/auth/callback/go
 2. `apps/api/.dev.vars` に `BETTER_AUTH_API_KEY="発行されたキー"` を追加し、APIを再起動します。キーはGitや `EXPO_PUBLIC_*` へ入れません。
 3. ダッシュボードの接続先に認証APIのURL（ローカルWeb開発では `http://localhost:8787/api/auth`）を指定します。接続元から到達可能なURLが必要です。クラウドから接続する場合は公開HTTPSのAPIを使用します。
 4. Expoを再起動してログイン操作を行い、ダッシュボードでユーザーとイベントを確認します。設定しただけで接続成功とはみなしません。
+
+アプリ側は、ビルド時に `EXPO_PUBLIC_BETTER_AUTH_INFRA=enabled` を指定したときだけこれらのクライアントを読み込みます（未指定では外部サービスへの端末識別の通信は起きません）。サーバーのキーとこのビルド設定の両方がそろって初めて有効になります。
 
 Webでは `dashClient()` / `sentinelClient()`、iOS・Androidでは `dashClient()` / `sentinelNativeClient()` を使用します。ネイティブの識別子はSecureStoreに保存します。`expo-crypto` を追加しているため、既存の開発ビルドに含まれていなければ作り直してください。
 

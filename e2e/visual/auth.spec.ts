@@ -122,6 +122,13 @@ for (const view of ["signup", "login", "reset"] as const) {
         target.getByText("メールアドレス", { exact: true }),
       ).toBeVisible();
     }
+    // The app no longer offers Apple sign-in; the design reference still draws
+    // that button, so take it out of the reference before comparing positions.
+    await reference
+      .locator('[data-od-id="auth-apple"]')
+      .evaluateAll((nodes) =>
+        nodes.forEach((node) => ((node as HTMLElement).style.display = "none")),
+      );
     await compareLayout(
       [
         {
