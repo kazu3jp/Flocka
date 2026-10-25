@@ -96,6 +96,9 @@ test("email signup, onboarding, logout and password reset", async ({
     page.getByRole("button", { name: /実装力・自己申告/ }),
   ).toBeVisible();
   await page.getByRole("button", { name: "自分のページ", exact: true }).click();
+  await page
+    .getByRole("button", { name: "公開範囲・安全", exact: true })
+    .click();
   await page.getByRole("button", { name: "ログアウト", exact: true }).click();
   await page
     .getByRole("dialog")
@@ -167,6 +170,9 @@ test("email signup, onboarding, logout and password reset", async ({
     page.getByRole("button", { name: /実装力・自己申告/ }),
   ).toBeVisible();
   await page.getByRole("button", { name: "自分のページ", exact: true }).click();
+  await page
+    .getByRole("button", { name: "公開範囲・安全", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "アカウントを削除", exact: true })
     .click();

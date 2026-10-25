@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { View } from "react-native";
-import { Btn, C, Icon, S, Sheet, T } from "../../components/ui";
+import { Btn, C, Icon, Panel, S, SP, Sheet, T } from "../../components/ui";
 import { useAuth } from "./provider";
 import { useSignOut } from "./use-sign-out";
 export function AccountPanel() {
@@ -14,15 +14,19 @@ export function AccountPanel() {
   };
   return (
     <>
-      <View style={[S.row, { marginTop: 10 }]}>
-        <Icon name="lock" />
-        <View style={S.fill}>
-          <T size={12} color={C.pale}>
-            アカウント
-          </T>
-          <T size={13}>{data?.user.email}</T>
+      <Panel>
+        <View style={S.row}>
+          <Icon name="lock" color={C.ink} />
+          <View style={S.fill}>
+            <T size={12} color={C.muted}>
+              ログイン中のアカウント
+            </T>
+            <T size={14} color={C.ink}>
+              {data?.user.email}
+            </T>
+          </View>
         </View>
-      </View>
+      </Panel>
       <Btn
         plain
         small
@@ -30,12 +34,17 @@ export function AccountPanel() {
         disabled={busy}
         onPress={() => setAsk(true)}
       />
-      <Btn
-        plain
-        small
-        label="アカウントを削除"
-        onPress={() => router.push("/delete-account")}
-      />
+      <View style={{ gap: SP.sm, marginTop: SP.sm }}>
+        <T size={12} color={C.pale}>
+          削除すると元に戻せません。確認メールの手続きが必要です。
+        </T>
+        <Btn
+          danger
+          small
+          label="アカウントを削除"
+          onPress={() => router.push("/delete-account")}
+        />
+      </View>
       {ask && (
         <Sheet
           title="ログアウトしますか？"

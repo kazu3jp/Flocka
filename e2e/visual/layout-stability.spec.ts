@@ -110,7 +110,7 @@ test("settings save: loading and a failed request change no size or position", a
   await page.getByRole("switch", { name: "印象を受け取る" }).click();
   const targets = {
     save: page.getByRole("button", { name: "設定を保存", exact: true }),
-    blocked: page.getByText("ブロック中", { exact: true }),
+    blocked: page.getByText("ブロックと報告", { exact: true }),
     sync: page.getByRole("button", { name: "サーバーと同期" }),
   };
   const before = await measureAll(targets);
