@@ -22,6 +22,7 @@ import Svg, {
 } from "react-native-svg";
 import type { Card } from "@flocka/domain";
 import { C, F, Icon, Panel, StrengthCard, T } from "../../components/ui";
+import { useTourTarget } from "../guided-tour/use-tour-target";
 
 /** The one-line message reads larger than the source design's 14px, which was too small on a phone. */
 const ROLE_FONT_SIZE = 17;
@@ -44,6 +45,7 @@ export function PlayerSurface({
   compact,
   onPick,
   footer,
+  tourTargetId = null,
 }: {
   avatar: React.ReactNode;
   name: string;
@@ -53,7 +55,10 @@ export function PlayerSurface({
   compact: boolean;
   onPick?: () => void;
   footer?: React.ReactNode;
+  /** Marks the name row as a guided tour target; only the person's own card is one. */
+  tourTargetId?: string | null;
 }) {
+  const tourTarget = useTourTarget(tourTargetId);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const measuredView = useRef<View>(null);
   const { width, height, fontScale } = useWindowDimensions();
@@ -143,6 +148,7 @@ export function PlayerSurface({
           </T>
         </View>
         <View
+          {...tourTarget}
           testID="player-identity"
           style={{
             flexDirection: "row",

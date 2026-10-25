@@ -12,8 +12,9 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { GuessOverlay } from "../features/game";
-import { TutorialSheet } from "../features/tutorial/TutorialSheet";
-import { useFirstLaunchTutorial } from "../features/tutorial/use-tutorial-seen";
+import { TourOverlay } from "../features/guided-tour/TourOverlay";
+import { TourProvider } from "../features/guided-tour/TourProvider";
+import { useFirstLaunchTour } from "../features/guided-tour/use-first-launch-tour";
 import { ScreenStacks, screenFor } from "../features/navigation/ScreenStacks";
 import {
   Board,
@@ -100,7 +101,7 @@ export default function Screen() {
       retrySave,
     } = useApp();
   const [resolvingConflict, setResolvingConflict] = useState(false);
-  const tutorial = useFirstLaunchTutorial({
+  const firstTour = useFirstLaunchTour({
     signedIn: Boolean(auth.data),
     accountReady: ready && !error,
     onboarded: s.onboarded,
@@ -152,107 +153,109 @@ export default function Screen() {
   ];
   const focused = FOCUSED.includes(screen);
   return (
-    <ScreenFeedback
-      style={{ flex: 1, backgroundColor: C.blue }}
-      feedback={<AppToast focused={focused} />}
-    >
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
-      <BoardInsets.Provider value={{ top: false, bottom: focused }}>
-        <View style={S.fill}>
-          {screen === "onboarding" ? (
-            screenFor({ id: "onboarding" })
-          ) : (
-            <ScreenStacks nav={n} />
-          )}
-        </View>
-      </BoardInsets.Provider>
-      {!focused && (
-        <TabBar
-          items={tabs.map(([tab, label, icon]) => ({
-            tab,
-            label,
-            icon,
-            badge:
-              tab === "find" && d.unopened.length > 0
-                ? String(d.unopened.length)
-                : tab === "pr" && d.prCard
-                  ? "!"
-                  : null,
-          }))}
-          current={n.tab}
-          onSelect={(tab) => nav.goTab(tab, undefined, n.tab === tab)}
-        />
-      )}
-      <GuessOverlay />
-      {tutorial.open && <TutorialSheet onClose={tutorial.close} />}
-      {resolvingConflict && preferenceConflict && (
-        <Sheet
-          title="別の端末で更新されています"
-          onClose={() => setResolvingConflict(false)}
-        >
-          <T size={13}>自己PR下書き（この端末）</T>
-          <T size={12}>{s.prDraft?.slice(0, 200) || "下書きなし"}</T>
-          <T size={13}>自己PR下書き（サーバー）</T>
-          <T size={12}>
-            {preferenceConflict.data.prDraft?.slice(0, 200) || "下書きなし"}
-          </T>
-          <T size={12}>装飾と表示カードも、選んだ側の内容を採用します。</T>
-          <Btn
-            label="サーバーの内容を取り込む"
-            onPress={() =>
-              void resolvePreferences("server")
-                .then(() => setResolvingConflict(false))
-                .catch((error) => toast(error.message))
-            }
+    <TourProvider autoStart={firstTour.open} onEnd={firstTour.close}>
+      <ScreenFeedback
+        style={{ flex: 1, backgroundColor: C.blue }}
+        feedback={<AppToast focused={focused} />}
+      >
+        <SafeAreaView edges={["top"]} style={{ backgroundColor: C.blue }} />
+        <BoardInsets.Provider value={{ top: false, bottom: focused }}>
+          <View style={S.fill}>
+            {screen === "onboarding" ? (
+              screenFor({ id: "onboarding" })
+            ) : (
+              <ScreenStacks nav={n} />
+            )}
+          </View>
+        </BoardInsets.Provider>
+        {!focused && (
+          <TabBar
+            items={tabs.map(([tab, label, icon]) => ({
+              tab,
+              label,
+              icon,
+              badge:
+                tab === "find" && d.unopened.length > 0
+                  ? String(d.unopened.length)
+                  : tab === "pr" && d.prCard
+                    ? "!"
+                    : null,
+            }))}
+            current={n.tab}
+            onSelect={(tab) => nav.goTab(tab, undefined, n.tab === tab)}
           />
-          <Btn
-            plain
-            label="この端末の編集を保存する"
-            onPress={() =>
-              void resolvePreferences("local")
-                .then(() => setResolvingConflict(false))
-                .catch((error) => toast(error.message))
-            }
-          />
-        </Sheet>
-      )}
-      {saveError || syncError || auth.error ? (
-        <View
-          pointerEvents="box-none"
-          style={{
-            position: "absolute",
-            // Below the 48pt screen header so its back button stays reachable.
-            top: safeInsets.top + LAYOUT.headerHeight + SP.sm,
-            left: LAYOUT.screenPadding,
-            right: LAYOUT.screenPadding,
-            gap: SP.sm,
-          }}
-        >
-          {saveError ? (
-            <ErrorBanner
-              text={`${saveError} · タップして再試行`}
-              hint="保存を再試行します"
+        )}
+        <GuessOverlay />
+        {resolvingConflict && preferenceConflict && (
+          <Sheet
+            title="別の端末で更新されています"
+            onClose={() => setResolvingConflict(false)}
+          >
+            <T size={13}>自己PR下書き（この端末）</T>
+            <T size={12}>{s.prDraft?.slice(0, 200) || "下書きなし"}</T>
+            <T size={13}>自己PR下書き（サーバー）</T>
+            <T size={12}>
+              {preferenceConflict.data.prDraft?.slice(0, 200) || "下書きなし"}
+            </T>
+            <T size={12}>装飾と表示カードも、選んだ側の内容を採用します。</T>
+            <Btn
+              label="サーバーの内容を取り込む"
               onPress={() =>
-                preferenceConflict ? setResolvingConflict(true) : retrySave()
+                void resolvePreferences("server")
+                  .then(() => setResolvingConflict(false))
+                  .catch((error) => toast(error.message))
               }
             />
-          ) : null}
-          {syncError ? (
-            <ErrorBanner
-              text={`${syncError} · タップして再同期`}
-              hint="サーバーと再同期します"
-              onPress={() => void refresh().catch(() => {})}
+            <Btn
+              plain
+              label="この端末の編集を保存する"
+              onPress={() =>
+                void resolvePreferences("local")
+                  .then(() => setResolvingConflict(false))
+                  .catch((error) => toast(error.message))
+              }
             />
-          ) : null}
-          {auth.error && (
-            <ErrorBanner
-              text="ログイン状態を確認できませんでした · タップして再確認"
-              hint="ログイン状態をもう一度確認します"
-              onPress={() => void auth.refetch()}
-            />
-          )}
-        </View>
-      ) : null}
-    </ScreenFeedback>
+          </Sheet>
+        )}
+        {saveError || syncError || auth.error ? (
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              // Below the 48pt screen header so its back button stays reachable.
+              top: safeInsets.top + LAYOUT.headerHeight + SP.sm,
+              left: LAYOUT.screenPadding,
+              right: LAYOUT.screenPadding,
+              gap: SP.sm,
+            }}
+          >
+            {saveError ? (
+              <ErrorBanner
+                text={`${saveError} · タップして再試行`}
+                hint="保存を再試行します"
+                onPress={() =>
+                  preferenceConflict ? setResolvingConflict(true) : retrySave()
+                }
+              />
+            ) : null}
+            {syncError ? (
+              <ErrorBanner
+                text={`${syncError} · タップして再同期`}
+                hint="サーバーと再同期します"
+                onPress={() => void refresh().catch(() => {})}
+              />
+            ) : null}
+            {auth.error && (
+              <ErrorBanner
+                text="ログイン状態を確認できませんでした · タップして再確認"
+                hint="ログイン状態をもう一度確認します"
+                onPress={() => void auth.refetch()}
+              />
+            )}
+          </View>
+        ) : null}
+        <TourOverlay />
+      </ScreenFeedback>
+    </TourProvider>
   );
 }

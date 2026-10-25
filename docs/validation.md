@@ -288,9 +288,12 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 - `--ignore-snapshots` で全スペックを mobile で実行し、48件通過、1件（nearby の no-preference）は負荷時に失敗し、単独再実行で通過しました。4サイズ一括の1回目は、実行中に固定ポート9012のVRTサーバーへ接続できなくなり（ECONNREFUSED、他の作業との競合）多数が失敗したため、結果として採用していません。
 - 純粋ロジックの追加はなく、単体テストは追加していません。
 - 未確認: 実機（Android・iOS）での見た目、描画負荷、OSの動きを減らす設定。基準画像はmacOS専用のためこの環境では比較していません。
-## 初回チュートリアル（feat/first-launch-tutorial）
+## 初回の案内ツアー（feat/guided-tour）
 
-- 出す条件・保存・手順の仕様は [flocka-v2-screen-spec.md](flocka-v2-screen-spec.md) の4.15。
-- 検証済み：`npm run validate`（判定・ステップ・保存キーの単体テストを含む）、Expo Web・native書き出し、Chromium `e2e/visual/tutorial.spec.ts`（初回表示・スキップ・最後まで完了・再読み込みで再表示しない・設定からの再表示・登録中は出さない・保存読み込み失敗時は出さない）。ほかのspecは `signInFixture` が既定でチュートリアル表示済みの状態から始める。
-- 未検証：iOS/Android実機での表示とVoiceOver/TalkBackの読み上げ、OSの「動きを減らす」設定での確認（Webの `reducedMotion: reduce` のみ）、macOSの基準画像（`tutorial-first-step.png` / `tutorial-last-step.png` はmacOSで `npm run test:vrt:update` が必要）。
-- 既知の挙動：この変更を含む版に更新した既存ユーザーも、登録済みで未表示なら1度だけ表示される。
+- 仕様は [flocka-v2-screen-spec.md](flocka-v2-screen-spec.md) の4.15。先の「初回チュートリアル」（シート5枚）を、実際の部品を切り抜く案内式に置き換えた。旧 `TutorialSheet` とそのテスト・specは削除。
+- ライブラリの評価（2026-10-25、npm と GitHub を確認）: `react-native-copilot` 3.3.3 は最終公開2024-12-17、未解決issue 124件、新アーキテクチャ対応の記載なし（peer は RN >=0.60）。`react-native-spotlight-tour` 4.0.0 は更新が続くが、未解決issue #202（Expo 54＋新アーキテクチャで吹き出しが出ない）、#203（Androidで位置がずれる）、#178（Webでリサイズすると位置が狂う）があり、`react-native-responsive-dimensions` と `@floating-ui/react-native` に依存する。どちらも、タブをまたいで画面を開く・出ない部品を飛ばす・タップを下に渡さない、は自前で足す必要がある。RN 0.86／Expo 57／react-native-web／React 19.2 の全部で動くと確認できなかったため採用せず、react-native-svg も使わない小さな自前実装（暗い4枚の矩形＋枠）にした。
+- 検証済み: `npm run validate`、`npm run export:web`、`npm run export:native`、`npm run build:vrt` と `npx playwright test --ignore-snapshots`。
+  - 単体（node:test）: `tests/guided-tour-steps.test.ts`（保存キー・判定・ステップの定義・飛ばし方・読み上げ文）、`tests/guided-tour-geometry.test.ts`（相対座標、測定の信頼条件、切り抜き、暗い矩形が重ならず画面を覆う、カードの配置と安全領域、指す位置）。
+  - Chromium `e2e/visual/guided-tour.spec.ts`（mobile / narrow / short / desktop）: 初回は7ステップすべてで切り抜きの箱が実際の部品の箱＋6pt（画面内に収めたもの）と3px以内、カードは画面内、完了で保存され再読み込みで出ない／前へ・次へ・スキップ／別タブへの切り替えとEscでの復帰／暗い部分と切り抜いた部品がタップを通さない／ツアー中も下の画面の配置が変わらない／部品が無いステップは飛ばす（実DOMから要素を外して再現）／設定からの再表示は保存済みの印を変えず設定へ戻る／登録中は出ない／保存の読み込み失敗時は出ない。ほかのspecは `signInFixture` が既定でツアー表示済みから始める。
+- 未検証: iOS/Android実機での表示と位置（`measureInWindow` の差し引きはWebでのみ確認。Android の edge-to-edge・ステータスバーは未確認）、VoiceOver/TalkBackの読み上げとフォーカス（ネイティブは `announceForAccessibility` と `accessibilityViewIsModal` のみで、Androidは下の画面を読み上げ対象から外していない）、OSの「動きを減らす」の切り替え（Webの `reducedMotion` のみ。e2eは常に reduce のため、動きありの見た目はスクリーンショットでのみ目視）、Androidの戻るボタン、macOSの基準画像（このツアーは基準画像を追加していない）。
+- 既知の挙動: 更新前の既存ユーザーも、登録済みで未表示なら1度だけ表示される。ツアー後に復元するのは始めたタブとその画面の積み方だけで、ほかのタブのスタックは初期状態に戻りうる。

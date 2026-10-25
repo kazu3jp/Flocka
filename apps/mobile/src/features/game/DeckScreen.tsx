@@ -30,6 +30,8 @@ import {
 } from "../../components/motion";
 import { useApp } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
+import { TOUR_TARGETS } from "../guided-tour/tour-steps";
+import { useTourTarget } from "../guided-tour/use-tour-target";
 
 const DECK_SLOTS = 6;
 
@@ -90,7 +92,11 @@ export function Deck() {
   const { s, d, nav, setOpening } = useApp(),
     { height, fontScale } = useWindowDimensions(),
     pull = usePullRefresh(),
-    [lockedHint, setLockedHint] = useState(false);
+    [lockedHint, setLockedHint] = useState(false),
+    firstRowTarget = useTourTarget(TOUR_TARGETS.deckCards),
+    questTarget = useTourTarget(TOUR_TARGETS.deckQuest),
+    giveTarget = useTourTarget(TOUR_TARGETS.deckGive),
+    meTarget = useTourTarget(TOUR_TARGETS.deckMe);
   const overflow = d.deck.length > DECK_SLOTS;
   // With more cards than slots, the last slot links to the full collection.
   const shown = overflow ? d.deck.slice(0, DECK_SLOTS - 1) : d.deck;
@@ -123,6 +129,8 @@ export function Deck() {
       {[0, 1, 2].map((row) => (
         <View
           key={row}
+          {...(row === 0 ? firstRowTarget : {})}
+          testID={row === 0 ? "deck-first-row" : undefined}
           style={{
             flex: largeText ? undefined : 1,
             height: largeText ? 200 : undefined,
@@ -175,6 +183,7 @@ export function Deck() {
         style={[S.row, { minHeight: compact ? 44 : 48 }]}
       >
         <Pressable
+          {...meTarget}
           accessibilityLabel="自分のページ"
           accessibilityRole="button"
           onPress={() => nav.push("me")}
@@ -200,22 +209,26 @@ export function Deck() {
             強みカード {d.deck.length}枚
           </T>
         </View>
-        <LinkButton
-          label="印象を贈る"
-          onPress={() =>
-            nav.goTab(
-              "exchange",
-              s.connections.some(
-                (c) => c.status === "accepted" && !s.blocked.includes(c.peerId),
+        <View {...giveTarget}>
+          <LinkButton
+            label="印象を贈る"
+            onPress={() =>
+              nav.goTab(
+                "exchange",
+                s.connections.some(
+                  (c) =>
+                    c.status === "accepted" && !s.blocked.includes(c.peerId),
+                )
+                  ? { id: "connections" }
+                  : undefined,
               )
-                ? { id: "connections" }
-                : undefined,
-            )
-          }
-        />
+            }
+          />
+        </View>
       </View>
       {quest && (
         <SquishPressable
+          {...questTarget}
           testID="deck-challenge"
           pressScale={0.98}
           accessibilityRole="button"

@@ -1,7 +1,7 @@
 import { NotificationPanel } from "../notifications/NotificationPanel";
 import { LegalDocument } from "../auth/LegalDocument";
 import type { LegalTitle } from "@flocka/domain";
-import { TutorialSheet } from "../tutorial/TutorialSheet";
+import { useTour } from "../guided-tour/tour-context";
 import { useAction } from "../sync/use-action";
 import { useState } from "react";
 import { Switch, View } from "react-native";
@@ -27,8 +27,8 @@ type SettingsAction =
 export function Settings() {
   const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
     { syncing } = useAppStatus(),
+    tour = useTour(),
     [legal, setLegal] = useState<LegalTitle | null>(null),
-    [replayingTutorial, setReplayingTutorial] = useState(false),
     // Unsaved edits only; otherwise the switches follow the latest server settings.
     [draft, setDraft] = useState<typeof s.settings | null>(null),
     { busy, error, run } = useAction(),
@@ -54,13 +54,7 @@ export function Settings() {
           onPress={() => setLegal("プライバシーポリシー")}
         />
       </View>
-      <LinkButton
-        label="使い方をもう一度見る"
-        onPress={() => setReplayingTutorial(true)}
-      />
-      {replayingTutorial && (
-        <TutorialSheet onClose={() => setReplayingTutorial(false)} />
-      )}
+      <LinkButton label="使い方をもう一度見る" onPress={tour.start} />
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
           <LegalDocument title={legal} />

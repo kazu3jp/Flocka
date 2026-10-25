@@ -6,10 +6,13 @@ import { useApp } from "../../store";
 import { Player } from "./player-card";
 import { ShowcasePicker } from "./showcase-picker";
 import { useShowcase } from "./use-showcase";
+import { TOUR_TARGETS } from "../guided-tour/tour-steps";
+import { useTourTarget } from "../guided-tour/use-tour-target";
 
 export function Exchange() {
   const { s, d, nav } = useApp();
   const showcase = useShowcase();
+  const actionsTarget = useTourTarget(TOUR_TARGETS.exchangeActions);
   return (
     <Board>
       <Header
@@ -31,7 +34,11 @@ export function Exchange() {
         }
       />
       <Player onPick={showcase.show} />
-      <View testID="exchange-actions" style={{ flexDirection: "row", gap: 10 }}>
+      <View
+        {...actionsTarget}
+        testID="exchange-actions"
+        style={{ flexDirection: "row", gap: 10 }}
+      >
         <Btn
           label="近くの人と交換"
           icon="swap"

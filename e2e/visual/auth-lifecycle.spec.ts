@@ -1,13 +1,13 @@
 import { test, expect } from "./test";
-import { capture, markTutorialSeen } from "./helpers";
+import { capture, markTourSeen } from "./helpers";
 
 test("email signup, onboarding, logout and password reset", async ({
   page,
   context,
 }, testInfo) => {
   const email = `ui.signup.${testInfo.project.name}@example.test`;
-  // The first-launch tutorial has its own spec (tutorial.spec.ts).
-  await markTutorialSeen(context);
+  // The first-launch guided tour has its own spec (guided-tour.spec.ts).
+  await markTourSeen(context);
   await page.goto("/auth");
   await page
     .getByRole("button", { name: "アカウントを作成", exact: true })
