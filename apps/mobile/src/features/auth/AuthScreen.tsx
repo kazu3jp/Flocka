@@ -70,7 +70,7 @@ export function AuthScreen({
       .then(async (response) => {
         if (!response.ok) throw new Error("認証設定を読み込めませんでした");
         const config = z
-          .object({ providers: z.array(z.enum(["apple", "google"])) })
+          .object({ providers: z.array(z.literal("google")) })
           .parse(await response.json());
         if (mounted.current) setProviders(config.providers);
       })
@@ -197,7 +197,7 @@ export function AuthScreen({
           "登録済みのメールアドレスの場合、再設定用のリンクを送ります。受信箱を確認してください。",
         );
     });
-  const social = (provider: "apple" | "google") =>
+  const social = (provider: "google") =>
     run(async () => {
       assertAuthResult(
         await getAuthClient().signIn.social({

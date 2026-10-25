@@ -36,6 +36,7 @@ export async function revokeProviderTokens(
     const body = new URLSearchParams({ token });
     let url: string;
     if (account.provider_id === "apple") {
+      // Retain cleanup for historical links, without enabling new Apple sign-ins.
       if (!env.APPLE_CLIENT_ID || !env.APPLE_CLIENT_SECRET)
         throw new Error("APPLE_REVOCATION_NOT_CONFIGURED");
       url = "https://appleid.apple.com/auth/revoke";

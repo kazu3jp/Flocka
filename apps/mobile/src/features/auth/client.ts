@@ -8,12 +8,14 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { FlockaApiClient, type ApiClientError } from "@flocka/api-client";
 import { authErrorMessage, parseRetryAfter } from "./auth-error-message";
+import { infrastructureClientPlugins } from "./infrastructure-client";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 function makeAuthClient(baseURL: string) {
   return createAuthClient({
     baseURL,
     plugins: [
+      ...infrastructureClientPlugins(),
       emailOTPClient(),
       inferAdditionalFields({
         user: { termsAccepted: { type: "boolean", required: false } },
