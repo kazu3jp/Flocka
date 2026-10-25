@@ -1,4 +1,5 @@
 import { test, expect } from "./test";
+import { PNG } from "pngjs";
 import { capture, referenceComparison, compareLayout } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -151,3 +152,43 @@ for (const view of ["signup", "login", "reset"] as const) {
     await referenceComparison(page, reference, view, testInfo);
   });
 }
+
+test("the Google button draws the official four-colour G at the old mark's size", async ({
+  page,
+}) => {
+  await page.goto("/auth");
+  await page
+    .getByRole("button", { name: "アカウントを作成", exact: true })
+    .click();
+  const mark = page.getByTestId("google-mark");
+  await expect(mark).toBeVisible();
+  const box = await mark.boundingBox();
+  expect(box?.width).toBe(20);
+  expect(box?.height).toBe(20);
+  const fills = await mark
+    .locator("path")
+    .evaluateAll((paths) => paths.map((path) => path.getAttribute("fill")));
+  expect(fills.sort()).toEqual(["#34A853", "#4285F4", "#EA4335", "#FBBC05"]);
+  // The rendered pixels show all four hues (the button may be dimmed when the
+  // provider is not configured, so classify by hue instead of exact colour).
+  const image = PNG.sync.read(await mark.screenshot());
+  const hues = new Set<string>();
+  for (let index = 0; index < image.data.length; index += 4) {
+    const [r, g, b] = [
+      image.data[index],
+      image.data[index + 1],
+      image.data[index + 2],
+    ];
+    if (Math.max(r, g, b) - Math.min(r, g, b) < 40) continue;
+    hues.add(
+      b > r && b > g
+        ? "blue"
+        : g > r && g > b
+          ? "green"
+          : g > 0.6 * r
+            ? "yellow"
+            : "red",
+    );
+  }
+  expect([...hues].sort()).toEqual(["blue", "green", "red", "yellow"]);
+});

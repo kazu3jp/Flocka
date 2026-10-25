@@ -1,7 +1,7 @@
 import { LegalDocument } from "./LegalDocument";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import { Redirect, useRouter, type Href } from "expo-router";
+import { Redirect, useLocalSearchParams, type Href } from "expo-router";
 import { z } from "zod";
 import {
   Board,
@@ -19,6 +19,9 @@ import {
   T,
 } from "../../components/ui";
 import { API_URL, assertAuthResult, getAuthClient } from "./client";
+import { browserFlowErrorMessage } from "./auth-error-message";
+import { signInWithGoogle } from "./google-sign-in";
+import { userFacingError } from "../sync/user-facing-error";
 import { SessionStatus, useAuth } from "./provider";
 import { WelcomeTour } from "./WelcomeTour";
 import { markFreshSignIn } from "./fresh-sign-in";
@@ -44,7 +47,7 @@ export function AuthScreen({
   initialView?: "welcome" | "login";
 } = {}) {
   const session = useAuth(),
-    router = useRouter(),
+    { error: redirectError } = useLocalSearchParams<{ error?: string }>(),
     [view, setView] = useState<AuthView>(initialView),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -52,7 +55,14 @@ export function AuthScreen({
     [otp, setOtp] = useState(""),
     [wait, setWait] = useState(0),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null),
+    // The web Google flow returns here as /auth?error=<code> when it fails.
+    [error, setError] = useState<string | null>(() =>
+      Platform.OS === "web" &&
+      redirectError &&
+      /^[a-z0-9_]{1,64}$/i.test(redirectError)
+        ? browserFlowErrorMessage(redirectError)
+        : null,
+    ),
     [notice, setNotice] = useState<string | null>(null),
     [deliverySent, setDeliverySent] = useState(false),
     [legal, setLegal] = useState<"利用規約" | "プライバシーポリシー" | null>(
@@ -118,7 +128,7 @@ export function AuthScreen({
       await action();
     } catch (error) {
       if (mounted.current)
-        setError(error instanceof Error ? error.message : "通信に失敗しました");
+        setError(userFacingError(error, "通信に失敗しました"));
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);
@@ -197,20 +207,13 @@ export function AuthScreen({
           "登録済みのメールアドレスの場合、再設定用のリンクを送ります。受信箱を確認してください。",
         );
     });
-  const social = (provider: "google") =>
+  const social = () =>
     run(async () => {
-      assertAuthResult(
-        await getAuthClient().signIn.social({
-          provider,
-          callbackURL:
-            returnURL ??
-            (Platform.OS === "web" ? window.location.origin : "flocka://"),
-        }),
-      );
-      if (Platform.OS !== "web") {
+      if (
+        (await signInWithGoogle(returnURL)) === "done" &&
+        Platform.OS !== "web"
+      )
         await session.refetch();
-        router.replace(destination);
-      }
     });
   if (session.data) return <Redirect href={destination} />;
   if (session.isPending || session.error) return <SessionStatus />;
@@ -330,7 +333,7 @@ export function AuthScreen({
               <SocialButtons
                 available={providers}
                 busy={busy}
-                onPress={social}
+                onPress={() => void social()}
               />
             )}
             {view === "verify" ? (

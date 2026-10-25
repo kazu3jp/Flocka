@@ -288,6 +288,7 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 - `--ignore-snapshots` で全スペックを mobile で実行し、48件通過、1件（nearby の no-preference）は負荷時に失敗し、単独再実行で通過しました。4サイズ一括の1回目は、実行中に固定ポート9012のVRTサーバーへ接続できなくなり（ECONNREFUSED、他の作業との競合）多数が失敗したため、結果として採用していません。
 - 純粋ロジックの追加はなく、単体テストは追加していません。
 - 未確認: 実機（Android・iOS）での見た目、描画負荷、OSの動きを減らす設定。基準画像はmacOS専用のためこの環境では比較していません。
+
 ## 初回の案内ツアー（feat/guided-tour）
 
 - 仕様は [flocka-v2-screen-spec.md](flocka-v2-screen-spec.md) の4.15。先の「初回チュートリアル」（シート5枚）を、実際の部品を切り抜く案内式に置き換えた。旧 `TutorialSheet` とそのテスト・specは削除。
@@ -309,3 +310,18 @@ Androidの生成マニフェストから `android.permission.CAMERA` が `tools:
 表示の判定は `camera-permission.ts` の純関数で、`tests/camera-permission.test.ts` が未確認・許可・再要求可の拒否・再要求不可の拒否・要求の失敗・自動要求が最初の1回だけであることを検査します。`e2e/visual/scan-camera-permission.spec.ts` はWebでブラウザの許可拒否をモックし、説明と再試行ボタンが出ることを検査します。
 
 未検証: 実機（Android 16 / Nothing）で許可ダイアログが出ること、「設定を開く」が実機の設定へ移ること、iOSのInfo.plist（Windowsでは `prebuild --platform ios` が生成されないため未確認）。リリースAPKでの実機確認が必要です。
+## Googleログインの修正とAndroidのネイティブ化（feat/google-native-signin）
+
+- 原因: 本番のGoogleログインの失敗は、Googleの画面の `400: redirect_uri_mismatch`。Workerが送る `https://api.flocka.zofax.net/api/auth/callback/google`（`apps/api/wrangler.jsonc` の `BETTER_AUTH_URL` と、末尾スラッシュ有無の両方で同じ値になることをテストで確認）が、GoogleのウェブクライアントにまだGoogle Cloud側で登録されていない。アプリのバグではなく運営者の設定（手順は [authentication.md](authentication.md)）。
+- ロゴ: 単色の簡略パスを、Google自身の配布物（Firebase UIの `google.svg`、`logo_googleg_48dp`）の4色のGに置き換えた。形・色は変えていない。ボタンの大きさ・位置・文言（「Googleで続ける」はGoogleの許可文言 "Continue with Google" の日本語化）は据え置き。
+- ログイン失敗の理由を隠していた箇所を修正: (1) ブラウザ方式で `errorCallbackURL` が無く、失敗がBetter Auth自身のエラーページに留まりアプリは無表示だった → `flocka://auth`（Webは `/auth`）へ戻し、日本語＋コードで表示。(2) 認証エラーの未知のコードはライブラリの英語文をそのまま表示していた → コード/HTTP状態付きの日本語に。(3) 通信失敗の生の英語例外が表示されていた → 既存の `userFacingError` で日本語化。(4) `INVALID_TOKEN`/`EMAIL_NOT_VERIFIED` はメール確認用の文言が出てしまうため、Googleのトークン交換用の文言を別に用意した。
+- サーバーの穴を1つ塞いだ: Googleがメールを未確認とするアカウントにもセッションが発行されていた → `requireEmailVerification: true`（ブラウザ方式・ネイティブ方式の両方）。`sendOnSignUp: false` を明示し、確認メールは送らない。
+- ネイティブ（Android）: ライブラリの評価（2026-10-25、npm/パッケージ内容を確認）。
+  - `@react-native-google-signin/google-signin` 16.1.5（MIT、2026-09更新、Expo設定プラグイン・Expo 52以上）: 無料版のREADMEに「Androidでは旧Google Sign-In SDKを使う」とあり、`android/build.gradle` の依存は `play-services-auth` のみ（`androidx.credentials` なし）。Credential Manager・独自nonce・Config Doctorは有料の「Universal Sign In」に限る。無料版は非推奨のAPIで、nonceを渡せない。
+  - `react-native-credentials-manager` 0.9.0（MIT）: 1.0未満、メンテナ1人、peerは `react-native: *` のみ。RN 0.86／新アーキテクチャ対応の記載がなく、設定プラグインも持たない。Expo SDK 57での動作は確認できなかった。
+  - `expo-auth-session` はブラウザ方式のみで該当しない。
+  - 決定: 既存の `flocka-secure-input` / `flocka-nearby` と同じ形の小さな自前Expoモジュール `apps/mobile/modules/flocka-google-signin`（Kotlin、`androidx.credentials` 1.5.0 + `credentials-play-services-auth` + `googleid` 1.1.1、`GetSignInWithGoogleOption` にnonceを渡す）を作った。`googleid` 1.2.1 はKotlin 2.4のメタデータでExpo 57のKotlin 2.1とコンパイルできなかったため、1.1.1を採用（実際にビルドで確認）。
+- 検証済み: `npm run validate`（型・lint・154テスト）、`npm run export:web`、`npm run export:native`、`npm run build:vrt`、`npx playwright test --ignore-snapshots`（mobile/narrow/short/desktop。1回目はコマンドの制限時間で途中終了したため、desktopだけ再実行して62件通過）。`apps/mobile` で `expo prebuild --platform android` を `C:\dev\wt-google` で実行し、Android SDK 36 / JDK 21で `:flocka-google-signin:compileDebugKotlin` と `:app:assembleDebug`（arm64-v8a）が成功した。
+  - `tests/google-sign-in.integration.test.ts`: 偽のGoogle鍵（JWKSとトークンエンドポイント）で、ネイティブのIDトークン交換（Originなし・Cookieなしの実際の要求形）、規約未同意の新規ユーザーが `POST /v1/accounts` で拒否され `POST /v1/me/terms` の後に作成できること、別のaud・nonce・発行元・期限切れ・別の鍵の署名・不正な形式・鍵取得の失敗（500）がすべて401でセッションなし、メール未確認の拒否、ブラウザ方式（`expo-origin: flocka://`・プロキシ・コールバック）の成功と、`flocka://auth?error=` への失敗の返り、状態Cookie欠落、`redirect_uri` の値。
+  - `tests/google-sign-in.test.ts`（文言・ロゴの4色・URL解析）と、`e2e/visual/auth.spec.ts` の4色のG（SVGのfillと描画ピクセルの色相、20×20）。
+- 未検証: 実際のGoogle・Google Play開発者サービス・Android実機でのネイティブシート（SHA-1・クライアントIDの組み合わせ、nonceがトークンへそのまま入ること、キャンセル・アカウントなし・通信中断の例外の種類）。リリースAPKの完全なビルド。ブラウザ方式でCustom Tabから戻る実機の動き（`flocka://auth?error=` をLinkingイベントで受ける部分）。macOS基準画像との比較（Googleのロゴ変更で `signup`/`login` の基準画像のロゴ部分は差が出る。この環境では更新していない）。

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import {
   Miniflare,
@@ -59,12 +60,39 @@ export const goodAiResult = (inputs: unknown, completionTokens = 300) => ({
   ],
   usage: { prompt_tokens: 1200, completion_tokens: completionTokens },
 });
+export const TEST_GOOGLE_CLIENT_ID =
+  "test-web-client.apps.googleusercontent.com";
+const b64url = (value: Buffer | string) =>
+  Buffer.from(value).toString("base64url");
+/** A Google-shaped signing key: the fake JWKS endpoint publishes only its public half. */
+function createGoogleKey(kid: string) {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
+  return {
+    kid,
+    jwk: {
+      ...publicKey.export({ format: "jwk" }),
+      kid,
+      alg: "RS256",
+      use: "sig",
+    },
+    sign(
+      claims: Record<string, unknown>,
+      header: Record<string, unknown> = {},
+    ) {
+      const signingInput = `${b64url(JSON.stringify({ alg: "RS256", kid, typ: "JWT", ...header }))}.${b64url(JSON.stringify(claims))}`;
+      return `${signingInput}.${b64url(sign("RSA-SHA256", Buffer.from(signingInput), privateKey))}`;
+    },
+  };
+}
 export async function createAuthRuntime(
   input: {
     port?: number;
     webOrigin?: string;
     authURL?: string;
     appleCredentials?: boolean;
+    googleCredentials?: boolean;
     infrastructure?: boolean;
     throughMigration?: string;
   } = {},
@@ -81,6 +109,33 @@ export async function createAuthRuntime(
     error: "invalid_token",
   };
   const infrastructureCalls: string[] = [];
+  // Stands in for Google: its key set, token endpoint and the ID token it returns.
+  const googleKey = createGoogleKey("test-google-key");
+  const google = {
+    key: googleKey,
+    otherKey: createGoogleKey("test-google-key"),
+    certsStatus: 200,
+    tokenStatus: 200,
+    /** ID token the fake token endpoint hands back for an authorization code. */
+    codeIdToken: "",
+    calls: [] as string[],
+    /** Claims of a valid ID token for this app's web client. */
+    claims(overrides: Record<string, unknown> = {}) {
+      const now = Math.floor(Date.now() / 1000);
+      return {
+        iss: "https://accounts.google.com",
+        aud: TEST_GOOGLE_CLIENT_ID,
+        azp: "android-client.apps.googleusercontent.com",
+        sub: "google-subject-1",
+        email: "google.user@example.test",
+        email_verified: true,
+        name: "Google User",
+        iat: now,
+        exp: now + 3600,
+        ...overrides,
+      };
+    },
+  };
   const push = {
     calls: [] as { path: string; body: unknown }[],
     status: 200,
@@ -121,6 +176,18 @@ export async function createAuthRuntime(
                   BETTER_AUTH_API_KEY: {
                     type: "json" as const,
                     value: "test-infra-key-never-sent",
+                  },
+                }
+              : {}),
+            ...(input.googleCredentials
+              ? {
+                  GOOGLE_CLIENT_ID: {
+                    type: "json" as const,
+                    value: TEST_GOOGLE_CLIENT_ID,
+                  },
+                  GOOGLE_CLIENT_SECRET: {
+                    type: "json" as const,
+                    value: "test-google-secret",
                   },
                 }
               : {}),
@@ -180,6 +247,35 @@ export async function createAuthRuntime(
                       : {},
                   ),
                   { headers: { "Content-Type": "application/json" } },
+                );
+              }
+              if (
+                request.url === "https://www.googleapis.com/oauth2/v3/certs"
+              ) {
+                google.calls.push("certs");
+                return new TestResponse(
+                  JSON.stringify({ keys: [google.key.jwk] }),
+                  {
+                    status: google.certsStatus,
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+              }
+              if (request.url === "https://oauth2.googleapis.com/token") {
+                google.calls.push("token");
+                return new TestResponse(
+                  google.tokenStatus === 200
+                    ? JSON.stringify({
+                        access_token: "test-google-access",
+                        token_type: "Bearer",
+                        expires_in: 3600,
+                        id_token: google.codeIdToken,
+                      })
+                    : JSON.stringify({ error: "invalid_grant" }),
+                  {
+                    status: google.tokenStatus,
+                    headers: { "Content-Type": "application/json" },
+                  },
                 );
               }
               if (
@@ -402,6 +498,7 @@ export async function createAuthRuntime(
       setAdmins,
       revocations,
       infrastructureCalls,
+      google,
     };
   } catch (error) {
     await runtime.dispose();
