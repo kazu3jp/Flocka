@@ -1,6 +1,7 @@
 import { DeletionOutcomeProvider } from "./deletion-outcome";
 import React, { createContext, useContext } from "react";
 import { Board, Btn, T } from "../../components/ui";
+import { LoadingBoard } from "../../components/loading";
 import { API_URL, getAuthClient } from "./client";
 
 type AuthSession = ReturnType<ReturnType<typeof getAuthClient>["useSession"]>;
@@ -33,14 +34,13 @@ export function useAuth() {
 }
 export function SessionStatus() {
   const { error, refetch } = useAuth();
+  if (!error) return <LoadingBoard label="ログイン状態を確認中…" />;
   return (
     <Board>
       <T>
-        {error
-          ? "ログイン状態を確認できませんでした。通信とAPI設定を確認してください。"
-          : "ログイン状態を確認中…"}
+        ログイン状態を確認できませんでした。通信とAPI設定を確認してください。
       </T>
-      {error && <Btn label="再試行" onPress={() => void refetch()} />}
+      <Btn label="再試行" onPress={() => void refetch()} />
     </Board>
   );
 }

@@ -15,6 +15,7 @@ import {
   T,
 } from "../../components/ui";
 import { useApp } from "../../store";
+import { LoadingNotice } from "../../components/loading";
 import { usePRDocument } from "./use-pr-document";
 import { useTypedPR } from "./use-typed-pr";
 import { PRBody } from "./pr-body";
@@ -271,15 +272,16 @@ export function PR() {
         </T>
       ) : null}
       {ai.generating && (
-        <T
-          testID="pr-ai-progress"
-          accessibilityLiveRegion="polite"
-          size={12.5}
-          color={C.pale}
-          style={{ textAlign: "center", lineHeight: 19.375 }}
-        >
-          AIが文章を整えています。数秒かかります…
-        </T>
+        <LoadingNotice testID="pr-ai-progress">
+          <T
+            accessibilityLiveRegion="polite"
+            size={12.5}
+            color={C.pale}
+            style={{ textAlign: "center", lineHeight: 19.375 }}
+          >
+            AIが文章を整えています。数秒かかります…
+          </T>
+        </LoadingNotice>
       )}
       <T
         testID="pr-note"

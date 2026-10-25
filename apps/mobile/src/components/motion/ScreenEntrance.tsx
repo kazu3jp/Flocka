@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { Animated, StyleSheet, type ViewProps } from "react-native";
 import { useScreenFocused } from "../screen-focus";
-import { ENTER_RISE, MOTION_MS } from "./motion-tokens";
+import { ENTER_RISE, MOTION_MS, PUSH_SLIDE } from "./motion-tokens";
 import { useEnterMotion } from "./use-enter-motion";
 
 /**
@@ -20,7 +20,14 @@ export function useRevealedItems() {
  * becomes the visible one it fades in and rises a few points; screens hidden
  * inside an Activity do not animate.
  */
-export function ScreenEntrance({ style, ...props }: ViewProps) {
+export function ScreenEntrance({
+  style,
+  push = false,
+  ...props
+}: ViewProps & {
+  /** A screen pushed onto a stack slides in from the right instead of rising. */
+  push?: boolean;
+}) {
   const visible = useScreenFocused();
   const [revealed] = useState(() => new Set<string>());
   const { progress, settled } = useEnterMotion({
@@ -37,12 +44,19 @@ export function ScreenEntrance({ style, ...props }: ViewProps) {
           !settled && {
             opacity: progress,
             transform: [
-              {
-                translateY: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [ENTER_RISE.screen, 0],
-                }),
-              },
+              push
+                ? {
+                    translateX: progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [PUSH_SLIDE, 0],
+                    }),
+                  }
+                : {
+                    translateY: progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [ENTER_RISE.screen, 0],
+                    }),
+                  },
             ],
           },
         ]}

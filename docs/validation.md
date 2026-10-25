@@ -268,3 +268,13 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 - 実機で「近くの人を探しています…」への遷移、12秒後の相手未発見の案内、ホームへ退避した後の復帰、画面の「探索をやり直す」を確認。Androidの `dumpsys bluetooth_manager` でも `jp.kazu3.flocka` が登録済みで、FlockaのサービスUUID `6b7d9110-e86b-47d8-a5c1-a17c0f10ca01` を使うLOW_LATENCYの継続中スキャンを確認した。表示だけを探索中に変更した検査ではない。
 
 実機画像はローカルの `C:\Users\kazu3\AppData\Local\Temp\opencode` の `flocka-nearby-fixed.png`、`flocka-nearby-fixed-resume.png`、`flocka-nearby-fixed-retry.png`、OSのスキャン記録は `flocka-nearby-scan-fixed.txt`。個人プロフィールを含むためGitには追加していない。2台目がないため相互発見・交換成立は未検証。初回の権限拒否・許可を実機でやり直す検査、iOS実機・Swiftビルドも未実施であり、単一端末の探索開始確認とは区別する。本番の作成・デプロイはしていない。
+
+## 読み込み中と押し出しの動き（2026-10-25）
+
+`Spinner`・`SkeletonBlock`・`LoadingBoard`・`LoadingNotice`・`ParagraphSkeleton` と、スタック2枚目以降の右からの押し出し（`ScreenEntrance` の `push`）を追加しました（内容は [native-rendering.md](native-rendering.md)）。確認したこと:
+
+- `npm run validate`（型・lint・108テスト）、`npm run export:web`、`npm run export:native` は成功。`npm run verify:export` は本番APIのURLが要るため実行していません。
+- `e2e/visual/loading-motion.spec.ts` を追加: 読み込み中の輪が動く（動きを許可時）、動きを減らす設定では静止、押し出し画面が右から滑り込んで止まる。mobile で通過。
+- `--ignore-snapshots` で全スペックを mobile で実行し、48件通過、1件（nearby の no-preference）は負荷時に失敗し、単独再実行で通過しました。4サイズ一括の1回目は、実行中に固定ポート9012のVRTサーバーへ接続できなくなり（ECONNREFUSED、他の作業との競合）多数が失敗したため、結果として採用していません。
+- 純粋ロジックの追加はなく、単体テストは追加していません。
+- 未確認: 実機（Android・iOS）での見た目、描画負荷、OSの動きを減らす設定。基準画像はmacOS専用のためこの環境では比較していません。

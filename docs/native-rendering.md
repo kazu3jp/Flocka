@@ -100,3 +100,14 @@ Pixel 9 Pro AVD（Android 17 / API 37、1280×2856、density 480、font scale 1.
 - ネイティブでは、絵をインク色で塗った複製を影の量だけずらして下に敷き、その複製を包むViewの不透明度で薄める（`components/drop-shadow-svg.tsx`）。`needsOffscreenAlphaCompositing` により、AndroidはGPUのレイヤー、iOSはグループ不透明度で合成されるため、図形の重なりが濃くならない。ずらす量はフィルターと同じSVG座標系で指定する。
 - Webは基準画像と一致させるため、従来どおり `feDropShadow` を使う。
 - Chromiumで全33素材（カード絵21、シール12）を描き比べ、フィルターと今回の方式の差が最大1ピクセル（160×160の描画内）であることを確認した。ネイティブ端末での描画と速度の計測は未実施。
+
+## 読み込み中と画面の押し出しの動き（2026-10-25）
+
+「全体的にアニメーションがない。画面切り替えや読み込み中などにアニメーションが欲しい」への追加。既存の動きの部品（`components/motion/`）に載せ、時間は `motion-tokens.ts` に集約した。
+
+- 読み込み表示: サーバーを待つ全画面（デッキ読み込み、ログイン確認、`LoadingBoard`）は文字だけだったので、回る輪（`Spinner`、rotate のみ）を文字の上に付けた。文字はそのまま残す（支援技術とテストが使う）。交換後の「最新データを取得中…」とAIの「文章を整えています」は `LoadingNotice`（16ptの輪＋文字の1行）、公開された証言のシートは `ParagraphSkeleton`（opacity だけで脈打つ `SkeletonBlock`）。
+- 押し出し: スタックの2枚目以降（`index > 0`）は `ScreenEntrance` の `push` で右から18pt滑り込みつつフェードする。タブの根の画面とpopで戻った画面は従来どおり下から10pt。
+- 時間とループ: 輪は800ms/周、スケルトンは700msの往復。どちらも transform か opacity だけで、ネイティブドライバ、`isInteraction: false`。スケルトンは `useScreenFocused` が false の間と動きを減らす設定では止まる（輪は動きを減らす設定で静止）。
+- アニメーション基盤: `react-native-reanimated` は依存にあるがアプリのコードでは未使用で、既存の動きはすべて `Animated`。部品を二つの基盤に分けないため `Animated` に合わせた。
+- 変えなかったもの: シートの出入りは `Modal` の `slide`（上記）。`Btn` の読み込み中は大きさを変えない `ActivityIndicator` のまま。
+- 未検証: 実機（Android/iOS）での見た目と描画負荷。ネイティブの書き出しが通ることまでは確認したが、Reduce Motion の実機設定での挙動も未確認。

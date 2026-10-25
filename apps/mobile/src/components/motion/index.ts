@@ -11,3 +11,5 @@ export { PopOnChange } from "./PopOnChange";
 export { SelectionFill } from "./SelectionFill";
 export { EnterOnMount } from "./EnterOnMount";
 export { ProgressFill } from "./ProgressFill";
+export { Spinner } from "./Spinner";
+export { SkeletonBlock } from "./SkeletonBlock";
