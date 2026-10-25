@@ -299,6 +299,10 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 - 未検証: iOS/Android実機での表示と位置（`measureInWindow` の差し引きはWebでのみ確認。Android の edge-to-edge・ステータスバーは未確認）、VoiceOver/TalkBackの読み上げとフォーカス（ネイティブは `announceForAccessibility` と `accessibilityViewIsModal` のみで、Androidは下の画面を読み上げ対象から外していない）、OSの「動きを減らす」の切り替え（Webの `reducedMotion` のみ。e2eは常に reduce のため、動きありの見た目はスクリーンショットでのみ目視）、Androidの戻るボタン、macOSの基準画像（このツアーは基準画像を追加していない）。
 - 既知の挙動: 更新前の既存ユーザーも、登録済みで未表示なら1度だけ表示される。ツアー後に復元するのは始めたタブとその画面の積み方だけで、ほかのタブのスタックは初期状態に戻りうる。
 
+## 公開範囲・安全画面の再設計
+
+画面を7区画（いまの公開範囲／受け取り設定／ブロックと報告／通知／データ／使い方・規約／アカウント）に分け、要約と各スイッチの1行説明を追加し、ログアウトとアカウント削除を「自分」からこの画面の最下部へ移しました。要約・状態表示の判定は `tests/settings-view-model.test.ts` で検証します。「受け取り設定」の保存は従来どおり確認つきの明示保存で、保存状態の表示は追加していません。`onlyConnected` はサーバーで別途検査されず、証言は交換成立後にしか贈れないため、要約は常に「交換が成立した人だけ」と表示します。e2eは、認証ライフサイクルの導線（自分→公開範囲・安全→ログアウト／削除）とレイアウト安定性の見出し要素を新しい画面に合わせました。Web（390/320幅）の表示は目視で確認しました。実機（iOS/Android）の表示とTalkBack/VoiceOver、実サーバー上の保存・ブロック解除・通知は未確認です。
+
 ## Googleログインの修正とAndroidのネイティブ化（feat/google-native-signin）
 
 - 原因: 本番のGoogleログインの失敗は、Googleの画面の `400: redirect_uri_mismatch`。Workerが送る `https://api.flocka.zofax.net/api/auth/callback/google`（`apps/api/wrangler.jsonc` の `BETTER_AUTH_URL` と、末尾スラッシュ有無の両方で同じ値になることをテストで確認）が、GoogleのウェブクライアントにまだGoogle Cloud側で登録されていない。アプリのバグではなく運営者の設定（手順は [authentication.md](authentication.md)）。
