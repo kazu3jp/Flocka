@@ -1,5 +1,6 @@
 import { PR_DRAFT_MAX_LENGTH } from "./limits";
 import { PR_AI_MAX_CHARACTERS } from "./pr-ai-prompt";
+import { snsLinksSchema } from "./sns-links";
 import { decorationSchema } from "./decoration-schema";
 import { z } from "zod";
 import { CARDS } from "./catalog";
@@ -20,9 +21,19 @@ export const profileSchema = z.object({
     photo: z.string().max(1_000_000).optional(),
   }),
   links: z.object({ github: z.string().max(200) }),
+  // Older servers and cached states have no field; an absent list means none.
+  snsLinks: snsLinksSchema.default([]),
 });
+/**
+ * Requests from an app version that predates SNS links omit the list; the
+ * server then keeps the stored links instead of erasing them.
+ */
+export const profileInputSchema = profileSchema.extend({
+  snsLinks: snsLinksSchema.optional(),
+});
+export type ProfileInput = z.infer<typeof profileInputSchema>;
 export const createAccountSchema = z.object({
-  profile: profileSchema,
+  profile: profileInputSchema,
   self: z.array(strengthKeySchema).min(2).max(3),
 });
 export const remotePlayerSchema = z.object({

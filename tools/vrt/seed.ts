@@ -1,5 +1,5 @@
 import type { createAuthRuntime } from "../../tests/helpers/auth-runtime";
-import { AV_COLORS } from "@flocka/domain";
+import { AV_COLORS, type SnsLink } from "@flocka/domain";
 
 type Runtime = Awaited<ReturnType<typeof createAuthRuntime>>;
 export type Scenario = "onboarding" | "empty" | "collected";
@@ -30,7 +30,14 @@ export async function seedScenario(
     runtime.register("ソラ", email("sora")),
     runtime.register("カエデ", email("kaede")),
   ]);
-  const peerProfiles = [
+  const peerProfiles: {
+    role: string;
+    motif: string;
+    color: string;
+    interests: string[];
+    self: string[];
+    snsLinks?: SnsLink[];
+  }[] = [
     {
       role: "UIデザインを勉強中",
       motif: "cat",
@@ -51,6 +58,11 @@ export async function seedScenario(
       color: AV_COLORS[2],
       interests: ["プロダクト企画", "旅行"],
       self: ["bridge", "planning"],
+      // Only this peer declares SNS links, so other peers' cards stay unchanged.
+      snsLinks: [
+        { platform: "x", value: "kaede_plan" },
+        { platform: "instagram", value: "kaede.trip" },
+      ],
     },
   ];
   for (const [index, peer] of peers.entries()) {
@@ -61,6 +73,7 @@ export async function seedScenario(
         role: profile.role,
         interests: profile.interests,
         avatar: { type: "motif", motif: profile.motif, color: profile.color },
+        snsLinks: profile.snsLinks ?? [],
       },
       profile.self,
     );

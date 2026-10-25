@@ -111,7 +111,7 @@ applicationRoutes.get("/sync", async (c) => {
     syncSchema.parse({
       nextPage: cursor || !hasMore ? null : page + 1,
       nextCursor,
-      player: accounts.toPlayer(account),
+      player: accounts.toPlayer(account, true),
       peers,
       exchanges,
       settings: settingsSchema.parse(JSON.parse(account.settings_json)),
@@ -200,7 +200,9 @@ applicationRoutes.post("/invites/preview", async (c) => {
       "このプレイヤーとは交換できません",
     );
   return c.json(
-    await new AccountsRepository(c.env.DB).getPlayer(invite.account_id),
+    await new AccountsRepository(c.env.DB).getPlayerWithoutSnsLinks(
+      invite.account_id,
+    ),
   );
 });
 applicationRoutes.get("/players/:id/avatar", async (c) => {
