@@ -62,11 +62,30 @@ export async function ready(page: Page) {
   ).toHaveCount(0);
   await page.mouse.move(-1, -1);
 }
+/**
+ * Starts the browser as a device that already showed the first-launch
+ * tutorial. The same key as apps/mobile/src/features/tutorial/tutorial-steps.ts.
+ */
+export async function markTutorialSeen(context: BrowserContext) {
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem("flocka-expo-tutorial-v1", "1");
+    } catch {
+      // Storage can be unavailable; the spec would then see the tutorial.
+    }
+  });
+}
 export async function signInFixture(
   context: BrowserContext,
   scenario: "onboarding" | "empty" | "collected",
   instance = "",
+  /**
+   * Other specs are about other screens, so the tutorial starts out seen.
+   * Pass "unseen" to start on a fresh install.
+   */
+  tutorial: "seen" | "unseen" = "seen",
 ) {
+  if (tutorial === "seen") await markTutorialSeen(context);
   const response = await context.request.post(
     `/__vrt/fixture?scenario=${scenario}&instance=${encodeURIComponent(instance)}`,
   );

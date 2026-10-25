@@ -268,3 +268,10 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 - 実機で「近くの人を探しています…」への遷移、12秒後の相手未発見の案内、ホームへ退避した後の復帰、画面の「探索をやり直す」を確認。Androidの `dumpsys bluetooth_manager` でも `jp.kazu3.flocka` が登録済みで、FlockaのサービスUUID `6b7d9110-e86b-47d8-a5c1-a17c0f10ca01` を使うLOW_LATENCYの継続中スキャンを確認した。表示だけを探索中に変更した検査ではない。
 
 実機画像はローカルの `C:\Users\kazu3\AppData\Local\Temp\opencode` の `flocka-nearby-fixed.png`、`flocka-nearby-fixed-resume.png`、`flocka-nearby-fixed-retry.png`、OSのスキャン記録は `flocka-nearby-scan-fixed.txt`。個人プロフィールを含むためGitには追加していない。2台目がないため相互発見・交換成立は未検証。初回の権限拒否・許可を実機でやり直す検査、iOS実機・Swiftビルドも未実施であり、単一端末の探索開始確認とは区別する。本番の作成・デプロイはしていない。
+
+## 初回チュートリアル（feat/first-launch-tutorial）
+
+- 出す条件・保存・手順の仕様は [flocka-v2-screen-spec.md](flocka-v2-screen-spec.md) の4.15。
+- 検証済み：`npm run validate`（判定・ステップ・保存キーの単体テストを含む）、Expo Web・native書き出し、Chromium `e2e/visual/tutorial.spec.ts`（初回表示・スキップ・最後まで完了・再読み込みで再表示しない・設定からの再表示・登録中は出さない・保存読み込み失敗時は出さない）。ほかのspecは `signInFixture` が既定でチュートリアル表示済みの状態から始める。
+- 未検証：iOS/Android実機での表示とVoiceOver/TalkBackの読み上げ、OSの「動きを減らす」設定での確認（Webの `reducedMotion: reduce` のみ）、macOSの基準画像（`tutorial-first-step.png` / `tutorial-last-step.png` はmacOSで `npm run test:vrt:update` が必要）。
+- 既知の挙動：この変更を含む版に更新した既存ユーザーも、登録済みで未表示なら1度だけ表示される。
