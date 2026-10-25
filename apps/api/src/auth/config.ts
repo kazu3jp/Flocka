@@ -28,6 +28,9 @@ export function socialProviders(env: Env) {
           google: {
             clientId: env.GOOGLE_CLIENT_ID,
             clientSecret: env.GOOGLE_CLIENT_SECRET,
+            // A Google account whose email Google has not verified gets no
+            // session, from the browser flow and from the native ID-token exchange.
+            requireEmailVerification: true,
           },
         }
       : {}),
@@ -161,7 +164,12 @@ export function createAuth(
         else await delivery;
       },
     },
-    emailVerification: { autoSignInAfterVerification: true },
+    // sendOnSignUp stays false: an unverified Google email must not trigger mail
+    // (there is no verification-link sender; the app verifies by code).
+    emailVerification: {
+      autoSignInAfterVerification: true,
+      sendOnSignUp: false,
+    },
     socialProviders: socialProviders(env),
     session: {
       expiresIn: 60 * 60 * 24 * 30,

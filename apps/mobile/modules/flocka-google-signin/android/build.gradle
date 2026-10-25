@@ -1,0 +1,25 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'jp.kazu3.flocka.googlesignin'
+version = '0.1.0'
+
+android {
+  namespace "jp.kazu3.flocka.googlesignin"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lint {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Credential Manager with the Google ID provider (the supported replacement for the legacy Google Sign-In SDK).
+  implementation "androidx.credentials:credentials:1.5.0"
+  implementation "androidx.credentials:credentials-play-services-auth:1.5.0"
+  implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+}
