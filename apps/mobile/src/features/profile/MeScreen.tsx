@@ -1,4 +1,3 @@
-import { AccountPanel } from "../auth/AccountPanel";
 import { View } from "react-native";
 
 import {
@@ -49,7 +48,6 @@ export function Me() {
           }
         />
       ))}
-      <AccountPanel />
     </Board>
   );
 }

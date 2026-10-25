@@ -34,9 +34,6 @@ export function NotificationPanel() {
   }, [accountId]);
   return (
     <Panel style={S.gap}>
-      <T display color={C.ink}>
-        通知
-      </T>
       <T color={C.muted} size={13}>
         封筒の到着、交換の成立、通報への対応をこの端末へお知らせします。
       </T>
