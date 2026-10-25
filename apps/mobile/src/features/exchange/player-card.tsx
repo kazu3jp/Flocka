@@ -6,6 +6,7 @@ import { bareCard, type Card, type PublicTestimony } from "@flocka/domain";
 import { useApp } from "../../store";
 import { PlayerSurface } from "./player-surface";
 import { SnsLinkList } from "./SnsLinkList";
+import { TOUR_TARGETS } from "../guided-tour/tour-steps";
 
 export function PeerAvatar({ id, size = 44 }: { id: string; size?: number }) {
   const { peers } = useApp();
@@ -115,6 +116,7 @@ export function Player({
   return (
     <>
       <PlayerSurface
+        tourTargetId={peerId ? null : TOUR_TARGETS.playerCard}
         compact={!!peerId}
         avatar={
           peerId ? (

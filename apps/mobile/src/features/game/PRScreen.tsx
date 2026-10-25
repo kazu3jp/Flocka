@@ -21,10 +21,13 @@ import { useTypedPR } from "./use-typed-pr";
 import { PRBody } from "./pr-body";
 import { AiDraftSheet } from "./AiDraftSheet";
 import { useAiPRDraft } from "./use-ai-pr-draft";
+import { TOUR_TARGETS } from "../guided-tour/tour-steps";
+import { useTourTarget } from "../guided-tour/use-tour-target";
 
 export function PR() {
   const { d, nav, setOpening, peers } = useApp();
   const editor = usePRDocument();
+  const headingTarget = useTourTarget(TOUR_TARGETS.prHeading);
   const ai = useAiPRDraft(editor.generatedCardKey);
   const { progress, reveal } = useTypedPR(
     editor.draft,
@@ -39,7 +42,11 @@ export function PR() {
       <Board>
         <Header title="自己PR" />
         <Panel testID="pr-locked" style={{ padding: 0, overflow: "hidden" }}>
-          <View style={styles.heading}>
+          <View
+            {...headingTarget}
+            testID="pr-heading"
+            style={styles.heading}
+          >
             <Icon name="lock" size={18} color={C.ink} />
             <T
               display
@@ -130,7 +137,7 @@ export function PR() {
         testID="pr-document"
         style={{ flex: 1, minHeight: 0, padding: 0, overflow: "hidden" }}
       >
-        <View testID="pr-heading" style={styles.heading}>
+        <View {...headingTarget} testID="pr-heading" style={styles.heading}>
           <T
             color={C.ink}
             display
