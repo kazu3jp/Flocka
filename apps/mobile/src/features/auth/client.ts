@@ -7,7 +7,12 @@ import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { FlockaApiClient, type ApiClientError } from "@flocka/api-client";
-import { authErrorMessage, parseRetryAfter } from "./auth-error-message";
+import {
+  authErrorMessage,
+  googleExchangeErrorMessage,
+  parseRetryAfter,
+} from "./auth-error-message";
+import { UserFacingError } from "../sync/user-facing-error";
 import { infrastructureClientPlugins } from "./infrastructure-client";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -42,10 +47,11 @@ function makeAuthClient(baseURL: string) {
 let lastRetryAfter: number | null = null;
 let client: ReturnType<typeof makeAuthClient> | undefined;
 export function getAuthClient() {
-  if (!API_URL) throw new Error("EXPO_PUBLIC_API_URLを設定してください");
+  if (!API_URL)
+    throw new UserFacingError("EXPO_PUBLIC_API_URLを設定してください");
   const url = new URL(API_URL);
   if (url.protocol !== "https:" && !(__DEV__ && url.protocol === "http:"))
-    throw new Error("認証APIにはHTTPSを指定してください");
+    throw new UserFacingError("認証APIにはHTTPSを指定してください");
   client ??= makeAuthClient(API_URL);
   return client;
 }
@@ -53,7 +59,8 @@ export function getApiClient(
   accountId?: string,
   onSessionFailure?: (error: ApiClientError) => void,
 ) {
-  if (!API_URL) throw new Error("EXPO_PUBLIC_API_URLを設定してください");
+  if (!API_URL)
+    throw new UserFacingError("EXPO_PUBLIC_API_URLを設定してください");
   return new FlockaApiClient(
     API_URL,
     Platform.OS === "web"
@@ -67,14 +74,19 @@ export function getApiClient(
     __DEV__,
   );
 }
-export function assertAuthResult(result: {
-  error: { message?: string; code?: string; status?: number } | null;
-}) {
-  if (result.error)
-    throw new Error(
-      authErrorMessage(
-        result.error,
-        result.error.status === 429 ? lastRetryAfter : null,
-      ),
+export function assertAuthResult(
+  result: {
+    error: { message?: string; code?: string; status?: number } | null;
+  },
+  /** "google-exchange" words the answers to the Google ID-token exchange. */
+  context?: "google-exchange",
+) {
+  if (result.error) {
+    const wait = result.error.status === 429 ? lastRetryAfter : null;
+    throw new UserFacingError(
+      context === "google-exchange"
+        ? googleExchangeErrorMessage(result.error, wait)
+        : authErrorMessage(result.error, wait),
     );
+  }
 }

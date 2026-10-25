@@ -50,7 +50,6 @@
         "expo-image-picker",
         {
           "photosPermission": "プロフィール写真を選ぶために写真を使います。",
-          "cameraPermission": false,
           "microphonePermission": false
         }
       ],
