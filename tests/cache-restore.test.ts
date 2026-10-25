@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   fresh,
   initNav,
+  navForRelaunch,
   restoreCachedNav,
   restoreCachedState,
   validNav,
@@ -40,6 +41,19 @@ test("a corrupt navigation cache restarts at the tab roots", () => {
   saved.tab = "exchange";
   saved.stacks.exchange.push({ id: "confirm", params: { cid: "c1" } });
   assert.deepEqual(restoreCachedNav(JSON.stringify(saved)), saved);
+});
+
+test("a relaunch opens the deck and keeps the other tabs' history", () => {
+  const saved = initNav();
+  saved.tab = "exchange";
+  saved.stacks.find.push({ id: "card", params: { key: "impl" } });
+  saved.stacks.exchange.push({ id: "confirm", params: { cid: "c1" } });
+  const restored = navForRelaunch(JSON.stringify(saved));
+  assert.equal(restored.tab, "find");
+  assert.deepEqual(restored.stacks.find, [{ id: "deck" }]);
+  assert.deepEqual(restored.stacks.exchange, saved.stacks.exchange);
+  assert.deepEqual(navForRelaunch(null), initNav());
+  assert.deepEqual(navForRelaunch("{broken"), initNav());
 });
 
 test("navigation validation never throws on malformed entries", () => {

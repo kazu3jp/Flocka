@@ -45,7 +45,7 @@ import {
   derive,
   fresh,
   initNav,
-  restoreCachedNav,
+  navForRelaunch,
   restoreCachedState,
   navigationForRoute,
   SCREENS,
@@ -440,11 +440,11 @@ export function Provider({
         // An unreadable cache starts fresh because the server holds the real data.
         const cached = restoreCachedState(raw);
         stateRef.current = fresh();
-        // A sign-in starts on the home screen; a relaunch restores the last one.
+        // A sign-in starts on the home screen; a relaunch opens the deck.
         navRef.current =
           storageScope !== "signed-out" && consumeFreshSignIn()
             ? initNav()
-            : restoreCachedNav(rawNav);
+            : navForRelaunch(rawNav);
         setN(navRef.current);
         if (storageScope !== "signed-out") {
           let registered = true;
