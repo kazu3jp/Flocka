@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["jp.kazu3.flocka.googlesignin.FlockaGoogleSignInModule"]
+  }
+}
