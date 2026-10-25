@@ -23,6 +23,10 @@ import Svg, {
 import type { Card } from "@flocka/domain";
 import { C, F, Icon, Panel, StrengthCard, T } from "../../components/ui";
 
+/** The one-line message reads larger than the source design's 14px, which was too small on a phone. */
+const ROLE_FONT_SIZE = 17;
+const ROLE_LINE_HEIGHT = 1.6;
+
 function fanPose(index: number, count: number) {
   if (count === 1) return { angle: 0, verticalOffset: 0 };
   if (count === 2 && index === 1) return { angle: 6, verticalOffset: 0.04 };
@@ -165,9 +169,12 @@ export function PlayerSurface({
         </View>
         <T
           testID="player-role"
-          size={14}
+          size={ROLE_FONT_SIZE}
           color={C.muted}
-          style={{ paddingHorizontal: 16, lineHeight: 23.1 }}
+          style={{
+            paddingHorizontal: 16,
+            lineHeight: ROLE_FONT_SIZE * ROLE_LINE_HEIGHT,
+          }}
         >
           {role}
         </T>

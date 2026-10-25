@@ -205,6 +205,7 @@ export function AvatarPicker({
               key={k}
               label={l}
               selected={avatar.motif === k}
+              style={{ alignItems: "center" }}
               onPress={() => onChange({ ...avatar, motif: k })}
             >
               <CachedSvgXml

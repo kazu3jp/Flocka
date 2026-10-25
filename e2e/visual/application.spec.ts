@@ -162,11 +162,6 @@ test("real collected cards, profile, settings and exchange", async ({
         reference: reference.locator(".player > .row").first(),
       },
       {
-        name: "player role",
-        actual: page.getByTestId("player-role"),
-        reference: reference.locator(".player-role"),
-      },
-      {
         name: "player footer",
         actual: page.getByTestId("player-footer"),
         reference: reference.locator(".player-foot"),
@@ -179,6 +174,8 @@ test("real collected cards, profile, settings and exchange", async ({
     ],
     testInfo,
   );
+  // The one-line message is deliberately larger than the source's 14px so it stays readable.
+  await expect(page.getByTestId("player-role")).toHaveCSS("font-size", "17px");
   const sourceHandVisible = await reference.locator(".player-hand").isVisible();
   await expect(page.getByTestId("player-hand")).toHaveCount(
     sourceHandVisible ? 1 : 0,
@@ -195,6 +192,8 @@ test("real collected cards, profile, settings and exchange", async ({
           name: "player hand",
           actual: page.getByTestId("player-hand"),
           reference: reference.locator(".player-hand"),
+          // The larger one-line message pushes the hand down by the extra line height.
+          skip: ["y"],
         },
         {
           name: "middle showcase card",
@@ -202,6 +201,7 @@ test("real collected cards, profile, settings and exchange", async ({
             .getByTestId("player-hand")
             .getByTestId("strength-card-impl"),
           reference: reference.locator(".player-hand .gcard").nth(1),
+          skip: ["y"],
         },
       ],
       testInfo,

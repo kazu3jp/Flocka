@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AvatarPicker } from "../../components/pickers";
-import { Board, Btn, Header, InlineError, T } from "../../components/ui";
+import { Board, Btn, Header, InlineError } from "../../components/ui";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
@@ -18,9 +18,6 @@ export function AvatarEdit() {
         onChange={setAvatar}
         onError={toast}
       />
-      <T size={13}>
-        写真は160×160に整え、保存時に非公開のストレージへ送信します。
-      </T>
       <Btn
         label={busy ? "保存中…" : "保存する"}
         disabled={busy}
