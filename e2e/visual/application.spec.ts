@@ -192,8 +192,8 @@ test("real collected cards, profile, settings and exchange", async ({
           name: "player hand",
           actual: page.getByTestId("player-hand"),
           reference: reference.locator(".player-hand"),
-          // The larger one-line message pushes the hand down by the extra line height.
-          skip: ["y"],
+          // The larger one-line message takes the hand's space: it starts lower and is shorter.
+          skip: ["y", "height"],
         },
         {
           name: "middle showcase card",
