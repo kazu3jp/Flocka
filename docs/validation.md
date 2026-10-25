@@ -303,6 +303,13 @@ Androidのネイティブモジュールは、権限の現在値を先に取得�
 
 画面を7区画（いまの公開範囲／受け取り設定／ブロックと報告／通知／データ／使い方・規約／アカウント）に分け、要約と各スイッチの1行説明を追加し、ログアウトとアカウント削除を「自分」からこの画面の最下部へ移しました。要約・状態表示の判定は `tests/settings-view-model.test.ts` で検証します。「受け取り設定」の保存は従来どおり確認つきの明示保存で、保存状態の表示は追加していません。`onlyConnected` はサーバーで別途検査されず、証言は交換成立後にしか贈れないため、要約は常に「交換が成立した人だけ」と表示します。e2eは、認証ライフサイクルの導線（自分→公開範囲・安全→ログアウト／削除）とレイアウト安定性の見出し要素を新しい画面に合わせました。Web（390/320幅）の表示は目視で確認しました。実機（iOS/Android）の表示とTalkBack/VoiceOver、実サーバー上の保存・ブロック解除・通知は未確認です。
 
+## QR読み取りのカメラ許可
+
+Androidの生成マニフェストから `android.permission.CAMERA` が `tools:node="remove"` で消えており、許可ダイアログが出ない状態でした。原因は `expo-image-picker` の設定 `cameraPermission: false` が全パッケージ向けにCAMERAを遮断（blockedPermissions）することです（`expo-camera` の追加分も消えます）。この設定を外し、`npx expo prebuild --platform android --no-install --clean` の生成物で `<uses-permission android:name="android.permission.CAMERA"/>` があり、RECORD_AUDIOは引き続き除去されていることを確認しました。
+
+表示の判定は `camera-permission.ts` の純関数で、`tests/camera-permission.test.ts` が未確認・許可・再要求可の拒否・再要求不可の拒否・要求の失敗・自動要求が最初の1回だけであることを検査します。`e2e/visual/scan-camera-permission.spec.ts` はWebでブラウザの許可拒否をモックし、説明と再試行ボタンが出ることを検査します。
+
+未検証: 実機（Android 16 / Nothing）で許可ダイアログが出ること、「設定を開く」が実機の設定へ移ること、iOSのInfo.plist（Windowsでは `prebuild --platform ios` が生成されないため未確認）。リリースAPKでの実機確認が必要です。
 ## Googleログインの修正とAndroidのネイティブ化（feat/google-native-signin）
 
 - 原因: 本番のGoogleログインの失敗は、Googleの画面の `400: redirect_uri_mismatch`。Workerが送る `https://api.flocka.zofax.net/api/auth/callback/google`（`apps/api/wrangler.jsonc` の `BETTER_AUTH_URL` と、末尾スラッシュ有無の両方で同じ値になることをテストで確認）が、GoogleのウェブクライアントにまだGoogle Cloud側で登録されていない。アプリのバグではなく運営者の設定（手順は [authentication.md](authentication.md)）。

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useScreenFocused } from "../../components/screen-focus";
 import QRCode from "react-native-qrcode-svg";
@@ -16,6 +16,11 @@ import {
 } from "../../components/ui";
 import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
+import {
+  CAMERA_PERMISSION_COPY,
+  cameraPermissionView,
+  shouldAutoRequestCamera,
+} from "./camera-permission";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
@@ -26,6 +31,9 @@ export function Scan() {
     [mode, setMode] = useState<"show" | "scan">("show"),
     [permission, requestPermission] = useCameraPermissions(),
     focused = useScreenFocused(),
+    [requesting, setRequesting] = useState(false),
+    [requestFailed, setRequestFailed] = useState(false),
+    asked = useRef(false),
     scanned = useRef(false),
     rescanTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     startVisit = useScreenVisit(),
@@ -43,6 +51,36 @@ export function Scan() {
     },
     [],
   );
+  const permissionView = cameraPermissionView({
+    status: permission ? permission.status : null,
+    canAskAgain: permission ? permission.canAskAgain : true,
+    requestFailed,
+    requesting,
+  });
+  const askForCamera = async () => {
+    setRequesting(true);
+    setRequestFailed(false);
+    try {
+      await requestPermission();
+    } catch {
+      setRequestFailed(true);
+    } finally {
+      setRequesting(false);
+    }
+  };
+  // Ask when the person opens the scan tab on this screen. The browser keeps
+  // its own button so a prompt never appears without a tap.
+  useEffect(() => {
+    if (Platform.OS === "web" || mode !== "scan" || !focused) return;
+    if (!shouldAutoRequestCamera(permissionView, asked.current)) return;
+    asked.current = true;
+    void askForCamera();
+  });
+  const permissionAction = () => {
+    if (permissionView === "settings")
+      return void Linking.openSettings().catch(() => setRequestFailed(true));
+    void askForCamera();
+  };
   const receive = (value: string) => {
     if (scanned.current) return;
     scanned.current = true;
@@ -132,7 +170,7 @@ export function Scan() {
         </View>
       ) : (
         <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
-          {permission?.granted && focused ? (
+          {permissionView === "granted" && focused ? (
             <View
               style={{
                 height: 320,
@@ -152,18 +190,17 @@ export function Scan() {
           ) : (
             <Panel style={S.gap}>
               <T color={C.ink}>
-                相手の交換用QRを読み取るためにカメラを使います。
+                {permissionView === "granted"
+                  ? "カメラを準備しています…"
+                  : CAMERA_PERMISSION_COPY[permissionView].message}
               </T>
-              <Btn
-                label="カメラを許可する"
-                onPress={() =>
-                  void run(async () => {
-                    const permission = await requestPermission();
-                    if (!permission.granted)
-                      throw new Error("端末の設定からカメラを許可してください");
-                  })
-                }
-              />
+              {permissionView !== "granted" &&
+              CAMERA_PERMISSION_COPY[permissionView].button ? (
+                <Btn
+                  label={CAMERA_PERMISSION_COPY[permissionView].button}
+                  onPress={permissionAction}
+                />
+              ) : null}
             </Panel>
           )}
           <Btn
