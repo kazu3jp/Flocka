@@ -2,6 +2,7 @@ import { useScreenFocusEffect } from "../../components/screen-focus";
 import { useCallback, useRef, useState } from "react";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
+import { chosenShowcase, toggleShowcase } from "./showcase-selection";
 
 /** Keep selection editing separate from the server-confirmed completion. */
 export function useShowcase() {
@@ -18,23 +19,19 @@ export function useShowcase() {
     }, []),
   );
   const available = d.deck.map((card) => card.key);
-  const selected = s.showcase.filter((key) => available.includes(key));
-  const chosen = selected.length ? selected : available.slice(0, 3);
+  const chosen = chosenShowcase(s.showcase, available);
   const toggle = (key: string) => {
     if (busy || !available.includes(key)) return;
-    let limitReached = false;
+    let refused: string | undefined;
     update((state) => {
-      const saved = state.showcase.filter((item) => available.includes(item));
-      const current = saved.length ? saved : available.slice(0, 3);
-      if (current.includes(key)) {
-        state.showcase = current.filter((item) => item !== key);
-      } else if (current.length >= 3) {
-        limitReached = true;
-      } else {
-        state.showcase = [...current, key];
-      }
+      const result = toggleShowcase(
+        chosenShowcase(state.showcase, available),
+        key,
+      );
+      if ("refused" in result) refused = result.refused;
+      else state.showcase = result.showcase;
     });
-    if (limitReached) toast("3枚まで選べます");
+    if (refused) toast(refused);
   };
   const finish = () =>
     run(async () => {
