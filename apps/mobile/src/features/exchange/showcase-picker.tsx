@@ -4,6 +4,7 @@ import type { Card } from "@flocka/domain";
 import { Btn, C, Sheet, StrengthCard, T } from "../../components/ui";
 import { useModalFrame } from "../../components/app-frame";
 import type { useShowcase } from "./use-showcase";
+import { SHOWCASE_CHOICE_GAP, showcaseChoiceLayout } from "./showcase-layout";
 
 // Sheet content padding on each side.
 const SHEET_PADDING = 18;
@@ -22,7 +23,7 @@ export function ShowcasePicker({
   const windowSize = useWindowDimensions();
   const expectedWidth = (frame?.width ?? windowSize.width) - SHEET_PADDING * 2;
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
-  const width = measuredWidth ?? expectedWidth;
+  const choice = showcaseChoiceLayout(measuredWidth ?? expectedWidth);
   return (
     <Sheet title="相手に見せる強み（3枚まで）" onClose={selection.close}>
       <View
@@ -30,7 +31,11 @@ export function ShowcasePicker({
         onLayout={({ nativeEvent: { layout } }) =>
           setMeasuredWidth(layout.width === expectedWidth ? null : layout.width)
         }
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: SHOWCASE_CHOICE_GAP,
+        }}
       >
         {cards.map((card) => {
           const index = selection.chosen.indexOf(card.key);
@@ -46,7 +51,7 @@ export function ShowcasePicker({
               disabled={selection.busy}
               onPress={() => selection.toggle(card.key)}
               style={{
-                width: Math.max(0, (width - 20) / 3),
+                width: choice.width,
                 height: CHOICE_HEIGHT,
                 borderRadius: 14,
                 transform: [{ translateY: selected ? -3 : 0 }],
