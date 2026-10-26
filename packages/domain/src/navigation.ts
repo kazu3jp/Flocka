@@ -108,6 +108,15 @@ export function restoreCachedNav(raw: string | null): NavState {
 }
 
 /**
+ * Tapping a tab opens the deck and the player card at their roots every time,
+ * and any tab at its root when it is already showing. Only the pr tab returns
+ * to the screen that was left there.
+ */
+export function tabSelectResetsStack(tab: Tab, current: Tab) {
+  return tab === current || tab === "find" || tab === "exchange";
+}
+
+/**
  * A relaunch after the process was killed always opens on the deck (the root of
  * the `find` tab). The exchange tab also restarts at its player card, as it
  * does whenever the tab is entered; the pr tab keeps its cached history.
