@@ -23,9 +23,15 @@ import {
   T,
   Sheet,
 } from "../../components/ui";
-import { CARDS, bareCard } from "@flocka/domain";
+import {
+  CARDS,
+  SNS_PLATFORM_LABELS,
+  bareCard,
+  snsLinkDisplay,
+} from "@flocka/domain";
 import { useApp } from "../../store";
 import { useBackStep } from "../navigation/use-back-step";
+import { SnsLinksEditor } from "./SnsLinksEditor";
 const STEPS = [
   [
     "ニックネーム",
@@ -48,12 +54,18 @@ const STEPS = [
     "迷ったら直感で。あとから選び直せます。",
   ],
   [
+    "SNS",
+    "SNSをリンクしよう。",
+    "任意です。交換が成立した相手のカードにだけ表示されます。あとから変更できます。",
+  ],
+  [
     "しくみ",
     "仲間の証言で、\nカードが本物になる。",
     "今は「自己申告」。2人以上の証言で「確認済み」になり、自己PRの文章が書けます。",
   ],
   ["確認", "このプロフィールで、\nはじめよう。", "あとから変更できます。"],
 ];
+const LAST_STEP = STEPS.length - 1;
 
 export function Onboarding() {
   const { data } = useAuth();
@@ -142,7 +154,7 @@ export function Onboarding() {
   };
   return (
     <Board>
-      {step === 5 && !data?.user.termsAccepted && (
+      {step === LAST_STEP && !data?.user.termsAccepted && (
         <Panel style={S.gap}>
           <LinkButton
             color={C.ink}
@@ -189,7 +201,7 @@ export function Onboarding() {
         )}
         <View
           accessibilityRole="progressbar"
-          accessibilityValue={{ min: 1, max: 6, now: step + 1 }}
+          accessibilityValue={{ min: 1, max: STEPS.length, now: step + 1 }}
           style={[S.row, { flex: 1, gap: 4 }]}
         >
           {STEPS.map((_, i) => (
@@ -204,7 +216,9 @@ export function Onboarding() {
             />
           ))}
         </View>
-        <T size={13}>{step + 1} / 6</T>
+        <T size={13}>
+          {step + 1} / {STEPS.length}
+        </T>
       </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -258,6 +272,12 @@ export function Onboarding() {
         )}
         {step === 3 && <CardPicker selected={sel} onChange={setSel} />}
         {step === 4 && (
+          <SnsLinksEditor
+            links={profile.snsLinks}
+            onChange={(snsLinks) => setProfile({ ...profile, snsLinks })}
+          />
+        )}
+        {step === 5 && (
           <>
             <T size={13}>あなたのデッキ · 自己申告 {sel.length}枚</T>
             <View style={S.row}>
@@ -271,7 +291,7 @@ export function Onboarding() {
             </View>
           </>
         )}
-        {step === 5 && (
+        {step === LAST_STEP && (
           <Panel style={{ gap: 12 }}>
             <View style={S.row}>
               <Avatar name={profile.name} avatar={profile.avatar} size={56} />
@@ -294,6 +314,19 @@ export function Onboarding() {
               {profile.interests.map((i) => "#" + i).join("　") || "関心未選択"}
             </T>
             <T color={C.ink}>{sel.map((k) => CARDS[k].name).join("・")}</T>
+            <T color={C.muted} size={13}>
+              {profile.snsLinks
+                .map(
+                  (link) =>
+                    `${SNS_PLATFORM_LABELS[link.platform]} ${snsLinkDisplay(link)}`,
+                )
+                .join("　") || "SNS未設定"}
+            </T>
+            <LinkButton
+              label="SNSを変更"
+              color={C.ink}
+              onPress={() => setStep(4)}
+            />
             <LinkButton
               label="カードを選び直す"
               color={C.ink}
@@ -304,15 +337,15 @@ export function Onboarding() {
       </ScrollView>
       <Btn
         label={
-          step === 5
+          step === LAST_STEP
             ? "この内容ではじめる"
-            : step === 4
+            : step === LAST_STEP - 1
               ? "内容を確認する"
               : "次へ"
         }
         disabled={!can}
         loading={busy}
-        onPress={() => (step < 5 ? setStep(step + 1) : void finish())}
+        onPress={() => (step < LAST_STEP ? setStep(step + 1) : void finish())}
       />
     </Board>
   );
