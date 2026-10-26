@@ -11,6 +11,7 @@ export function SelfEdit() {
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
     [snsLinks, setSnsLinks] = useState(s.profile.snsLinks),
+    [snsPending, setSnsPending] = useState(false),
     { busy, error, run } = useAction(),
     startVisit = useScreenVisit();
   return (
@@ -33,11 +34,19 @@ export function SelfEdit() {
         selected={profile.interests}
         onChange={(interests) => setProfile({ ...profile, interests })}
       />
-      <SnsLinksEditor links={snsLinks} onChange={setSnsLinks} />
+      <SnsLinksEditor
+        links={snsLinks}
+        onChange={setSnsLinks}
+        onPendingChange={setSnsPending}
+      />
       <Btn
         label="保存"
         disabled={
-          busy || !profile.name.trim() || sel.length < 2 || sel.length > 3
+          busy ||
+          snsPending ||
+          !profile.name.trim() ||
+          sel.length < 2 ||
+          sel.length > 3
         }
         onPress={() => {
           void run(async () => {

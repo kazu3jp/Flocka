@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import {
   SNS_INPUT_HINTS,
@@ -16,13 +16,20 @@ import { Btn, C, Choice, Field, LinkButton, S, T } from "../../components/ui";
 export function SnsLinksEditor({
   links,
   onChange,
+  onPendingChange,
+  showTitle = true,
 }: {
   links: SnsLink[];
   onChange: (links: SnsLink[]) => void;
+  /** Tells the caller whether text is typed but not yet added, so it can hold back saving. */
+  onPendingChange?: (pending: boolean) => void;
+  showTitle?: boolean;
 }) {
   const [platform, setPlatform] = useState<SnsPlatform>(SNS_PLATFORMS[0]),
     [text, setText] = useState(""),
     [error, setError] = useState<string | null>(null);
+  // Leaving the editor drops the typed text, so nothing stays pending.
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   const add = () => {
     const value = normalizeSnsHandle(platform, text);
     if (value === null) {
@@ -36,14 +43,20 @@ export function SnsLinksEditor({
       ...links.filter((link) => link.platform !== platform),
       { platform, value },
     ]);
-    setText("");
+    changeText("");
+  };
+  const changeText = (next: string) => {
+    setText(next);
     setError(null);
+    onPendingChange?.(next.trim() !== "");
   };
   return (
     <View testID="sns-links-editor" style={{ gap: 10 }}>
-      <T display size={15} color={C.ink}>
-        SNS
-      </T>
+      {showTitle && (
+        <T display size={15} color={C.ink}>
+          SNS
+        </T>
+      )}
       {links.length > 0 && (
         <View style={{ gap: 4 }}>
           {links.map((link) => (
@@ -90,15 +103,17 @@ export function SnsLinksEditor({
         spellCheck={false}
         keyboardType="url"
         returnKeyType="done"
-        onChangeText={(next) => {
-          setText(next);
-          setError(null);
-        }}
+        onChangeText={changeText}
         onSubmitEditing={add}
       />
       {error ? (
         <T accessibilityRole="alert" size={12} color={C.danger}>
           {error}
+        </T>
+      ) : null}
+      {text.trim() ? (
+        <T size={12} color={C.muted}>
+          「追加」を押すと反映されます
         </T>
       ) : null}
       <Btn plain small label="追加" disabled={!text.trim()} onPress={add} />

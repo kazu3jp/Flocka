@@ -187,32 +187,3 @@ export const snsLinksSchema = z
       new Set(links.map((link) => link.platform)).size === links.length,
     "同じSNSを複数登録できません",
   );
-
-export type SnsInputs = Partial<Record<SnsPlatform, string>>;
-
-/** Editor inputs for existing links, one string per platform. */
-export function snsInputsFromLinks(links: readonly SnsLink[]): SnsInputs {
-  return Object.fromEntries(links.map((link) => [link.platform, link.value]));
-}
-
-/**
- * Turns editor text into links in a fixed platform order. A blank entry means
- * "not linked"; an entry that is not a valid profile for its platform is an error.
- */
-export function collectSnsLinks(inputs: SnsInputs): {
-  links: SnsLink[];
-  errors: Partial<Record<SnsPlatform, string>>;
-} {
-  const links: SnsLink[] = [];
-  const errors: Partial<Record<SnsPlatform, string>> = {};
-  for (const platform of SNS_PLATFORMS) {
-    const raw = inputs[platform]?.trim();
-    if (!raw) continue;
-    const value = normalizeSnsHandle(platform, raw);
-    if (value === null)
-      errors[platform] =
-        `${SNS_PLATFORM_LABELS[platform]}のユーザー名またはURLを確認してください`;
-    else links.push({ platform, value });
-  }
-  return { links, errors };
-}

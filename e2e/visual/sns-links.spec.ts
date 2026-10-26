@@ -66,8 +66,15 @@ test("the profile editor rejects unsafe links and saves valid ones to the own ca
   await capture(page, "sns-editor-error");
   await editor.getByRole("button", { name: "X", exact: true }).click();
   await input.fill("https://x.com/flocka_app");
+  // Text that was typed but not added must not be saved or dropped silently.
+  await expect(
+    page.getByRole("button", { name: "保存", exact: true }),
+  ).toBeDisabled();
   await editor.getByRole("button", { name: "追加", exact: true }).click();
   await expect(editor).toContainText("X @flocka_app");
+  await expect(
+    page.getByRole("button", { name: "保存", exact: true }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(
     page.getByText("プロフィールを保存しました", { exact: true }),

@@ -75,6 +75,7 @@ export function Onboarding() {
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
+    [snsPending, setSnsPending] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
   const previousStep = useCallback(
@@ -83,7 +84,13 @@ export function Onboarding() {
   );
   useBackStep(step, previousStep);
   const can =
-    step === 0 ? !!profile.name.trim() : step === 3 ? sel.length >= 2 : true;
+    step === 0
+      ? !!profile.name.trim()
+      : step === 3
+        ? sel.length >= 2
+        : step === 4
+          ? !snsPending
+          : true;
   const finish = async () => {
     if (busy) return;
     if (!data?.user.termsAccepted && !agree) {
@@ -275,6 +282,8 @@ export function Onboarding() {
           <SnsLinksEditor
             links={profile.snsLinks}
             onChange={(snsLinks) => setProfile({ ...profile, snsLinks })}
+            onPendingChange={setSnsPending}
+            showTitle={false}
           />
         )}
         {step === 5 && (

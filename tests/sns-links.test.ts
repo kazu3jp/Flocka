@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  collectSnsLinks,
   createAccountSchema,
   normalizeSnsHandle,
   profileSchema,
@@ -121,20 +120,6 @@ test("stored links must be canonical, unique per platform and limited", () => {
     ).success,
     false,
   );
-});
-
-test("editor text becomes ordered links; invalid text is reported per platform", () => {
-  const result = collectSnsLinks({
-    github: "https://github.com/kazu3jp",
-    x: "  @flocka_app ",
-    instagram: "javascript:alert(1)",
-    tiktok: "   ",
-  });
-  assert.deepEqual(result.links, [
-    { platform: "x", value: "flocka_app" },
-    { platform: "github", value: "kazu3jp" },
-  ]);
-  assert.deepEqual(Object.keys(result.errors), ["instagram"]);
 });
 
 test("profiles without SNS links stay valid, and updates may omit the field", () => {
