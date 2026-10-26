@@ -8,9 +8,7 @@ import { SHOWCASE_CHOICE_GAP, showcaseChoiceLayout } from "./showcase-layout";
 
 // Sheet content padding on each side.
 const SHEET_PADDING = 18;
-// Taller than the reference's 150px so the illustration fits below the No.
-// label instead of under it.
-const CHOICE_HEIGHT = 196;
+const CHOICE_HEIGHT = 150;
 
 export function ShowcasePicker({
   cards,
@@ -75,13 +73,14 @@ export function ShowcasePicker({
                   testID={`showcase-order-${card.key}`}
                   style={{
                     position: "absolute",
-                    // On the card's corner, as in the reference, clear of the artwork.
-                    top: -8,
-                    right: -6,
-                    width: 28,
-                    height: 28,
-                    borderRadius: 14,
-                    borderWidth: 2.5,
+                    // In the art's top-right corner, beside the centered
+                    // illustration and below the status band.
+                    top: 38,
+                    right: 11,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
                     borderColor: C.ink,
                     backgroundColor: C.yellow,
                     alignItems: "center",
