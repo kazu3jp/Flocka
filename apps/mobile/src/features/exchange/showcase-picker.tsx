@@ -8,6 +8,10 @@ import type { useShowcase } from "./use-showcase";
 // Sheet content padding on each side.
 const SHEET_PADDING = 18;
 const CHOICE_HEIGHT = 150;
+const CHOICE_GAP = 12;
+// Room the selected card's order badge and lift extend past the grid edge.
+const GRID_PADDING_TOP = 10;
+const GRID_PADDING_X = 6;
 
 export function ShowcasePicker({
   cards,
@@ -30,7 +34,13 @@ export function ShowcasePicker({
         onLayout={({ nativeEvent: { layout } }) =>
           setMeasuredWidth(layout.width === expectedWidth ? null : layout.width)
         }
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: CHOICE_GAP,
+          paddingTop: GRID_PADDING_TOP,
+          paddingHorizontal: GRID_PADDING_X,
+        }}
       >
         {cards.map((card) => {
           const index = selection.chosen.indexOf(card.key);
@@ -46,7 +56,10 @@ export function ShowcasePicker({
               disabled={selection.busy}
               onPress={() => selection.toggle(card.key)}
               style={{
-                width: Math.max(0, (width - 20) / 3),
+                width: Math.max(
+                  0,
+                  (width - 2 * GRID_PADDING_X - 2 * CHOICE_GAP) / 3,
+                ),
                 height: CHOICE_HEIGHT,
                 borderRadius: 14,
                 transform: [{ translateY: selected ? -3 : 0 }],
