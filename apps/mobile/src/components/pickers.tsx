@@ -267,7 +267,10 @@ export function AvatarPicker({
       ) : (
         <>
           <T size={13}>背景色</T>
-          <View style={[S.row, { justifyContent: "space-between" }]}>
+          {/* space-between alone spaces the swatches; the row's gap would push the last one off a 320px screen. */}
+          <View
+            style={[S.row, { justifyContent: "space-between", gap: SP.xs }]}
+          >
             {AV_COLORS.map((color, i) => (
               <Pressable
                 key={color}
