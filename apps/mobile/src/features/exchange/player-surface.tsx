@@ -33,6 +33,8 @@ import { useSectionHeights } from "./use-section-heights";
 /** The one-line message reads larger than the source design's 14px, which was too small on a phone. */
 const ROLE_FONT_SIZE = 17;
 const ROLE_LINE_HEIGHT = 1.6;
+/** Space between the name row and the one-line message. */
+const ROLE_GAP_ABOVE = 18;
 /** Smallest name the card shrinks to before it lets a long name use two lines. */
 const NAME_MIN_SIZE = 16;
 /** Horizontal padding of the identity row, and the gap between avatar and name. */
@@ -259,6 +261,7 @@ export function PlayerSurface({
           color={C.muted}
           style={{
             paddingHorizontal: 16,
+            paddingTop: ROLE_GAP_ABOVE,
             lineHeight: ROLE_FONT_SIZE * ROLE_LINE_HEIGHT,
           }}
         >
