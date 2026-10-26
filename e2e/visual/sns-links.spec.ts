@@ -55,22 +55,26 @@ test("the profile editor rejects unsafe links and saves valid ones to the own ca
   await signInFixture(context, "empty", `sns-edit-${testInfo.project.name}`);
   await page.goto("/selfEdit");
   const editor = page.getByTestId("sns-links-editor");
-  await expect(editor).toContainText("自己申告です");
-  await expect(editor).toContainText("確認しません");
-  await page
-    .getByRole("textbox", { name: "Instagram", exact: true })
-    .fill("javascript:alert(1)");
-  await page
-    .getByRole("textbox", { name: "X", exact: true })
-    .fill("https://x.com/flocka_app");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(editor).not.toContainText("自己申告です");
+  await editor.getByRole("button", { name: "Instagram", exact: true }).click();
+  const input = editor.getByRole("textbox");
+  await input.fill("javascript:alert(1)");
+  await editor.getByRole("button", { name: "追加", exact: true }).click();
   await expect(
     editor.getByText("Instagramのユーザー名またはURLを確認してください"),
   ).toBeVisible();
-  // Nothing was sent: still on the editor, no success message.
-  await expect(page.getByTestId("toast")).toHaveCount(0);
   await capture(page, "sns-editor-error");
-  await page.getByRole("textbox", { name: "Instagram", exact: true }).fill("");
+  await editor.getByRole("button", { name: "X", exact: true }).click();
+  await input.fill("https://x.com/flocka_app");
+  // Text that was typed but not added must not be saved or dropped silently.
+  await expect(
+    page.getByRole("button", { name: "保存", exact: true }),
+  ).toBeDisabled();
+  await editor.getByRole("button", { name: "追加", exact: true }).click();
+  await expect(editor).toContainText("X @flocka_app");
+  await expect(
+    page.getByRole("button", { name: "保存", exact: true }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(
     page.getByText("プロフィールを保存しました", { exact: true }),

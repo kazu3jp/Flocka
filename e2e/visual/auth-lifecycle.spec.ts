@@ -80,6 +80,8 @@ test("email signup, onboarding, logout and password reset", async ({
   await page.getByRole("tab", { name: "自分を育てる", exact: true }).click();
   await page.getByRole("button", { name: "集中力", exact: true }).click();
   await page.getByRole("button", { name: "次へ", exact: true }).click();
+  await capture(page, "onboarding-sns");
+  await page.getByRole("button", { name: "次へ", exact: true }).click();
   await capture(page, "onboarding-explanation");
   await page
     .getByRole("button", { name: "内容を確認する", exact: true })

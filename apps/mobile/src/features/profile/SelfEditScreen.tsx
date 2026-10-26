@@ -1,11 +1,6 @@
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
 import { useState } from "react";
-import {
-  collectSnsLinks,
-  snsInputsFromLinks,
-  type SnsInputs,
-} from "@flocka/domain";
 import { CardPicker, InterestsPicker } from "../../components/pickers";
 import { Board, Btn, Field, Header, InlineError } from "../../components/ui";
 import { useApp } from "../../store";
@@ -15,11 +10,8 @@ export function SelfEdit() {
   const { s, saveProfile, nav, toast } = useApp(),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
-    [snsInputs, setSnsInputs] = useState<SnsInputs>(() =>
-      snsInputsFromLinks(s.profile.snsLinks),
-    ),
-    [snsChecked, setSnsChecked] = useState(false),
-    sns = collectSnsLinks(snsInputs),
+    [snsLinks, setSnsLinks] = useState(s.profile.snsLinks),
+    [snsPending, setSnsPending] = useState(false),
     { busy, error, run } = useAction(),
     startVisit = useScreenVisit();
   return (
@@ -43,23 +35,20 @@ export function SelfEdit() {
         onChange={(interests) => setProfile({ ...profile, interests })}
       />
       <SnsLinksEditor
-        inputs={snsInputs}
-        // Errors appear after the first save attempt, so typing is not interrupted.
-        errors={snsChecked ? sns.errors : {}}
-        onChange={(platform, text) =>
-          setSnsInputs({ ...snsInputs, [platform]: text })
-        }
+        links={snsLinks}
+        onChange={setSnsLinks}
+        onPendingChange={setSnsPending}
       />
       <Btn
         label="保存"
         disabled={
-          busy || !profile.name.trim() || sel.length < 2 || sel.length > 3
+          busy ||
+          snsPending ||
+          !profile.name.trim() ||
+          sel.length < 2 ||
+          sel.length > 3
         }
         onPress={() => {
-          if (Object.keys(sns.errors).length) {
-            setSnsChecked(true);
-            return;
-          }
           void run(async () => {
             const sameVisit = startVisit();
             await saveProfile(
@@ -67,7 +56,7 @@ export function SelfEdit() {
                 ...profile,
                 name: profile.name.trim(),
                 role: profile.role.trim(),
-                snsLinks: sns.links,
+                snsLinks,
               },
               sel,
             );
