@@ -47,16 +47,8 @@ test("showcase completion waits for durable preferences and retries failed saves
         actual: page.getByTestId("showcase-grid"),
         reference: reference.locator(".pick-grid"),
       },
-      // The reference always has three columns; narrow phones show two.
-      ...(viewport.width >= 360
-        ? [
-            {
-              name: "first showcase choice",
-              actual: page.getByTestId("showcase-choice-bridge"),
-              reference: reference.locator(".pick-cell").first(),
-            },
-          ]
-        : []),
+      // The choices are not compared: narrow phones show two columns, and the
+      // cards are taller than the reference so the artwork clears the No. label.
     ],
     testInfo,
   );

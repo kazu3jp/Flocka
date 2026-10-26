@@ -2,6 +2,7 @@ import { CardShine } from "./card-shine";
 import { StickerArtwork } from "./sticker-artwork";
 import { selfClaimColor } from "./card-colors";
 import { CardIllustration } from "./card-illustration";
+import { cardIllustrationBox } from "./card-art-layout";
 import React, { memo, useId, useMemo, useState } from "react";
 import {
   StyleSheet,
@@ -382,7 +383,7 @@ export const StrengthCard = memo(function StrengthCard({
           cardKey={card.key}
           confirmed={card.confirmed}
           selfOnly={selfOnly}
-          artHeight={artSize.height}
+          {...cardIllustrationBox(artSize.width, artSize.height)}
         />
         {card.confirmed && <CardShine {...artSize} />}
         {frame === "tape" &&
@@ -409,7 +410,7 @@ export const StrengthCard = memo(function StrengthCard({
             style={{
               position: "absolute",
               right: 6,
-              top: 6,
+              top: 4,
               transform: [{ rotate: "10deg" }],
               backgroundColor: "rgba(255,255,255,0.7)",
               borderWidth: 2,

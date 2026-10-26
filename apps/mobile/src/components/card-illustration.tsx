@@ -7,20 +7,24 @@ import vectors from "../vectors.json";
 // The source's drop-shadow(2px 3px 0 ink / .35) on card artwork.
 const ART_SHADOW = { dx: 2, dy: 3, opacity: 0.35 };
 
-/** `artHeight` is the art box the card already measures; this view is 84% of it. */
+/** `size`, `left` and `top` are the square the card lays out for it (cardIllustrationBox). */
 export const CardIllustration = memo(function CardIllustration({
   cardKey,
   confirmed,
   selfOnly = false,
-  artHeight,
+  size,
+  left,
+  top,
 }: {
   cardKey: string;
   confirmed: boolean;
   selfOnly?: boolean;
-  artHeight: number;
+  size: number;
+  left: number;
+  top: number;
 }) {
   const [progress] = useState(() => new Animated.Value(0));
-  const floatDistance = artHeight * 0.84 * 0.05;
+  const floatDistance = size * 0.05;
   const xml = useMemo(() => {
     const source = (vectors.cards as Record<string, string>)[cardKey];
     return selfOnly ? source.replace(/#[0-9a-f]{6}/gi, selfClaimColor) : source;
@@ -81,11 +85,10 @@ export const CardIllustration = memo(function CardIllustration({
     <Animated.View
       style={{
         position: "absolute",
-        width: "74%",
-        height: "84%",
-        maxWidth: 150,
-        alignSelf: "center",
-        top: "8%",
+        width: size,
+        height: size,
+        left,
+        top,
         transform,
       }}
     >
