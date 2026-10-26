@@ -11,7 +11,7 @@ test("an accepted peer's self-declared SNS links open validated https URLs", asy
     `sns-peer-${testInfo.project.name}`,
   );
   const external: string[] = [];
-  await context.route(/^https:\/\/(x\.com|www\.instagram\.com)\//, (route) => {
+  await context.route(/^https:\/\/(x\.com|kaede\.dev)\//, (route) => {
     external.push(route.request().url());
     return route.fulfill({ status: 200, body: "external" });
   });
@@ -22,7 +22,7 @@ test("an accepted peer's self-declared SNS links open validated https URLs", asy
   const x = page.getByRole("button", { name: "X @kaede_plan", exact: true });
   await expect(x).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Instagram @kaede.trip", exact: true }),
+    page.getByRole("button", { name: "Webサイト kaede.dev", exact: true }),
   ).toBeVisible();
   // No other peer declared links, so their cards stay without the block.
   const opened = context.waitForEvent("page");
@@ -56,8 +56,8 @@ test("the profile editor rejects unsafe links and saves several services to the 
   await page.goto("/selfEdit");
   const editor = page.getByTestId("sns-links-editor");
   await expect(editor).not.toContainText("自己申告です");
-  const instagram = editor.getByRole("textbox", {
-    name: "InstagramのIDまたはURL",
+  const zenn = editor.getByRole("textbox", {
+    name: "ZennのIDまたはURL",
     exact: true,
   });
   const x = editor.getByRole("textbox", {
@@ -68,10 +68,10 @@ test("the profile editor rejects unsafe links and saves several services to the 
     name: "GitHubのIDまたはURL",
     exact: true,
   });
-  await instagram.fill("javascript:alert(1)");
+  await zenn.fill("javascript:alert(1)");
   await x.click();
   await expect(
-    editor.getByText("Instagramのユーザー名またはURLを確認してください"),
+    editor.getByText("Zennのユーザー名またはURLを確認してください"),
   ).toBeVisible();
   // An invalid field must not be saved or dropped silently.
   await expect(
@@ -79,14 +79,25 @@ test("the profile editor rejects unsafe links and saves several services to the 
   ).toBeDisabled();
   await capture(page, "sns-editor-error");
   // A profile URL pasted into another service's field names the right one.
-  await instagram.fill("https://x.com/flocka_app");
+  await zenn.fill("https://x.com/flocka_app");
   await x.click();
   await expect(
     editor.getByText("XのURLです。Xの欄に入力してください"),
   ).toBeVisible();
-  await instagram.fill("");
+  await zenn.fill("");
   await x.fill("https://x.com/flocka_app");
   await github.fill("kazu3jp");
+  const website = editor.getByRole("textbox", {
+    name: "WebサイトのURL",
+    exact: true,
+  });
+  // A profile URL is refused as the website, too.
+  await website.fill("https://github.com/kazu3jp");
+  await x.click();
+  await expect(
+    editor.getByText("GitHubのURLです。GitHubの欄に入力してください"),
+  ).toBeVisible();
+  await website.fill("flocka.dev/about");
   await expect(
     page.getByRole("button", { name: "保存", exact: true }),
   ).toBeEnabled();
@@ -100,6 +111,12 @@ test("the profile editor rejects unsafe links and saves several services to the 
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "GitHub kazu3jp", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Webサイト flocka.dev/about",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.getByTestId("sns-links")).toContainText("自己申告・未確認");
 });

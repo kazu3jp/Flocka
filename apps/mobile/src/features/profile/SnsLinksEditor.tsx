@@ -10,6 +10,7 @@ import {
   type SnsPlatform,
 } from "@flocka/domain";
 import { C, F, InlineError, S, T } from "../../components/ui";
+import { SnsIcon } from "../../components/sns-icon";
 import {
   readSnsInputs,
   snsInputsFromLinks,
@@ -48,7 +49,7 @@ export function SnsLinksEditor({
   };
   return (
     <View testID="sns-links-editor" style={S.gap}>
-      {showTitle && <T size={13}>SNS · 複数登録できます</T>}
+      {showTitle && <T size={13}>SNS・Webサイト · 複数登録できます</T>}
       <View style={{ gap: 8 }}>
         {SNS_PLATFORMS.map((platform) => {
           const label = SNS_PLATFORM_LABELS[platform];
@@ -70,25 +71,32 @@ export function SnsLinksEditor({
               >
                 <View
                   style={{
-                    width: 96,
-                    justifyContent: "center",
+                    width: 118,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 7,
                     paddingHorizontal: 10,
                     backgroundColor: linked.has(platform) ? C.yellow : C.paper2,
                     borderRightWidth: 2.5,
                     borderColor: C.ink,
                   }}
                 >
+                  <SnsIcon platform={platform} size={17} color={C.ink} />
                   <T
                     size={13}
                     color={C.ink}
                     numberOfLines={1}
-                    style={{ fontFamily: F.bold }}
+                    style={{ flexShrink: 1, fontFamily: F.bold }}
                   >
                     {label}
                   </T>
                 </View>
                 <TextInput
-                  accessibilityLabel={`${label}のIDまたはURL`}
+                  accessibilityLabel={
+                    platform === "website"
+                      ? `${label}のURL`
+                      : `${label}のIDまたはURL`
+                  }
                   placeholder={SNS_INPUT_HINTS[platform]}
                   placeholderTextColor={C.muted}
                   value={inputs[platform]}
@@ -130,7 +138,7 @@ export function SnsLinksEditor({
         })}
       </View>
       <T size={12} color={C.pale}>
-        入力したSNSが紐づきます。プロフィールURLの貼り付けでもOKです。
+        入力したものが紐づきます。プロフィールURLの貼り付けでもOKです。
         {/* The onboarding step already says who sees the links. */}
         {showTitle ? "交換が成立した相手にだけ表示されます。" : ""}
       </T>

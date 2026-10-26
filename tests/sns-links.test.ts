@@ -4,6 +4,7 @@ import {
   createAccountSchema,
   normalizeSnsHandle,
   profileSchema,
+  snsLinkDisplay,
   snsLinkSchema,
   snsLinkUrl,
   snsLinksSchema,
@@ -15,20 +16,23 @@ const accepted: [SnsPlatform, string, string][] = [
   ["x", "https://twitter.com/flocka_app", "flocka_app"],
   ["x", "https://x.com/flocka_app/", "flocka_app"],
   ["x", "x.com/flocka_app", "flocka_app"],
-  ["instagram", "https://www.instagram.com/flocka.app/", "flocka.app"],
-  ["tiktok", "https://www.tiktok.com/@flocka", "flocka"],
-  ["tiktok", "@flocka", "flocka"],
-  ["youtube", "https://www.youtube.com/@flocka-app", "flocka-app"],
   ["github", "https://github.com/kazu3jp", "kazu3jp"],
   ["github", "kazu3jp", "kazu3jp"],
-  ["line", "https://line.me/ti/p/~flocka01", "flocka01"],
-  ["line", "https://line.me/R/ti/p/~flocka01", "flocka01"],
-  ["line", "~flocka01", "flocka01"],
+  ["zenn", "https://zenn.dev/flocka", "flocka"],
+  ["zenn", "@flocka", "flocka"],
+  ["qiita", "https://qiita.com/flocka-app", "flocka-app"],
+  ["note", "note.com/flocka_app/", "flocka_app"],
+  ["bluesky", "@Flocka.bsky.social", "flocka.bsky.social"],
+  ["bluesky", "flocka", "flocka.bsky.social"],
+  ["bluesky", "https://bsky.app/profile/flocka.dev", "flocka.dev"],
+  ["website", "flocka.dev", "https://flocka.dev/"],
+  ["website", "https://www.flocka.dev/about", "https://www.flocka.dev/about"],
+  ["website", "http://flocka.dev/", "http://flocka.dev/"],
 ];
 
-test("handles and the platform's own profile URLs normalize to one handle", () => {
-  for (const [platform, input, handle] of accepted)
-    assert.equal(normalizeSnsHandle(platform, input), handle, input);
+test("handles, the service's own profile URLs and websites normalize to one value", () => {
+  for (const [platform, input, value] of accepted)
+    assert.equal(normalizeSnsHandle(platform, input), value, input);
 });
 
 test("dangerous schemes, other hosts and non-profile paths are rejected", () => {
@@ -50,50 +54,80 @@ test("dangerous schemes, other hosts and non-profile paths are rejected", () => 
     ["x", "a".repeat(16)],
     ["x", ""],
     ["x", "   "],
-    ["instagram", "https://www.instagram.com/p/abc"],
-    ["instagram", "https://x.com/flocka_app"],
     ["github", "-bad"],
     ["github", "bad-"],
     ["github", "a".repeat(40)],
     ["github", "https://github.com/orgs"],
-    ["tiktok", "https://www.tiktok.com/flocka"],
-    ["youtube", "https://www.youtube.com/watch?v=abc"],
-    ["line", "https://line.me/ti/p/flocka01"],
-    ["line", "abc"],
+    ["zenn", "https://zenn.dev/articles"],
+    ["zenn", "https://zenn.dev/flocka/articles/abc"],
+    ["qiita", "https://qiita.com/items"],
+    ["note", "https://x.com/flocka_app"],
+    ["bluesky", "https://bsky.app/search"],
+    ["bluesky", "bad_name.bsky.social"],
+    ["website", "javascript:alert(1)"],
+    ["website", "data:text/html,hi"],
+    ["website", "ftp://flocka.dev"],
+    ["website", "https://user:pass@flocka.dev"],
+    ["website", "https://flocka.dev:8443"],
+    ["website", "http://localhost/"],
+    ["website", "https://127.0.0.1/"],
+    ["website", "https://github.com/kazu3jp"],
+    ["website", `https://flocka.dev/${"a".repeat(300)}`],
     ["x", `https://x.com/${"a".repeat(300)}`],
   ];
   for (const [platform, input] of rejected)
     assert.equal(normalizeSnsHandle(platform, input), null, input);
 });
 
-test("opened URLs are rebuilt from a fixed https template", () => {
+test("opened URLs are rebuilt from a fixed https template, or the canonical website", () => {
   assert.equal(
     snsLinkUrl({ platform: "x", value: "flocka_app" }),
     "https://x.com/flocka_app",
   );
   assert.equal(
-    snsLinkUrl({ platform: "tiktok", value: "flocka" }),
-    "https://www.tiktok.com/@flocka",
+    snsLinkUrl({ platform: "bluesky", value: "flocka.bsky.social" }),
+    "https://bsky.app/profile/flocka.bsky.social",
   );
   assert.equal(
-    snsLinkUrl({ platform: "line", value: "flocka01" }),
-    "https://line.me/ti/p/~flocka01",
+    snsLinkUrl({ platform: "website", value: "https://flocka.dev/" }),
+    "https://flocka.dev/",
   );
   // Stale or tampered cached values never produce a URL.
   assert.equal(snsLinkUrl({ platform: "x", value: "@flocka_app" }), null);
   assert.equal(snsLinkUrl({ platform: "x", value: "javascript:1" }), null);
   assert.equal(
+    snsLinkUrl({ platform: "website", value: "javascript:alert(1)" }),
+    null,
+  );
+  assert.equal(snsLinkUrl({ platform: "website", value: "flocka.dev" }), null);
+  assert.equal(
     snsLinkUrl({ platform: "evil" as SnsPlatform, value: "flocka" }),
     null,
   );
-  for (const platform of ["x", "instagram", "github"] as const)
+  for (const platform of ["x", "zenn", "qiita", "note", "github"] as const)
     assert.match(
       snsLinkUrl({ platform, value: "abc" })!,
-      /^https:\/\/(x\.com|www\.instagram\.com|github\.com)\/abc$/,
+      /^https:\/\/(x\.com|zenn\.dev|qiita\.com|note\.com|github\.com)\/abc$/,
     );
 });
 
-test("stored links must be canonical, unique per platform and limited", () => {
+test("a website shows without https:// and reads back to the same URL", () => {
+  for (const value of [
+    "https://flocka.dev/",
+    "https://flocka.dev/about/",
+    "https://flocka.dev/a?b=1#c",
+    "http://flocka.dev/",
+  ]) {
+    const shown = snsLinkDisplay({ platform: "website", value });
+    assert.equal(normalizeSnsHandle("website", shown), value, shown);
+  }
+  assert.equal(
+    snsLinkDisplay({ platform: "website", value: "https://flocka.dev/" }),
+    "flocka.dev",
+  );
+});
+
+test("stored links must be canonical, unique per service and limited", () => {
   assert.equal(
     snsLinkSchema.safeParse({ platform: "x", value: "flocka_app" }).success,
     true,
@@ -102,7 +136,8 @@ test("stored links must be canonical, unique per platform and limited", () => {
     { platform: "x", value: "https://x.com/flocka_app" },
     { platform: "x", value: "@flocka_app" },
     { platform: "x", value: "flocka_app", url: "https://evil.example" },
-    { platform: "mastodon", value: "flocka" },
+    { platform: "instagram", value: "flocka" },
+    { platform: "website", value: "flocka.dev" },
   ])
     assert.equal(snsLinkSchema.safeParse(link).success, false);
   assert.equal(
@@ -114,7 +149,7 @@ test("stored links must be canonical, unique per platform and limited", () => {
   );
   assert.equal(
     snsLinksSchema.safeParse(
-      ["x", "instagram", "tiktok", "youtube", "github", "line", "x"].map(
+      ["x", "github", "zenn", "qiita", "note", "x", "github", "zenn"].map(
         (platform) => ({ platform, value: "abcd" }),
       ),
     ).success,

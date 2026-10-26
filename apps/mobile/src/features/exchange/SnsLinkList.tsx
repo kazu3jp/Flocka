@@ -6,6 +6,7 @@ import {
   type SnsLink,
 } from "@flocka/domain";
 import { C, F, T } from "../../components/ui";
+import { SnsIcon } from "../../components/sns-icon";
 import { useApp } from "../../store";
 import { openSnsLink } from "./open-sns-link";
 
@@ -62,21 +63,25 @@ export function SnsLinkList({ links }: { links: SnsLink[] }) {
             }}
             style={({ pressed }) => ({
               minHeight: 28,
+              maxWidth: "100%",
               paddingHorizontal: 10,
               borderRadius: 99,
               borderWidth: 2,
               borderColor: C.ink,
               backgroundColor: pressed ? C.yellow : C.paper,
-              justifyContent: "center",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
             })}
           >
+            <SnsIcon platform={link.platform} size={14} color={C.ink} />
             <T
               size={12.5}
               color={C.ink}
               numberOfLines={1}
-              style={{ fontFamily: F.bold, lineHeight: 20.625 }}
+              style={{ flexShrink: 1, fontFamily: F.bold, lineHeight: 20.625 }}
             >
-              {label}
+              {snsLinkDisplay(link)}
             </T>
           </Pressable>
         );

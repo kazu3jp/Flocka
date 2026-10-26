@@ -42,7 +42,9 @@ export function readSnsInputs(inputs: SnsInputs): {
     errors[platform] =
       owner && owner !== platform
         ? `${SNS_PLATFORM_LABELS[owner]}のURLです。${SNS_PLATFORM_LABELS[owner]}の欄に入力してください`
-        : `${SNS_PLATFORM_LABELS[platform]}のユーザー名またはURLを確認してください`;
+        : platform === "website"
+          ? "WebサイトのURL（https://〜）を確認してください"
+          : `${SNS_PLATFORM_LABELS[platform]}のユーザー名またはURLを確認してください`;
   }
   return { links, errors };
 }

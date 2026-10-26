@@ -61,7 +61,7 @@ export async function seedScenario(
       // Only this peer declares SNS links, so other peers' cards stay unchanged.
       snsLinks: [
         { platform: "x", value: "kaede_plan" },
-        { platform: "instagram", value: "kaede.trip" },
+        { platform: "website", value: "https://kaede.dev/" },
       ],
     },
   ];
