@@ -68,8 +68,8 @@ export function ShowcasePicker({
                   testID={`showcase-order-${card.key}`}
                   style={{
                     position: "absolute",
-                    top: -8,
-                    right: -6,
+                    top: 34,
+                    right: 8,
                     width: 28,
                     height: 28,
                     borderRadius: 14,
