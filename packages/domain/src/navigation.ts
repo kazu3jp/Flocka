@@ -109,14 +109,18 @@ export function restoreCachedNav(raw: string | null): NavState {
 
 /**
  * A relaunch after the process was killed always opens on the deck (the root of
- * the `find` tab). The other tabs keep their cached history, so returning to
- * them still finds the screens the person left there.
+ * the `find` tab). The exchange tab also restarts at its player card, as it
+ * does whenever the tab is entered; the pr tab keeps its cached history.
  */
 export function navForRelaunch(raw: string | null): NavState {
   const cached = restoreCachedNav(raw);
   return {
     tab: "find",
-    stacks: { ...cached.stacks, find: [{ id: ROOTS.find }] },
+    stacks: {
+      ...cached.stacks,
+      find: [{ id: ROOTS.find }],
+      exchange: [{ id: ROOTS.exchange }],
+    },
   };
 }
 

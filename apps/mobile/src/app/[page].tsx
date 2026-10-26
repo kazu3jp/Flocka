@@ -182,7 +182,10 @@ export default function Screen() {
                     : null,
             }))}
             current={n.tab}
-            onSelect={(tab) => nav.goTab(tab, undefined, n.tab === tab)}
+            // Coming back to exchange always lands on the own player card.
+            onSelect={(tab) =>
+              nav.goTab(tab, undefined, n.tab === tab || tab === "exchange")
+            }
           />
         )}
         <GuessOverlay />

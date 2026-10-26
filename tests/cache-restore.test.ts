@@ -43,7 +43,7 @@ test("a corrupt navigation cache restarts at the tab roots", () => {
   assert.deepEqual(restoreCachedNav(JSON.stringify(saved)), saved);
 });
 
-test("a relaunch opens the deck and keeps the other tabs' history", () => {
+test("a relaunch opens the deck and restarts exchange at the player card", () => {
   const saved = initNav();
   saved.tab = "exchange";
   saved.stacks.find.push({ id: "card", params: { key: "impl" } });
@@ -51,7 +51,7 @@ test("a relaunch opens the deck and keeps the other tabs' history", () => {
   const restored = navForRelaunch(JSON.stringify(saved));
   assert.equal(restored.tab, "find");
   assert.deepEqual(restored.stacks.find, [{ id: "deck" }]);
-  assert.deepEqual(restored.stacks.exchange, saved.stacks.exchange);
+  assert.deepEqual(restored.stacks.exchange, [{ id: "exchange" }]);
   assert.deepEqual(navForRelaunch(null), initNav());
   assert.deepEqual(navForRelaunch("{broken"), initNav());
 });
