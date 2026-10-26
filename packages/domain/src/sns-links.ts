@@ -25,14 +25,17 @@ export const SNS_PLATFORM_LABELS: Record<SnsPlatform, string> = {
   line: "LINE",
 };
 
-/** What the profile editor asks for, per platform. */
+/**
+ * Placeholder of each service's field in the profile editor. Short enough for
+ * a narrow phone; the note under the fields says a profile URL also works.
+ */
 export const SNS_INPUT_HINTS: Record<SnsPlatform, string> = {
-  x: "@ユーザー名 またはプロフィールURL",
-  instagram: "@ユーザー名 またはプロフィールURL",
-  tiktok: "@ユーザー名 またはプロフィールURL",
-  youtube: "@ハンドル またはチャンネルURL",
-  github: "ユーザー名 またはプロフィールURL",
-  line: "LINE ID またはLINEのプロフィールURL",
+  x: "@ユーザー名",
+  instagram: "@ユーザー名",
+  tiktok: "@ユーザー名",
+  youtube: "@ハンドル",
+  github: "ユーザー名",
+  line: "LINE ID",
 };
 
 export type SnsLink = { platform: SnsPlatform; value: string };
@@ -148,6 +151,24 @@ export function normalizeSnsHandle(
   return handle !== null && HANDLE_PATTERNS[platform].test(handle)
     ? handle
     : null;
+}
+
+/**
+ * The platform whose profile URL this is, so a URL pasted into another
+ * service's field can point the person to the right one. Null for handles and
+ * for URLs that are no platform's profile.
+ */
+export function snsPlatformOfProfileUrl(input: string): SnsPlatform | null {
+  const trimmed = input.trim();
+  if (
+    !/^[a-z][a-z0-9+.-]*:|^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(trimmed)
+  )
+    return null;
+  return (
+    SNS_PLATFORMS.find(
+      (platform) => normalizeSnsHandle(platform, trimmed) !== null,
+    ) ?? null
+  );
 }
 
 /**

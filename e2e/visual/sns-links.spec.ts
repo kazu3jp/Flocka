@@ -48,7 +48,7 @@ test("a peer without SNS links shows no SNS block", async ({
   await expect(page.getByTestId("sns-links")).toHaveCount(0);
 });
 
-test("the profile editor rejects unsafe links and saves valid ones to the own card", async ({
+test("the profile editor rejects unsafe links and saves several services to the own card", async ({
   page,
   context,
 }, testInfo) => {
@@ -56,22 +56,37 @@ test("the profile editor rejects unsafe links and saves valid ones to the own ca
   await page.goto("/selfEdit");
   const editor = page.getByTestId("sns-links-editor");
   await expect(editor).not.toContainText("自己申告です");
-  await editor.getByRole("button", { name: "Instagram", exact: true }).click();
-  const input = editor.getByRole("textbox");
-  await input.fill("javascript:alert(1)");
-  await editor.getByRole("button", { name: "追加", exact: true }).click();
+  const instagram = editor.getByRole("textbox", {
+    name: "InstagramのIDまたはURL",
+    exact: true,
+  });
+  const x = editor.getByRole("textbox", {
+    name: "XのIDまたはURL",
+    exact: true,
+  });
+  const github = editor.getByRole("textbox", {
+    name: "GitHubのIDまたはURL",
+    exact: true,
+  });
+  await instagram.fill("javascript:alert(1)");
+  await x.click();
   await expect(
     editor.getByText("Instagramのユーザー名またはURLを確認してください"),
   ).toBeVisible();
-  await capture(page, "sns-editor-error");
-  await editor.getByRole("button", { name: "X", exact: true }).click();
-  await input.fill("https://x.com/flocka_app");
-  // Text that was typed but not added must not be saved or dropped silently.
+  // An invalid field must not be saved or dropped silently.
   await expect(
     page.getByRole("button", { name: "保存", exact: true }),
   ).toBeDisabled();
-  await editor.getByRole("button", { name: "追加", exact: true }).click();
-  await expect(editor).toContainText("X @flocka_app");
+  await capture(page, "sns-editor-error");
+  // A profile URL pasted into another service's field names the right one.
+  await instagram.fill("https://x.com/flocka_app");
+  await x.click();
+  await expect(
+    editor.getByText("XのURLです。Xの欄に入力してください"),
+  ).toBeVisible();
+  await instagram.fill("");
+  await x.fill("https://x.com/flocka_app");
+  await github.fill("kazu3jp");
   await expect(
     page.getByRole("button", { name: "保存", exact: true }),
   ).toBeEnabled();
@@ -82,6 +97,9 @@ test("the profile editor rejects unsafe links and saves valid ones to the own ca
   await page.goto("/exchange");
   await expect(
     page.getByRole("button", { name: "X @flocka_app", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "GitHub kazu3jp", exact: true }),
   ).toBeVisible();
   await expect(page.getByTestId("sns-links")).toContainText("自己申告・未確認");
 });

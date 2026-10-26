@@ -1,122 +1,139 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { TextInput, View } from "react-native";
 import {
   SNS_INPUT_HINTS,
   SNS_INPUT_MAX_LENGTH,
   SNS_PLATFORMS,
   SNS_PLATFORM_LABELS,
-  normalizeSnsHandle,
   snsLinkDisplay,
   type SnsLink,
   type SnsPlatform,
 } from "@flocka/domain";
-import { Btn, C, Choice, Field, LinkButton, S, T } from "../../components/ui";
+import { C, F, InlineError, S, T } from "../../components/ui";
+import {
+  readSnsInputs,
+  snsInputsFromLinks,
+  type SnsInputs,
+} from "./sns-link-inputs";
 
-/** Links are added one at a time: pick a service, then enter its ID or profile URL. */
+/**
+ * One field per service, always shown: typing a handle or pasting a profile
+ * URL links that service, and clearing the field unlinks it. Any number of
+ * services can be filled at once.
+ */
 export function SnsLinksEditor({
   links,
   onChange,
-  onPendingChange,
+  onInvalidChange,
   showTitle = true,
 }: {
   links: SnsLink[];
   onChange: (links: SnsLink[]) => void;
-  /** Tells the caller whether text is typed but not yet added, so it can hold back saving. */
-  onPendingChange?: (pending: boolean) => void;
+  /** Tells the caller whether a field holds text that is not a valid link, so it can hold back saving. */
+  onInvalidChange?: (invalid: boolean) => void;
   showTitle?: boolean;
 }) {
-  const [platform, setPlatform] = useState<SnsPlatform>(SNS_PLATFORMS[0]),
-    [text, setText] = useState(""),
-    [error, setError] = useState<string | null>(null);
-  // Leaving the editor drops the typed text, so nothing stays pending.
-  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
-  const add = () => {
-    const value = normalizeSnsHandle(platform, text);
-    if (value === null) {
-      setError(
-        `${SNS_PLATFORM_LABELS[platform]}のユーザー名またはURLを確認してください`,
-      );
-      return;
-    }
-    // One link per service: adding again replaces the earlier one.
-    onChange([
-      ...links.filter((link) => link.platform !== platform),
-      { platform, value },
-    ]);
-    changeText("");
-  };
-  const changeText = (next: string) => {
-    setText(next);
-    setError(null);
-    onPendingChange?.(next.trim() !== "");
+  const [inputs, setInputs] = useState(() => snsInputsFromLinks(links)),
+    [focused, setFocused] = useState<SnsPlatform | null>(null);
+  const { errors } = readSnsInputs(inputs);
+  const linked = new Set(links.map((link) => link.platform));
+  // Leaving the editor drops its fields, so nothing stays invalid.
+  useEffect(() => () => onInvalidChange?.(false), [onInvalidChange]);
+  const change = (platform: SnsPlatform, text: string) => {
+    const next: SnsInputs = { ...inputs, [platform]: text };
+    const read = readSnsInputs(next);
+    setInputs(next);
+    onChange(read.links);
+    onInvalidChange?.(Object.keys(read.errors).length > 0);
   };
   return (
-    <View testID="sns-links-editor" style={{ gap: 10 }}>
-      {showTitle && (
-        <T display size={15} color={C.ink}>
-          SNS
-        </T>
-      )}
-      {links.length > 0 && (
-        <View style={{ gap: 4 }}>
-          {links.map((link) => (
-            <View key={link.platform} style={[S.row, { gap: 8 }]}>
-              <T color={C.ink} style={S.fill}>
-                {SNS_PLATFORM_LABELS[link.platform]} {snsLinkDisplay(link)}
-              </T>
-              <LinkButton
-                color={C.ink}
-                label={`${SNS_PLATFORM_LABELS[link.platform]}を外す`}
-                onPress={() =>
-                  onChange(links.filter((other) => other !== link))
-                }
-              />
+    <View testID="sns-links-editor" style={S.gap}>
+      {showTitle && <T size={13}>SNS · 複数登録できます</T>}
+      <View style={{ gap: 8 }}>
+        {SNS_PLATFORMS.map((platform) => {
+          const label = SNS_PLATFORM_LABELS[platform];
+          // Errors wait until the field is left, so typing is not interrupted.
+          const error = focused === platform ? undefined : errors[platform];
+          return (
+            <View key={platform} style={{ gap: 4 }}>
+              {/* Framed like the other fields (S.input), with the service as a label cell. */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  minHeight: S.input.minHeight,
+                  backgroundColor: C.paper,
+                  borderWidth: S.input.borderWidth,
+                  borderColor: error ? C.danger : C.ink,
+                  borderRadius: S.input.borderRadius,
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    width: 96,
+                    justifyContent: "center",
+                    paddingHorizontal: 10,
+                    backgroundColor: linked.has(platform) ? C.yellow : C.paper2,
+                    borderRightWidth: 2.5,
+                    borderColor: C.ink,
+                  }}
+                >
+                  <T
+                    size={13}
+                    color={C.ink}
+                    numberOfLines={1}
+                    style={{ fontFamily: F.bold }}
+                  >
+                    {label}
+                  </T>
+                </View>
+                <TextInput
+                  accessibilityLabel={`${label}のIDまたはURL`}
+                  placeholder={SNS_INPUT_HINTS[platform]}
+                  placeholderTextColor={C.muted}
+                  value={inputs[platform]}
+                  maxLength={SNS_INPUT_MAX_LENGTH}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  keyboardType="url"
+                  returnKeyType="done"
+                  clearButtonMode="while-editing"
+                  onFocus={() => setFocused(platform)}
+                  onBlur={() => {
+                    setFocused(null);
+                    // A pasted URL settles to the handle it was read as.
+                    const link = links.find(
+                      (link) => link.platform === platform,
+                    );
+                    if (link)
+                      setInputs((current) => ({
+                        ...current,
+                        [platform]: snsLinkDisplay(link),
+                      }));
+                  }}
+                  onChangeText={(text) => change(platform, text)}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontFamily: F.body,
+                    color: C.ink,
+                    fontSize: 15,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                />
+              </View>
+              <InlineError text={error} size={12} />
             </View>
-          ))}
-        </View>
-      )}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {SNS_PLATFORMS.map((candidate) => (
-          <Choice
-            key={candidate}
-            label={SNS_PLATFORM_LABELS[candidate]}
-            selected={platform === candidate}
-            onPress={() => {
-              setPlatform(candidate);
-              setError(null);
-            }}
-          >
-            <T size={13} color={C.ink}>
-              {SNS_PLATFORM_LABELS[candidate]}
-            </T>
-          </Choice>
-        ))}
+          );
+        })}
       </View>
-      <Field
-        label={`${SNS_PLATFORM_LABELS[platform]}のIDまたはURL`}
-        hideLabel
-        placeholder={SNS_INPUT_HINTS[platform]}
-        value={text}
-        maxLength={SNS_INPUT_MAX_LENGTH}
-        autoCapitalize="none"
-        autoCorrect={false}
-        spellCheck={false}
-        keyboardType="url"
-        returnKeyType="done"
-        onChangeText={changeText}
-        onSubmitEditing={add}
-      />
-      {error ? (
-        <T accessibilityRole="alert" size={12} color={C.danger}>
-          {error}
-        </T>
-      ) : null}
-      {text.trim() ? (
-        <T size={12} color={C.muted}>
-          「追加」を押すと反映されます
-        </T>
-      ) : null}
-      <Btn plain small label="追加" disabled={!text.trim()} onPress={add} />
+      <T size={12} color={C.pale}>
+        入力したSNSが紐づきます。プロフィールURLの貼り付けでもOKです。
+        {/* The onboarding step already says who sees the links. */}
+        {showTitle ? "交換が成立した相手にだけ表示されます。" : ""}
+      </T>
     </View>
   );
 }
