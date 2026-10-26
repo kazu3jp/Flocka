@@ -295,7 +295,7 @@ export const StrengthCard = memo(function StrengthCard({
         style={{
           backgroundColor: color,
           paddingHorizontal: 8,
-          minHeight: 26,
+          height: 26,
           flexDirection: "row",
           alignItems: "center",
           borderBottomWidth: 2.5,
@@ -307,7 +307,9 @@ export const StrengthCard = memo(function StrengthCard({
         <T
           size={11.5}
           color={C.ink}
+          numberOfLines={1}
           style={{
+            flexShrink: 0,
             fontFamily: F.bold,
             lineHeight: 18.975,
             letterSpacing: 0.23,
@@ -319,7 +321,11 @@ export const StrengthCard = memo(function StrengthCard({
           <T
             size={11.5}
             color={C.ink}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
             style={{
+              flexShrink: 1,
               fontFamily: F.bold,
               lineHeight: 18.975,
               letterSpacing: 0.23,
@@ -450,10 +456,12 @@ export const StrengthCard = memo(function StrengthCard({
         display
         color={C.ink}
         size={nameSize}
+        numberOfLines={2}
         style={{
           paddingHorizontal: 8,
           paddingTop: 5,
           lineHeight: nameSize * 1.3,
+          minHeight: 5 + nameSize * 1.3 * 2,
           backgroundColor: frame === "stars" ? C.paper : undefined,
         }}
       >
