@@ -70,6 +70,21 @@ npm run build:api
 
 Android実機をUSBで接続する手順は [実機デバッグ](docs/android-device-debugging.md) を参照してください。
 
+### Android APK
+
+```sh
+npm run apk:android
+npm run apk:android -- -PreactNativeArchitectures=arm64-v8a   # 実機向けだけにして短縮
+```
+
+JavaScriptを同梱したRelease APKを `dist/flocka-<version>-release.apk` に書き出します。Metroなしで単体で起動します。
+
+- **API URL:** `eas.json` の本番URLを埋め込みます。環境変数 `EXPO_PUBLIC_API_URL` で上書きできますが、HTTPS以外やローカルのアドレスは拒否します。
+- **ネイティブ設定:** `apps/mobile/android/` がないときだけ `expo prebuild` で生成します。prebuildは既存のフォルダーを消して作り直すことがあるためです。`app.json` やプラグインを変えたときは、`npx expo prebuild --platform android` を手動で実行してください。
+- **Gradleへの引数:** `--` の後の引数はGradleに渡します。
+- **必要な環境:** `ANDROID_HOME` とJDK 17以上が必要です。
+- **署名:** debug keystoreで署名します。手元や身内への配布用で、ストアには出せません。
+
 ## 実装と接続設定
 
 Expoの全画面が実サーバーと接続しています。交換コードのQR・手入力、近くのプレイヤー検出（BLE、`apps/mobile/modules/flocka-nearby`）、双方承認の交換、印象・場面の送受信、公開範囲・ブロック・通報、端末設定の同期、プッシュ通知の端末登録、運営向けの通報対応画面（`ADMIN_USER_IDS` に含まれるアカウントのみ）を実装しています。BLEと通知は開発ビルド（`npm run ios` / `npm run android`）の実機が必要で、Expo Goやシミュレーターでは動きません。
