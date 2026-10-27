@@ -29,6 +29,7 @@ import {
 } from "./camera-permission";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
+import { useStartExchange } from "./use-start-exchange";
 import { useScreenVisit } from "../sync/use-screen-visit";
 
 const RESCAN_DELAY_MS = 2000;
@@ -54,7 +55,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function Scan() {
-  const { s, api, refresh, nav } = useApp(),
+  const { s, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
     [permission, requestPermission] = useCameraPermissions(),
     focused = useScreenFocused(),
@@ -73,6 +74,7 @@ export function Scan() {
     } = useInvite(),
     { busy, error, run } = useAction(),
     sizes = useScanSizes(),
+    startExchange = useStartExchange(),
     // Remounting the camera clears a code still in view, so a rescan starts fresh.
     [cameraKey, setCameraKey] = useState(0);
   useEffect(
@@ -120,12 +122,7 @@ export function Scan() {
       const code = parseInviteQR(value);
       if (!code)
         throw new UserFacingError("Flockaの交換用QRを読み取ってください");
-      const exchange = await api.startExchange(code);
-      await refresh();
-      // A late response must not replace a later visit or another screen.
-      if (!sameVisit()) return;
-      opened = true;
-      nav.replace("confirm", { cid: exchange.id });
+      opened = await startExchange(code, sameVisit);
     }).finally(() => {
       if (opened) return;
       // Reopen the camera after the error has been on screen long enough to read,

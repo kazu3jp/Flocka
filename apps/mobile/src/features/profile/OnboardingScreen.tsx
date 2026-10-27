@@ -1,7 +1,7 @@
 import { LegalDocument } from "../auth/LegalDocument";
 import { useAuth } from "../auth/provider";
 import type { LegalTitle } from "@flocka/domain";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Switch, View } from "react-native";
 import {
   AvatarPicker,
@@ -37,6 +37,7 @@ import { useApp } from "../../store";
 import { userFacingError } from "../sync/user-facing-error";
 import { useBackStep } from "../navigation/use-back-step";
 import { SnsLinksEditor } from "./SnsLinksEditor";
+import { useAccountSetup } from "./use-account-setup";
 const STEPS = [
   [
     "ニックネーム",
@@ -77,7 +78,7 @@ const DECK_PREVIEW_COLUMNS = 3;
 
 export function Onboarding() {
   const { data } = useAuth();
-  const { s, update, api, refresh, nav, toast, saveProfile } = useApp(),
+  const { s, update, refresh, nav, toast, saveProfile } = useApp(),
     [agree, setAgree] = useState(false),
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [step, setStep] = useState(0),
@@ -86,8 +87,7 @@ export function Onboarding() {
     [snsInvalid, setSnsInvalid] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
-    // A retry after a later step failed must not create the account again.
-    accountCreated = useRef(false);
+    setUpAccount = useAccountSetup();
   const deckCardHeight = cardHeightInRow(
     useAppWidth() - 2 * LAYOUT.screenPadding,
     DECK_PREVIEW_COLUMNS,
@@ -121,31 +121,11 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      if (!accountCreated.current) {
-        if (!data?.user.termsAccepted) await api.acceptTerms();
-        await api.createAccount(
-          input.avatar.type === "photo"
-            ? {
-                ...input,
-                avatar: { ...input.avatar, type: "initial", photo: undefined },
-              }
-            : input,
-          sel,
-        );
-        accountCreated.current = true;
-      }
-      // The account exists from here on. A photo that fails to upload must not
-      // undo it: finish with an initial avatar and offer to send the photo again.
-      let saved = input;
-      let photoFailed = false;
-      if (input.avatar.type === "photo" && input.avatar.photo)
-        try {
-          await api.uploadAvatar(input.avatar.photo);
-        } catch {
-          photoFailed = true;
-          saved = { ...input, avatar: { ...input.avatar, type: "initial" } };
-        }
-      await api.updateProfile(saved, sel);
+      const { saved, photoFailed } = await setUpAccount(
+        input,
+        sel,
+        !!data?.user.termsAccepted,
+      );
       update((x) => {
         x.profile = saved;
         x.self = sel;

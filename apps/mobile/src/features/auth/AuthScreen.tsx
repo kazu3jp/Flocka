@@ -2,7 +2,6 @@ import { LegalDocument } from "./LegalDocument";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useLocalSearchParams, type Href } from "expo-router";
-import { z } from "zod";
 import {
   Board,
   Brand,
@@ -18,7 +17,8 @@ import {
   SP,
   T,
 } from "../../components/ui";
-import { API_URL, assertAuthResult, getAuthClient } from "./client";
+import { assertAuthResult, getAuthClient } from "./client";
+import { fetchAuthProviders } from "./auth-config";
 import { browserFlowErrorMessage } from "./auth-error-message";
 import { signInWithGoogle } from "./google-sign-in";
 import { userFacingError } from "../sync/user-facing-error";
@@ -76,13 +76,9 @@ export function AuthScreen({
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
-    void fetch(API_URL + "/auth/config", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("認証設定を読み込めませんでした");
-        const config = z
-          .object({ providers: z.array(z.literal("google")) })
-          .parse(await response.json());
-        if (mounted.current) setProviders(config.providers);
+    void fetchAuthProviders(controller.signal)
+      .then((providers) => {
+        if (mounted.current) setProviders(providers);
       })
       .catch((error) => {
         if (mounted.current && error.name !== "AbortError")

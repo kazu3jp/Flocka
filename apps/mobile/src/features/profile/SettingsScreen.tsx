@@ -16,8 +16,7 @@ import {
 import { useConfirmation } from "../../components/pickers";
 import { useApp, useAppStatus } from "../../store";
 import { useUnsavedChangesGuard } from "../navigation/leave-guard";
-import { refreshAfterWrite } from "../sync/refresh-after-write";
-import { UserFacingError } from "../sync/user-facing-error";
+import { useSettingsActions } from "./use-settings-actions";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 import { BlockedPeopleList, type BlockedPerson } from "./BlockedPeopleList";
 import { RequestHistoryList, type HistoryEntry } from "./RequestHistoryList";
@@ -34,7 +33,8 @@ type SettingsAction =
   "sync" | "save" | `unblock:${string}` | `withdraw:${string}`;
 
 export function Settings() {
-  const { s, api, refresh, nav, toast, peers, isAdmin } = useApp(),
+  const { s, refresh, nav, toast, peers, isAdmin } = useApp(),
+    actions = useSettingsActions(),
     { syncing } = useAppStatus(),
     tour = useTour(),
     [legal, setLegal] = useState<LegalTitle | null>(null),
@@ -111,8 +111,7 @@ export function Settings() {
               "変更は今後届く封筒に適用します。",
               () =>
                 runAction("save", async () => {
-                  await api.saveSettings(settings);
-                  await refreshAfterWrite(refresh, "設定の保存は完了しました");
+                  await actions.saveSettings(settings);
                   setDraft(null);
                   toast("設定を保存しました");
                 }),
@@ -137,11 +136,7 @@ export function Settings() {
               `${person.name}の証言が、デッキ・自己PR・交換一覧に戻ります。`,
               () =>
                 runAction(`unblock:${person.id}`, async () => {
-                  await api.unblock(person.id);
-                  await refreshAfterWrite(
-                    refresh,
-                    "ブロックの解除は完了しました",
-                  );
+                  await actions.unblock(person.id);
                   toast("ブロックを解除しました");
                 }),
               "解除する",
@@ -160,10 +155,7 @@ export function Settings() {
               "運営への依頼を取り消します。",
               () =>
                 runAction(`withdraw:${entry.id}`, async () => {
-                  if (!entry.id)
-                    throw new UserFacingError("依頼が見つかりません");
-                  await api.withdrawRequest(entry.id);
-                  await refreshAfterWrite(refresh, "取り下げは完了しました");
+                  await actions.withdraw(entry.id);
                   toast("取り下げました");
                 }),
               "取り下げる",

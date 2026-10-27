@@ -39,7 +39,7 @@ import { useAppWidth, useModalFrame } from "../../components/app-frame";
 import { cardHeightInRow } from "../../components/responsive-scale";
 import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
-import { refreshAfterWrite } from "../sync/refresh-after-write";
+import { useOpenTestimony } from "./use-open-testimony";
 import { hapticSuccess } from "../haptics/haptics";
 
 /** The headline after opening; skipping is neither a hit nor a miss. */
@@ -54,7 +54,8 @@ function openingResult(guess: string | null, card: string, self: boolean) {
 }
 
 function GuessContent({ id }: { id: string }) {
-  const { s, d, nav, api, refresh, toast, setOpening, peers } = useApp(),
+  const { s, d, nav, toast, setOpening, peers } = useApp(),
+    openTestimony = useOpenTestimony(),
     { busy, error, run } = useAction(),
     p = allPieces(s).find((p) => p.id === id),
     [wasConfirmed] = useState(p ? d.cards[p.card].confirmed : false),
@@ -121,8 +122,7 @@ function GuessContent({ id }: { id: string }) {
     if (locked) return;
     setPending(k);
     void run(async () => {
-      const saved = await api.openTestimony(p.id, k);
-      await refreshAfterWrite(refresh, "開封は完了しました");
+      const saved = await openTestimony(p.id, k);
       setGuess(saved.guess ?? "skip");
       if (reduced) {
         setStage("open");

@@ -21,6 +21,7 @@ import Nearby from "../../../modules/flocka-nearby/src/FlockaNearbyModule";
 import type { NearbyErrorCode } from "../../../modules/flocka-nearby/src/FlockaNearby.types";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
+import { useStartExchange } from "./use-start-exchange";
 import { useScreenVisit } from "../sync/use-screen-visit";
 import { userFacingError } from "../sync/user-facing-error";
 import { NearbyRadarPanel } from "./NearbyRadarPanel";
@@ -94,7 +95,7 @@ function openSettings(target: SettingsTarget) {
 }
 
 export function NearbyScreen() {
-  const { api, refresh, nav, s } = useApp(),
+  const { api, nav, s } = useApp(),
     { invite, error: inviteError, renew } = useInvite(),
     focused = useScreenFocused(),
     [peers, setPeers] = useState<
@@ -107,7 +108,8 @@ export function NearbyScreen() {
     [starting, setStarting] = useState(false),
     [ready, setReady] = useState(false),
     { busy, error, run } = useAction(),
-    startVisit = useScreenVisit();
+    startVisit = useScreenVisit(),
+    startExchange = useStartExchange();
   useEffect(() => {
     if (!focused || !invite || !Nearby) return;
     const bluetooth = Nearby;
@@ -303,11 +305,7 @@ export function NearbyScreen() {
             disabled={busy}
             onPress={() =>
               void run(async () => {
-                const sameVisit = startVisit();
-                const exchange = await api.startExchange(code);
-                await refresh();
-                // A late response must not replace a later visit or another screen.
-                if (sameVisit()) nav.replace("confirm", { cid: exchange.id });
+                await startExchange(code, startVisit());
               })
             }
           >

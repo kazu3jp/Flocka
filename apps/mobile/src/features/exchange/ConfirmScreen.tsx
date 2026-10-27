@@ -16,11 +16,12 @@ import {
 } from "../../components/ui";
 import { useApp } from "../../store";
 import { useConfirmation } from "../../components/pickers";
-import { refreshAfterWrite } from "../sync/refresh-after-write";
+import { useExchangeDecision } from "./use-exchange-decision";
 import { Player } from "./player-card";
 
 export function Confirm({ cid }: { cid: string }) {
-  const { s, nav, api, refresh, toast, peers } = useApp(),
+  const { s, nav, toast, peers } = useApp(),
+    decision = useExchangeDecision(cid),
     [memoOpen, setMemoOpen] = useState(false),
     c = s.connections.find((c) => c.id === cid),
     [context, setContextDraft] = useState(
@@ -43,18 +44,9 @@ export function Confirm({ cid }: { cid: string }) {
       setMemoOpen(true);
       return;
     }
-    // After this account approved, the same request only updates the memo.
     const editingMemo = c.myApproved || c.status === "accepted";
     void run(async () => {
-      const exchange = await api.approveExchange(
-        cid,
-        context.place,
-        context.trigger,
-      );
-      await refreshAfterWrite(
-        refresh,
-        editingMemo ? "メモの保存は完了しました" : "承認は完了しました",
-      );
+      const exchange = await decision.approve(context, editingMemo);
       setMemoOpen(false);
       toast(
         editingMemo
@@ -129,11 +121,7 @@ export function Confirm({ cid }: { cid: string }) {
                 () =>
                   void run(async () => {
                     const sameVisit = startVisit();
-                    await api.cancelExchange(cid);
-                    await refreshAfterWrite(
-                      refresh,
-                      "キャンセルは完了しました",
-                    );
+                    await decision.cancel();
                     toast("キャンセルしました");
                     if (sameVisit()) nav.pop();
                   }),
