@@ -85,6 +85,20 @@ JavaScriptを同梱したRelease APKを `dist/flocka-<version>-release.apk` に�
 - **必要な環境:** `ANDROID_HOME` とJDK 17以上が必要です。
 - **署名:** debug keystoreで署名します。手元や身内への配布用で、ストアには出せません。
 
+### iOS IPA（AltStore向け）
+
+```sh
+npm run ipa:ios
+```
+
+MacでJavaScriptを同梱したRelease IPAを `dist/flocka-<version>-release-unsigned.ipa` に書き出します。Metroなしで単体で起動します。
+
+- **必要な環境:** macOS、Xcode、CocoaPods が必要です。WindowsやLinuxでは止まります。xtoolはSwiftPMのプロジェクトしかビルドできないため、このアプリには使えません。
+- **署名:** 署名しません。AltStoreがインストール時にApple IDで署名します。無料のApple IDでは7日ごとに再署名が要り、プッシュ通知の権限が外れて通知が届かない場合があります。
+- **API URL:** APKと同じく `eas.json` の本番URLを埋め込み、`EXPO_PUBLIC_API_URL` で上書きできます。Googleログインはブラウザ方式のため、クライアントIDは不要です。
+- **ネイティブ設定:** `apps/mobile/ios/` がないときだけ `expo prebuild` で生成し、`Pods/` がないときは `pod install` を実行します。`app.json` やプラグインを変えたときは `npx expo prebuild --platform ios` を手動で実行してください。
+- **xcodebuildへの引数:** 後ろに付けた引数はxcodebuildに渡します。古い値の混入を防ぐため、アーカイブは毎回作り直します。
+
 ## 実装と接続設定
 
 Expoの全画面が実サーバーと接続しています。交換コードのQR・手入力、近くのプレイヤー検出（BLE、`apps/mobile/modules/flocka-nearby`）、双方承認の交換、印象・場面の送受信、公開範囲・ブロック・通報、端末設定の同期、プッシュ通知の端末登録、運営向けの通報対応画面（`ADMIN_USER_IDS` に含まれるアカウントのみ）を実装しています。BLEと通知は開発ビルド（`npm run ios` / `npm run android`）の実機が必要で、Expo Goやシミュレーターでは動きません。
