@@ -17,6 +17,8 @@ import {
 } from "../../components/ui";
 import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
+import { refreshAfterWrite } from "../sync/refresh-after-write";
+import { UserFacingError } from "../sync/user-facing-error";
 
 /** Describes the opening guess without calling a skipped guess a miss. */
 function guessResult(p: Piece) {
@@ -68,7 +70,7 @@ export function PieceDetail({ id }: { id: string }) {
       void run(async () => {
         if (p.visibility === visibility) return;
         if (p.visibilityRevision === undefined)
-          throw new Error("最新の証言を読み込み直してください");
+          throw new UserFacingError("最新の証言を読み込み直してください");
         const previous = p.visibility;
         const saved = await api.changeVisibility(
           id,
@@ -80,7 +82,7 @@ export function PieceDetail({ id }: { id: string }) {
           () => api.changeVisibility(id, previous, saved.visibilityRevision),
           "公開範囲を元に戻しました",
         );
-        await refresh();
+        await refreshAfterWrite(refresh, "公開範囲の変更は完了しました");
       });
     };
     if (visibility === "public")
@@ -97,7 +99,7 @@ export function PieceDetail({ id }: { id: string }) {
       <Header title="証言" onBack={nav.pop} />
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
-          {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
+          {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
           {p.kind === "proof" ? "見た場面" : "会話の印象"}
         </T>
         <T display color={C.ink} size={20}>
@@ -176,7 +178,7 @@ export function PieceDetail({ id }: { id: string }) {
                   () => {
                     void run(async () => {
                       await api.requestModeration(id, "report", reason);
-                      await refresh();
+                      await refreshAfterWrite(refresh, "通報は完了しました");
                       toast("通報を受け付けました");
                     });
                   },
@@ -208,7 +210,7 @@ export function PieceDetail({ id }: { id: string }) {
                     "ブロックを取り消しました",
                   );
                 } else toast("すでにブロック中です");
-                await refresh();
+                await refreshAfterWrite(refresh, "ブロックは完了しました");
                 if (blockingVisit && visit.current === blockingVisit) nav.pop();
               });
             },
@@ -233,7 +235,7 @@ export function PieceDetail({ id }: { id: string }) {
                   () => api.withdrawRequest(request.id),
                   "削除依頼を取り消しました",
                 );
-                await refresh();
+                await refreshAfterWrite(refresh, "削除依頼は完了しました");
               });
             },
             "依頼する",

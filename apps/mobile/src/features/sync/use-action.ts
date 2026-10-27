@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { userFacingError } from "./user-facing-error";
 export function useAction() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
@@ -19,7 +20,7 @@ export function useAction() {
       await action();
     } catch (error) {
       if (mounted.current)
-        setError(error instanceof Error ? error.message : "通信に失敗しました");
+        setError(userFacingError(error, "通信に失敗しました"));
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);

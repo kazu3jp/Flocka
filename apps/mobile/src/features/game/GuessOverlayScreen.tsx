@@ -39,6 +39,7 @@ import { useAppWidth, useModalFrame } from "../../components/app-frame";
 import { cardHeightInRow } from "../../components/responsive-scale";
 import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
+import { refreshAfterWrite } from "../sync/refresh-after-write";
 import { hapticSuccess } from "../haptics/haptics";
 
 /** The headline after opening; skipping is neither a hit nor a miss. */
@@ -121,7 +122,7 @@ function GuessContent({ id }: { id: string }) {
     setPending(k);
     void run(async () => {
       const saved = await api.openTestimony(p.id, k);
-      await refresh();
+      await refreshAfterWrite(refresh, "開封は完了しました");
       setGuess(saved.guess ?? "skip");
       if (reduced) {
         setStage("open");
@@ -171,11 +172,11 @@ function GuessContent({ id }: { id: string }) {
                 color={C.ink}
                 style={{ marginTop: -48, marginBottom: 30 }}
               >
-                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より
+                {peers[p.fromId]?.profile.name ?? "相手"}より
               </T>
             </Animated.View>
             <T display size={24} style={{ textAlign: "center" }}>
-              {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}の
+              {peers[p.fromId]?.profile.name ?? "相手"}の
               {p.kind === "vibe" ? "印象" : "メモ"}は、
               {"\n"}どのカードの証言？
             </T>
@@ -236,7 +237,7 @@ function GuessContent({ id }: { id: string }) {
           <>
             <Panel>
               <T size={12} color={C.muted}>
-                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
+                {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
                 {p.kind === "vibe" ? "会話の印象" : "見た場面"}
               </T>
               <T display size={20} color={C.ink}>

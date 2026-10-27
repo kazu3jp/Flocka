@@ -5,6 +5,8 @@ import { CardPicker, InterestsPicker } from "../../components/pickers";
 import { Board, Btn, Field, Header, InlineError } from "../../components/ui";
 import { useApp } from "../../store";
 import { SnsLinksEditor } from "./SnsLinksEditor";
+import { useUnsavedChangesGuard } from "../navigation/leave-guard";
+import { sameProfileEdit } from "./profile-edit";
 
 export function SelfEdit() {
   const { s, saveProfile, nav, toast } = useApp(),
@@ -13,10 +15,20 @@ export function SelfEdit() {
     [snsLinks, setSnsLinks] = useState(s.profile.snsLinks),
     [snsInvalid, setSnsInvalid] = useState(false),
     { busy, error, run } = useAction(),
-    startVisit = useScreenVisit();
+    startVisit = useScreenVisit(),
+    unsaved = !sameProfileEdit(
+      { profile: s.profile, self: s.self },
+      { profile: { ...profile, snsLinks }, self: sel },
+    ),
+    guard = useUnsavedChangesGuard({
+      unsaved: unsaved && !busy,
+      title: "編集内容を破棄する？",
+      text: "保存していないプロフィールの変更は失われます。",
+      pop: nav.pop,
+    });
   return (
     <Board scroll>
-      <Header title="プロフィール" onBack={nav.pop} />
+      <Header title="プロフィール" onBack={guard.back} />
       <Field
         label="ニックネーム"
         maxLength={16}
@@ -67,6 +79,7 @@ export function SelfEdit() {
         }}
       />
       <InlineError text={error} />
+      {guard.dialog}
     </Board>
   );
 }

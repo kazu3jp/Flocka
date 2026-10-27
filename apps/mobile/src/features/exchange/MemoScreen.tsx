@@ -21,6 +21,7 @@ import {
 } from "./memo-controls";
 import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
+import { UserFacingError } from "../sync/user-facing-error";
 import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
 import { hapticSuccess } from "../haptics/haptics";
@@ -80,7 +81,8 @@ export function Memo() {
         (connection) =>
           connection.peerId === to && connection.status === "accepted",
       );
-      if (!exchange) throw new Error("交換が成立した相手を選んでください");
+      if (!exchange)
+        throw new UserFacingError("交換が成立した相手を選んでください");
       const submittedStory = story.trim();
       const result = await api.sendScene(exchange.id, card, submittedStory);
       return { ...result, to, card, story: submittedStory };
@@ -104,7 +106,7 @@ export function Memo() {
             }}
           >
             <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
-              {peers[receipt.to]?.profile.name ?? "プロフィールを取得中"}へ・
+              {peers[receipt.to]?.profile.name ?? "相手"}へ・
               {CARDS[receipt.card].name}
             </T>
             <T
@@ -163,7 +165,7 @@ export function Memo() {
               <MemoRecipient
                 key={id}
                 id={id}
-                name={peers[id]?.profile.name ?? "プロフィールを取得中"}
+                name={peers[id]?.profile.name ?? "相手"}
                 context={
                   s.connections.find(
                     (connection) =>

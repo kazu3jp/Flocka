@@ -373,6 +373,11 @@ export function AuthScreen({
                   ]}
                 >
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      wait ? `コードを再送（あと${wait}秒）` : "コードを再送"
+                    }
+                    accessibilityState={{ disabled: wait > 0 || busy }}
                     disabled={wait > 0 || busy}
                     onPress={() => void run(sendCode)}
                     style={{ minHeight: 44, justifyContent: "center" }}
@@ -383,9 +388,8 @@ export function AuthScreen({
                   </Pressable>
                   <LinkButton
                     label="メールアドレスを変更"
-                    onPress={() => {
-                      if (!busy) go("signup");
-                    }}
+                    disabled={busy}
+                    onPress={() => go("signup")}
                   />
                 </View>
               </>

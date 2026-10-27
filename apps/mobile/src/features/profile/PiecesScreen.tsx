@@ -38,7 +38,7 @@ export function Pieces() {
       />
       {showHidden &&
         hidden.map((p) => {
-          const name = peers[p.fromId]?.profile.name ?? "プロフィールを取得中";
+          const name = peers[p.fromId]?.profile.name ?? "相手";
           return (
             <SquishPressable
               key={p.id}
@@ -81,7 +81,7 @@ export function Pieces() {
         }
         ListFooterComponent={hiddenSection}
         renderItem={({ item: p, index }) => {
-          const name = peers[p.fromId]?.profile.name ?? "プロフィールを取得中";
+          const name = peers[p.fromId]?.profile.name ?? "相手";
           const summary = p.opened
             ? wordsOf(p)
             : "どのカードの証言か予想しよう";

@@ -1,7 +1,7 @@
 import { LegalDocument } from "../auth/LegalDocument";
 import { useAuth } from "../auth/provider";
 import type { LegalTitle } from "@flocka/domain";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Switch, View } from "react-native";
 import {
   AvatarPicker,
@@ -16,6 +16,7 @@ import {
   C,
   Field,
   Icon,
+  InlineError,
   LAYOUT,
   LinkButton,
   Panel,
@@ -33,6 +34,7 @@ import {
   snsLinkDisplay,
 } from "@flocka/domain";
 import { useApp } from "../../store";
+import { userFacingError } from "../sync/user-facing-error";
 import { useBackStep } from "../navigation/use-back-step";
 import { SnsLinksEditor } from "./SnsLinksEditor";
 const STEPS = [
@@ -83,7 +85,9 @@ export function Onboarding() {
     [sel, setSel] = useState(s.self),
     [snsInvalid, setSnsInvalid] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null);
+    [error, setError] = useState<string | null>(null),
+    // A retry after a later step failed must not create the account again.
+    accountCreated = useRef(false);
   const deckCardHeight = cardHeightInRow(
     useAppWidth() - 2 * LAYOUT.screenPadding,
     DECK_PREVIEW_COLUMNS,
@@ -117,16 +121,19 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      if (!data?.user.termsAccepted) await api.acceptTerms();
-      await api.createAccount(
-        input.avatar.type === "photo"
-          ? {
-              ...input,
-              avatar: { ...input.avatar, type: "initial", photo: undefined },
-            }
-          : input,
-        sel,
-      );
+      if (!accountCreated.current) {
+        if (!data?.user.termsAccepted) await api.acceptTerms();
+        await api.createAccount(
+          input.avatar.type === "photo"
+            ? {
+                ...input,
+                avatar: { ...input.avatar, type: "initial", photo: undefined },
+              }
+            : input,
+          sel,
+        );
+        accountCreated.current = true;
+      }
       // The account exists from here on. A photo that fails to upload must not
       // undo it: finish with an initial avatar and offer to send the photo again.
       let saved = input;
@@ -162,11 +169,7 @@ export function Onboarding() {
         );
       else toast("デッキができた！");
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "プロフィールを保存できませんでした",
-      );
+      setError(userFacingError(error, "プロフィールを保存できませんでした"));
     } finally {
       setBusy(false);
     }
@@ -178,11 +181,7 @@ export function Onboarding() {
           <LegalDocument title={legal} />
         </Sheet>
       )}
-      {error ? (
-        <T accessibilityRole="alert" color={C.yellow}>
-          {error}
-        </T>
-      ) : null}
+      <InlineError text={error} />
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
           <Pressable

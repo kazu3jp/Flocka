@@ -128,7 +128,7 @@ export function Player({
         }
         name={
           peerId
-            ? (peer?.profile.name ?? "プロフィールを取得中")
+            ? (peer?.profile.name ?? "相手")
             : s.profile.name
         }
         role={peerId ? (peer?.profile.role ?? "") : s.profile.role}

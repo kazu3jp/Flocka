@@ -253,7 +253,7 @@ export function PR() {
                 (id, index) => (
                   <View key={id} style={{ marginLeft: index ? -6 : 0 }}>
                     <Avatar
-                      name={peers[id]?.profile.name ?? "プロフィールを取得中"}
+                      name={peers[id]?.profile.name ?? "相手"}
                       avatar={peers[id]?.profile.avatar}
                       size={20}
                     />

@@ -15,6 +15,8 @@ import {
   InlineError,
 } from "../../components/ui";
 import { useApp } from "../../store";
+import { useConfirmation } from "../../components/pickers";
+import { refreshAfterWrite } from "../sync/refresh-after-write";
 import { Player } from "./player-card";
 
 export function Confirm({ cid }: { cid: string }) {
@@ -25,6 +27,7 @@ export function Confirm({ cid }: { cid: string }) {
       c?.context ?? { place: "", trigger: "" },
     ),
     { busy, error, run } = useAction(),
+    { ask, dialog } = useConfirmation(),
     startVisit = useScreenVisit(cid);
   if (!c)
     return (
@@ -48,7 +51,10 @@ export function Confirm({ cid }: { cid: string }) {
         context.place,
         context.trigger,
       );
-      await refresh();
+      await refreshAfterWrite(
+        refresh,
+        editingMemo ? "メモの保存は完了しました" : "承認は完了しました",
+      );
       setMemoOpen(false);
       toast(
         editingMemo
@@ -76,9 +82,15 @@ export function Confirm({ cid }: { cid: string }) {
           <T color={C.muted} size={12}>
             出会いのメモ
           </T>
-          <T color={C.ink} size={13}>
-            {c.context.place} · {c.context.trigger}
-          </T>
+          {c.context.place || c.context.trigger ? (
+            <T color={C.ink} size={13}>
+              {[c.context.place, c.context.trigger].filter(Boolean).join(" · ")}
+            </T>
+          ) : (
+            <T color={C.muted} size={13}>
+              どこで、何をきっかけに？
+            </T>
+          )}
           <LinkButton
             label="メモを編集"
             color={C.ink}
@@ -89,7 +101,7 @@ export function Confirm({ cid }: { cid: string }) {
       {c.status === "accepted" ? (
         <>
           <T size={14} style={{ textAlign: "center" }}>
-            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+            {peers[c.peerId]?.profile.name ?? "相手"}
             とつながりました！
           </T>
           <Btn
@@ -109,19 +121,30 @@ export function Confirm({ cid }: { cid: string }) {
           />
           <LinkButton
             label="キャンセル"
-            onPress={() => {
-              void run(async () => {
-                const sameVisit = startVisit();
-                await api.cancelExchange(cid);
-                await refresh();
-                toast("キャンセルしました");
-                if (sameVisit()) nav.pop();
-              });
-            }}
+            disabled={busy}
+            onPress={() =>
+              ask(
+                "交換をキャンセルする？",
+                "この交換は成立しません。もう一度つながるには、交換し直してください。",
+                () =>
+                  void run(async () => {
+                    const sameVisit = startVisit();
+                    await api.cancelExchange(cid);
+                    await refreshAfterWrite(
+                      refresh,
+                      "キャンセルは完了しました",
+                    );
+                    toast("キャンセルしました");
+                    if (sameVisit()) nav.pop();
+                  }),
+                "キャンセルする",
+              )
+            }
           />
         </>
       )}
       <InlineError text={error} />
+      {dialog}
       {memoOpen && c.status !== "cancelled" && (
         <Sheet title="出会いのメモ" onClose={() => setMemoOpen(false)}>
           <T size={13}>

@@ -15,6 +15,9 @@ import {
 } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
 import { useApp, useAppStatus } from "../../store";
+import { useUnsavedChangesGuard } from "../navigation/leave-guard";
+import { refreshAfterWrite } from "../sync/refresh-after-write";
+import { UserFacingError } from "../sync/user-facing-error";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 import { BlockedPeopleList, type BlockedPerson } from "./BlockedPeopleList";
 import { RequestHistoryList, type HistoryEntry } from "./RequestHistoryList";
@@ -44,6 +47,12 @@ export function Settings() {
     [active, setActive] = useState<SettingsAction | null>(null);
   const settings = draft ?? s.settings;
   const changed = hasUnsavedSettings(s.settings, settings);
+  const guard = useUnsavedChangesGuard({
+    unsaved: changed && !busy,
+    title: "設定の変更を破棄する？",
+    text: "保存していない受け取り設定の変更は失われます。",
+    pop: nav.pop,
+  });
   const runAction = (action: SettingsAction, task: () => Promise<void>) => {
     setActive(action);
     void run(task).finally(() => setActive(null));
@@ -61,7 +70,7 @@ export function Settings() {
     active?.startsWith(`${prefix}:`) ? active.slice(prefix.length + 1) : null;
   return (
     <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
-      <Header title="公開範囲・安全" onBack={nav.pop} />
+      <Header title="公開範囲・安全" onBack={guard.back} />
 
       <SettingsSection
         title="いまの公開範囲"
@@ -103,7 +112,7 @@ export function Settings() {
               () =>
                 runAction("save", async () => {
                   await api.saveSettings(settings);
-                  await refresh();
+                  await refreshAfterWrite(refresh, "設定の保存は完了しました");
                   setDraft(null);
                   toast("設定を保存しました");
                 }),
@@ -129,7 +138,10 @@ export function Settings() {
               () =>
                 runAction(`unblock:${person.id}`, async () => {
                   await api.unblock(person.id);
-                  await refresh();
+                  await refreshAfterWrite(
+                    refresh,
+                    "ブロックの解除は完了しました",
+                  );
                   toast("ブロックを解除しました");
                 }),
               "解除する",
@@ -148,9 +160,10 @@ export function Settings() {
               "運営への依頼を取り消します。",
               () =>
                 runAction(`withdraw:${entry.id}`, async () => {
-                  if (!entry.id) throw new Error("依頼が見つかりません");
+                  if (!entry.id)
+                    throw new UserFacingError("依頼が見つかりません");
                   await api.withdrawRequest(entry.id);
-                  await refresh();
+                  await refreshAfterWrite(refresh, "取り下げは完了しました");
                   toast("取り下げました");
                 }),
               "取り下げる",
@@ -215,6 +228,7 @@ export function Settings() {
         </Sheet>
       )}
       {dialog}
+      {guard.dialog}
     </Board>
   );
 }

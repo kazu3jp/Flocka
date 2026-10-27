@@ -3,7 +3,7 @@ import { Btn, C, InlineError, Panel, S, T } from "../../components/ui";
 import { useAuth } from "../auth/provider";
 import { useApp } from "../../store";
 import { useAction } from "../sync/use-action";
-import { userFacingError } from "../sync/user-facing-error";
+import { UserFacingError, userFacingError } from "../sync/user-facing-error";
 import {
   disablePush,
   enablePush,
@@ -53,7 +53,7 @@ export function NotificationPanel() {
               if (registered) await disablePush(api, accountId);
               else await enablePush(api, accountId);
             } catch (error) {
-              throw new Error(
+              throw new UserFacingError(
                 userFacingError(error, "通知を設定できませんでした"),
               );
             }

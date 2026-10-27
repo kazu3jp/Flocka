@@ -116,7 +116,7 @@ export function Connections() {
         >
           {connections.map((connection, index) => {
             const name =
-              peers[connection.peerId]?.profile.name ?? "プロフィールを取得中";
+              peers[connection.peerId]?.profile.name ?? "相手";
             const sent = s.sentVibes.find(
               (piece) => piece.id === connection.vibe,
             );

@@ -2,7 +2,11 @@ import { createUndoAction } from "./features/sync/undo-action";
 import { consumeFreshSignIn } from "./features/auth/fresh-sign-in";
 import { keepIfSame } from "./features/sync/same-data";
 import { forEachWithLimit } from "./features/sync/limited-concurrency";
-import { userFacingError } from "./features/sync/user-facing-error";
+import {
+  UserFacingError,
+  userFacingError,
+} from "./features/sync/user-facing-error";
+import { refreshAfterWrite } from "./features/sync/refresh-after-write";
 import { createSaveRetry } from "./features/sync/save-retry";
 import {
   useNotificationResponse,
@@ -591,7 +595,8 @@ export function Provider({
         )
           return;
         // Saving over an unresolved conflict would overwrite the other device's edit.
-        if (preferenceConflictRef.current) throw new Error(CONFLICT_MESSAGE);
+        if (preferenceConflictRef.current)
+          throw new UserFacingError(CONFLICT_MESSAGE);
         try {
           const saved = await api.savePreferences(data, prefsRevision.current);
           if (!mounted.current) return;
@@ -640,7 +645,7 @@ export function Provider({
               if (error instanceof ApiClientError && error.status === 409)
                 // The server changed again; refresh the comparison before the next choice.
                 await synchronize().catch(() => {});
-              throw new Error(
+              throw new UserFacingError(
                 userFacingError(error, "サーバーへ保存できませんでした"),
               );
             }
@@ -701,7 +706,7 @@ export function Provider({
         ownAvatar.current = { version: null, photo: profile.avatar.photo };
       }
       await api.updateProfile(profile, self);
-      await refresh();
+      await refreshAfterWrite(refresh, "プロフィールの保存は完了しました");
     },
     [api, refresh],
   );

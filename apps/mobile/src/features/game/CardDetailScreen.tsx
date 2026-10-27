@@ -140,7 +140,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
           (item) => item.peerId === piece.fromId && item.status === "accepted",
         );
         const name =
-          peers[piece.fromId]?.profile.name ?? "プロフィールを取得中";
+          peers[piece.fromId]?.profile.name ?? "相手";
         const guess =
           piece.guess === "skip"
             ? "なし"

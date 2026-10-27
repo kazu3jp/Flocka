@@ -11,6 +11,7 @@ import {
   Choice,
   FIXED_LOOKING_BOARD,
   Header,
+  InlineError,
   LAYOUT,
   Panel,
   S,
@@ -20,6 +21,7 @@ import { useAppWidth } from "../../components/app-frame";
 import { fitDisplayName } from "../../components/responsive-scale";
 import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
+import { UserFacingError } from "../sync/user-facing-error";
 import {
   CAMERA_PERMISSION_COPY,
   cameraPermissionView,
@@ -70,7 +72,9 @@ export function Scan() {
       renew,
     } = useInvite(),
     { busy, error, run } = useAction(),
-    sizes = useScanSizes();
+    sizes = useScanSizes(),
+    // Remounting the camera clears a code still in view, so a rescan starts fresh.
+    [cameraKey, setCameraKey] = useState(0);
   useEffect(
     () => () => {
       if (rescanTimer.current) clearTimeout(rescanTimer.current);
@@ -114,7 +118,8 @@ export function Scan() {
     void run(async () => {
       const sameVisit = startVisit();
       const code = parseInviteQR(value);
-      if (!code) throw new Error("Flockaの交換用QRを読み取ってください");
+      if (!code)
+        throw new UserFacingError("Flockaの交換用QRを読み取ってください");
       const exchange = await api.startExchange(code);
       await refresh();
       // A late response must not replace a later visit or another screen.
@@ -218,6 +223,7 @@ export function Scan() {
               }}
             >
               <CameraView
+                key={cameraKey}
                 style={S.fill}
                 facing="back"
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
@@ -240,22 +246,29 @@ export function Scan() {
               ) : null}
             </Panel>
           )}
+          <T
+            size={13}
+            accessibilityLiveRegion="polite"
+            style={{ textAlign: "center" }}
+          >
+            {busy
+              ? "読み取りました。交換を始めています…"
+              : "相手のQRを枠の中に合わせてください"}
+          </T>
           <Btn
             plain
             small
             label="もう一度読み取る"
             disabled={busy}
             onPress={() => {
+              if (rescanTimer.current) clearTimeout(rescanTimer.current);
               scanned.current = false;
+              setCameraKey((key) => key + 1);
             }}
           />
         </View>
       )}
-      {error || inviteError ? (
-        <T color={C.yellow} accessibilityRole="alert">
-          {error || inviteError}
-        </T>
-      ) : null}
+      <InlineError text={error || inviteError} />
     </Board>
   );
 }
