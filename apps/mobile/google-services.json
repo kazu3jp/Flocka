@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002082263624",
+    "project_id": "flocka-app",
+    "storage_bucket": "flocka-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002082263624:android:155f9d099a8ca77a132e7d",
+        "android_client_info": {
+          "package_name": "jp.kazu3.flocka"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkArVoKH7HzyhPbtmYiWuey_BtKvh6nTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

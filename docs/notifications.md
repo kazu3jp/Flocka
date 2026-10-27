@@ -16,6 +16,15 @@ npx eas-cli@latest credentials
 
 AndroidはFCM v1の資格情報、iOSはApple DeveloperのAPNsキーをEASで設定します。iOSの実機用ビルドにはAppleの署名設定も必要です。設定後に開発ビルドを作り直します。
 
+Androidの設定:
+
+- **Firebase:** プロジェクト `flocka-app` に、パッケージ `jp.kazu3.flocka` のAndroidアプリを登録しています。
+- **`google-services.json`:** `apps/mobile/google-services.json` に置き、`app.json` の `android.googleServicesFile` から参照します。公開して構わない識別子だけを含むため、Gitに含めます。生成物の `apps/mobile/android/` には置かないでください（prebuildで消えます）。
+- **FCM V1の送信用キー:** Firebaseのサービスアカウントキーを `npx eas-cli@latest credentials` で登録します。秘密情報のため、Gitには追加しません。このキーが無いと、端末の登録は成功しても通知は届きません。
+- **ネイティブ設定の反映:** 既存の `android/` に変更を反映するときは、`npx expo prebuild --platform android --no-clean` を使います。このExpoのprebuildは既定でフォルダーを作り直し、Windowsでは使用中のファイルがあると失敗します。
+
+iOSは、有料のApple Developer ProgramでAPNsキーと通知の権限（`aps-environment`）を設定するまで、リモート通知が届きません。AltStoreで無料のApple IDを使って入れたIPAも同じです。
+
 ```sh
 npx expo run:android
 npx expo run:ios

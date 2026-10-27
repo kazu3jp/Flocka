@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "jp.kazu3.flocka",
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
