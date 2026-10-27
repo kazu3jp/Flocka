@@ -13,6 +13,7 @@ import {
   S,
   Sheet,
   T,
+  OUTLINE,
 } from "../../components/ui";
 import { useApp } from "../../store";
 import { LoadingNotice } from "../../components/loading";
@@ -42,11 +43,7 @@ export function PR() {
       <Board>
         <Header title="自己PR" />
         <Panel testID="pr-locked" style={{ padding: 0, overflow: "hidden" }}>
-          <View
-            {...headingTarget}
-            testID="pr-heading"
-            style={styles.heading}
-          >
+          <View {...headingTarget} testID="pr-heading" style={styles.heading}>
             <Icon name="lock" size={18} color={C.ink} />
             <T
               display
@@ -397,7 +394,7 @@ const styles = {
     paddingVertical: 10,
     paddingHorizontal: 14,
     backgroundColor: C.yellow,
-    borderBottomWidth: 2.5,
+    borderBottomWidth: OUTLINE.width,
     borderColor: C.ink,
   },
 };

@@ -22,7 +22,15 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import type { Card } from "@flocka/domain";
-import { C, F, Icon, Panel, StrengthCard, T } from "../../components/ui";
+import {
+  C,
+  F,
+  Icon,
+  Panel,
+  StrengthCard,
+  T,
+  OUTLINE,
+} from "../../components/ui";
 import {
   fanCardHeightFor,
   fitDisplayName,
@@ -44,7 +52,7 @@ const IDENTITY_GAP = 12;
 const HAND_PADDING_Y = 12;
 const MIN_FAN_CARD_HEIGHT = 96;
 const CARD_ASPECT = 176 / 164;
-const PANEL_BORDER = 2.5;
+const PANEL_BORDER = OUTLINE.width;
 
 function fanPose(index: number, count: number) {
   if (count === 1) return { angle: 0, verticalOffset: 0 };

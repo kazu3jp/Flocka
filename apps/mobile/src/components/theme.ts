@@ -59,6 +59,16 @@ export const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 export const inputMinHeight = (lineHeight: number) =>
   Platform.OS === "android" ? Math.ceil(lineHeight + 2 * 12 + 2 * 2.5) : 52;
 
+/**
+ * The design's ink outline: a 2.5pt border and a hard offset shadow, raised
+ * further on panels and selected stickers.
+ */
+export const OUTLINE = {
+  width: 2.5,
+  shadow: `3px 3px 0 ${C.ink}`,
+  raisedShadow: `4px 4px 0 ${C.ink}`,
+} as const;
+
 export const LAYOUT = {
   /** Horizontal padding of every screen's content. */
   screenPadding: 14,
@@ -94,11 +104,11 @@ export const S = StyleSheet.create({
   gap: { gap: LAYOUT.sectionGap },
   panel: {
     backgroundColor: C.paper,
-    borderWidth: 2.5,
+    borderWidth: OUTLINE.width,
     borderColor: C.ink,
     borderRadius: 16,
     padding: LAYOUT.panelPadding,
-    boxShadow: `4px 4px 0 ${C.ink}`,
+    boxShadow: OUTLINE.raisedShadow,
   },
   h1: { fontFamily: F.display, fontSize: 26, lineHeight: 38, color: C.white },
   h2: { fontFamily: F.display, fontSize: 20, lineHeight: 29, color: C.white },
@@ -113,7 +123,7 @@ export const S = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: C.paper,
-    borderWidth: 2.5,
+    borderWidth: OUTLINE.width,
     borderColor: C.ink,
     borderRadius: 12,
   },

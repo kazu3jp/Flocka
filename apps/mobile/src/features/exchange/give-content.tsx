@@ -3,7 +3,7 @@ import { TextInput, View } from "react-native";
 import { CachedSvgXml } from "../../components/cached-svg-xml";
 import { CARDS, SELF_OPTIONS } from "@flocka/domain";
 import vectors from "../../vectors.json";
-import { C, Choice, F, Panel, S, SP, T } from "../../components/ui";
+import { C, Choice, F, Panel, S, SP, T, OUTLINE } from "../../components/ui";
 
 export function GiveReason({
   mode,
@@ -120,8 +120,8 @@ export function ImpressionSummary({
               minHeight: 36,
               paddingVertical: 0,
               paddingHorizontal: 10,
-              borderWidth: 2.5,
-              boxShadow: `3px 3px 0 ${C.ink}`,
+              borderWidth: OUTLINE.width,
+              boxShadow: OUTLINE.shadow,
             }}
           >
             <View style={[S.row, { gap: 6 }]}>

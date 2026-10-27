@@ -12,6 +12,7 @@ import {
   S,
   StrengthCard,
   T,
+  OUTLINE,
 } from "../../components/ui";
 import { wordsOf } from "@flocka/domain";
 import { useApp } from "../../store";
@@ -94,7 +95,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
                 style={{
                   flex: 1,
                   minHeight: 48,
-                  borderWidth: 2.5,
+                  borderWidth: OUTLINE.width,
                   alignItems: "center",
                 }}
                 onPress={() =>
@@ -139,8 +140,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         const connection = s.connections.find(
           (item) => item.peerId === piece.fromId && item.status === "accepted",
         );
-        const name =
-          peers[piece.fromId]?.profile.name ?? "相手";
+        const name = peers[piece.fromId]?.profile.name ?? "相手";
         const guess =
           piece.guess === "skip"
             ? "なし"

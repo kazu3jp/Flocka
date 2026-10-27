@@ -16,6 +16,7 @@ import {
   Sheet,
   SP,
   T,
+  OUTLINE,
 } from "../../components/ui";
 import { assertAuthResult, getAuthClient } from "./client";
 import { fetchAuthProviders } from "./auth-config";
@@ -438,7 +439,7 @@ export function AuthScreen({
                         style={{
                           width: 26,
                           height: 26,
-                          borderWidth: 2.5,
+                          borderWidth: OUTLINE.width,
                           borderColor: C.ink,
                           borderRadius: 7,
                           backgroundColor: agree ? C.yellow : C.paper,

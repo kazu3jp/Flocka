@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg";
-import { C, F, S, T } from "../../components/ui";
+import { C, F, S, T, OUTLINE } from "../../components/ui";
 import { eased, tourEasing, useTourMotion } from "./use-tour-motion";
 import { TourScene } from "./tour-scenes";
 
@@ -68,9 +68,9 @@ export function WelcomeTour() {
           maxHeight: 470,
           backgroundColor: C.dark,
           borderRadius: 22,
-          borderWidth: 2.5,
+          borderWidth: OUTLINE.width,
           borderColor: C.ink,
-          boxShadow: `4px 4px 0 ${C.ink}`,
+          boxShadow: OUTLINE.raisedShadow,
           overflow: "hidden",
         }}
       >

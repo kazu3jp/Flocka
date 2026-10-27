@@ -14,6 +14,7 @@ import {
   LinkButton,
   S,
   T,
+  OUTLINE,
 } from "../../components/ui";
 import { ENTER_RISE, MOTION_MS, useEnterMotion } from "../../components/motion";
 import {
@@ -25,7 +26,7 @@ import {
 } from "./tour-geometry";
 import { isLastStep, stepAnnouncement, type TourStep } from "./tour-steps";
 
-export const TOUR_TITLE = "Flockaの使い方";
+const TOUR_TITLE = "Flockaの使い方";
 
 /**
  * The card that explains one step and points at the cut-out. It is measured
@@ -136,7 +137,11 @@ export function TourPopover({
           pointerEvents="none"
           style={[
             pointer,
-            { top: -8.5, borderTopWidth: 2.5, borderLeftWidth: 2.5 },
+            {
+              top: -8.5,
+              borderTopWidth: OUTLINE.width,
+              borderLeftWidth: OUTLINE.width,
+            },
           ]}
         />
       )}
@@ -145,7 +150,11 @@ export function TourPopover({
           pointerEvents="none"
           style={[
             pointer,
-            { bottom: -8.5, borderBottomWidth: 2.5, borderRightWidth: 2.5 },
+            {
+              bottom: -8.5,
+              borderBottomWidth: OUTLINE.width,
+              borderRightWidth: OUTLINE.width,
+            },
           ]}
         />
       )}

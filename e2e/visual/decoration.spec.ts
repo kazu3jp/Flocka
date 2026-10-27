@@ -25,7 +25,7 @@ test("decoration tabs, sticker limits, failed saves and durable preferences", as
     ["color", "色"],
     ["stickers", "シール"],
   ] as const) {
-    await page.getByRole("button", { name: label, exact: true }).click();
+    await page.getByRole("tab", { name: label, exact: true }).click();
     await reference.locator(`[data-od-id="deco-tab-${tab}"]`).click();
     if (tab === "frame")
       await expect(
@@ -69,9 +69,9 @@ test("decoration tabs, sticker limits, failed saves and durable preferences", as
   await expect(
     page.getByRole("button", { name: "音符", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "色", exact: true }).click();
+  await page.getByRole("tab", { name: "色", exact: true }).click();
   await page.getByRole("button", { name: "ピンク", exact: true }).click();
-  await page.getByRole("button", { name: "模様", exact: true }).click();
+  await page.getByRole("tab", { name: "模様", exact: true }).click();
   await page.getByRole("button", { name: "水玉", exact: true }).click();
   await context.setOffline(true);
   await page.getByRole("button", { name: "完了", exact: true }).click();
@@ -101,7 +101,7 @@ test("decoration tabs, sticker limits, failed saves and durable preferences", as
   await expect(
     page.getByRole("button", { name: "水玉", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "色", exact: true }).click();
+  await page.getByRole("tab", { name: "色", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "ピンク", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");

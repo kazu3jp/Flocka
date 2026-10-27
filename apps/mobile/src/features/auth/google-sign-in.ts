@@ -9,7 +9,7 @@ import {
 import { watchOAuthErrorRedirect } from "./oauth-error-redirect";
 
 /** Where the browser flow returns on success and where it reports a failure. */
-export function googleRedirectTargets(returnURL?: string) {
+function googleRedirectTargets(returnURL?: string) {
   if (Platform.OS === "web")
     return {
       callbackURL: returnURL ?? window.location.origin,

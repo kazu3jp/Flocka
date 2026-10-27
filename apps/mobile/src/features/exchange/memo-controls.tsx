@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { CachedSvgXml } from "../../components/cached-svg-xml";
 import { CARDS, SELF_OPTIONS } from "@flocka/domain";
 import vectors from "../../vectors.json";
-import { C, F, S, T } from "../../components/ui";
+import { C, F, S, T, OUTLINE } from "../../components/ui";
 import { PeerAvatar } from "./player-card";
 
 export function MemoProgress({ step }: { step: number }) {
@@ -60,10 +60,10 @@ export function MemoRecipient({
         paddingVertical: 10,
         paddingHorizontal: 14,
         borderRadius: 14,
-        borderWidth: 2.5,
+        borderWidth: OUTLINE.width,
         borderColor: C.ink,
         backgroundColor: selected ? C.yellow : C.paper,
-        boxShadow: `3px 3px 0 ${C.ink}`,
+        boxShadow: OUTLINE.shadow,
       }}
     >
       <PeerAvatar id={id} size={36} />
@@ -106,10 +106,10 @@ export function MemoStrengths({
             minHeight: 44,
             paddingHorizontal: 14,
             borderRadius: 12,
-            borderWidth: 2.5,
+            borderWidth: OUTLINE.width,
             borderColor: C.ink,
             backgroundColor: selected === key ? C.yellow : C.paper,
-            boxShadow: `3px 3px 0 ${C.ink}`,
+            boxShadow: OUTLINE.shadow,
             flexDirection: "row",
             alignItems: "center",
             gap: 6,

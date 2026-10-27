@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Animated, Pressable, View, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { C, F, LAYOUT, SP } from "./theme";
+import { C, F, LAYOUT, SP, OUTLINE } from "./theme";
 import { usePresenceMotion } from "./motion";
 import { T } from "./text";
 import { useKeyboardHeight } from "./use-keyboard-height";
@@ -86,13 +86,13 @@ export function ToastBanner({
         alignItems: "center",
         gap: LAYOUT.blockGap,
         backgroundColor: C.yellow,
-        borderWidth: 2.5,
+        borderWidth: OUTLINE.width,
         borderColor: C.ink,
         borderRadius: 14,
         paddingVertical: 11,
         paddingLeft: 14,
         paddingRight: 10,
-        boxShadow: `4px 4px 0 ${C.ink}`,
+        boxShadow: OUTLINE.raisedShadow,
         // The source's toastIn: rise 10px from 96% scale while fading in.
         opacity: progress,
         transform: [

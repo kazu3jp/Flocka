@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import type { PRSegment } from "@flocka/domain";
 import { PRCaret } from "./pr-caret";
 import { typedLength, useTypedShown, type TypedProgress } from "./use-typed-pr";
-import { C, F, T } from "../../components/ui";
+import { C, F, T, OUTLINE } from "../../components/ui";
 
 /** Counts code points, and each break as its "\n", exactly like the draft text. */
 function visiblePRSegments(segments: PRSegment[], shown: number) {
@@ -87,7 +87,7 @@ export function PRBody({
                     segment.kind === "quote" && { fontFamily: F.bold },
                     segment.kind === "placeholder" && {
                       color: "#a10128",
-                      borderBottomWidth: 2.5,
+                      borderBottomWidth: OUTLINE.width,
                       borderStyle: "dashed",
                       borderColor: "#cc243d",
                       fontFamily: F.bold,

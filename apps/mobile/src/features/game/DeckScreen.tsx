@@ -21,6 +21,7 @@ import {
   Sheet,
   StrengthCard,
   T,
+  OUTLINE,
 } from "../../components/ui";
 
 import {
@@ -57,7 +58,7 @@ function MoreCardsTile({
           flex: 1,
           padding: 10,
           borderRadius: 14,
-          boxShadow: `3px 3px 0 ${C.ink}`,
+          boxShadow: OUTLINE.shadow,
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
@@ -425,7 +426,7 @@ export function Deck() {
               width: 40,
               height: 48,
               backgroundColor: d.prCard ? C.yellow : C.paper,
-              borderWidth: 2.5,
+              borderWidth: OUTLINE.width,
               borderColor: C.ink,
               borderRadius: 6,
               alignItems: "center",

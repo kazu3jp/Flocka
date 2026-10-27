@@ -9,7 +9,7 @@ import {
   type SnsLink,
   type SnsPlatform,
 } from "@flocka/domain";
-import { C, F, InlineError, S, T } from "../../components/ui";
+import { C, F, InlineError, S, T, OUTLINE } from "../../components/ui";
 import { SnsIcon } from "../../components/sns-icon";
 import { useAppWidth } from "../../components/app-frame";
 import { useFontScale } from "../../components/use-font-scale";
@@ -100,7 +100,7 @@ export function SnsLinksEditor({
                     gap: 7,
                     paddingHorizontal: 10,
                     backgroundColor: linked.has(platform) ? C.yellow : C.paper2,
-                    borderRightWidth: 2.5,
+                    borderRightWidth: OUTLINE.width,
                     borderColor: C.ink,
                   }}
                 >

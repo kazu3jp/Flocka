@@ -10,7 +10,7 @@ export type CameraPermissionInput = {
   requesting: boolean;
 };
 
-export type CameraPermissionView =
+type CameraPermissionView =
   | "checking" // reading or waiting for the system answer
   | "request" // never asked: ask now
   | "granted" // show the camera

@@ -30,6 +30,7 @@ import {
   Sheet,
   SP,
   T,
+  OUTLINE,
 } from "../components/ui";
 import {
   SCREENS,
@@ -75,10 +76,10 @@ function ErrorBanner({
           justifyContent: "center",
           backgroundColor: C.danger,
           borderRadius: 10,
-          borderWidth: 2.5,
+          borderWidth: OUTLINE.width,
           borderColor: C.ink,
           padding: SP.md,
-          boxShadow: `3px 3px 0 ${C.ink}`,
+          boxShadow: OUTLINE.shadow,
         }}
       >
         <T size={12}>{text}</T>

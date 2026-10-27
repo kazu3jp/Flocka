@@ -1,7 +1,7 @@
 export const SHOWCASE_CHOICE_GAP = 10;
 // Below this a card's name and illustration get cramped, so narrow phones
 // show two columns instead of the design's three.
-export const MIN_SHOWCASE_CHOICE_WIDTH = 100;
+const MIN_SHOWCASE_CHOICE_WIDTH = 100;
 
 /**
  * Floors the width: fractional widths can round up on device pixels, and three

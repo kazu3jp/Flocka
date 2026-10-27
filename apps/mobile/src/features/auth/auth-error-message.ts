@@ -1,4 +1,4 @@
-export type AuthResultError = {
+type AuthResultError = {
   message?: string;
   code?: string;
   status?: number;

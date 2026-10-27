@@ -5,13 +5,8 @@ import { Board, T } from "./ui";
 import { C } from "./theme";
 
 /** Spinner on the blue board, for places the whole screen waits on the server. */
-export function Loader({ size = 20 }: { size?: number }) {
+function Loader({ size = 20 }: { size?: number }) {
   return <Spinner size={size} color={C.yellow} trackColor={`${C.white}33`} />;
-}
-
-/** Spinner on the paper sheet, where the yellow arc would not show. */
-export function InkLoader({ size = 20 }: { size?: number }) {
-  return <Spinner size={size} color={C.ink} trackColor={`${C.ink}22`} />;
 }
 
 /** A whole-screen wait: the branded spinner above the same status text. */
