@@ -5,20 +5,13 @@ import { UserFacingError } from "../sync/user-facing-error";
 import { googleSheetErrorMessage } from "./auth-error-message";
 import { GOOGLE_WEB_CLIENT_ID } from "./google-config";
 
-let warned = false;
-/** True when this build can show the native Google sheet (Android + client ID). */
-export function nativeGoogleSignInAvailable() {
-  if (Platform.OS !== "android" || !NativeGoogleSignIn) return false;
-  if (!GOOGLE_WEB_CLIENT_ID) {
-    if (!warned) {
-      warned = true;
-      console.warn(
-        "[auth] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID was not set at build time: Android falls back to the browser Google sign-in.",
-      );
-    }
-    return false;
-  }
-  return true;
+/**
+ * Android signs in with the native Google sheet; iOS and the web keep the
+ * browser redirect. An Android build without the module or the client ID is
+ * misconfigured and reports it instead of switching to the browser.
+ */
+export function usesNativeGoogleSignIn() {
+  return Platform.OS === "android";
 }
 
 const randomNonce = () =>
@@ -34,10 +27,15 @@ export async function requestGoogleIdToken(): Promise<{
   token: string;
   nonce: string;
 } | null> {
-  if (!NativeGoogleSignIn || !GOOGLE_WEB_CLIENT_ID)
-    throw new UserFacingError(
-      "この端末ではアプリ内のGoogleログインを使えません",
+  if (!NativeGoogleSignIn || !GOOGLE_WEB_CLIENT_ID) {
+    // Logcat line for the operator: the build lacks what the sheet needs.
+    console.warn(
+      `[auth] native Google sign-in is not configured: ${NativeGoogleSignIn ? "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID was not set at build time" : "the FlockaGoogleSignIn module is missing from this build"}`,
     );
+    throw new UserFacingError(
+      "このアプリのGoogleログインの設定が不足しています。運営にお問い合わせください",
+    );
+  }
   const nonce = randomNonce();
   try {
     const token = await NativeGoogleSignIn.signIn(GOOGLE_WEB_CLIENT_ID, nonce);

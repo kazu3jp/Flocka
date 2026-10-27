@@ -12,7 +12,7 @@
 | `RESEND_FROM`                      | `Flocka <no-reply@flocka.zofax.net>`                                                                     |
 | `ALLOWED_ORIGINS`                  | Webフロントの完全なオリジンをカンマ区切りで設定                                                          |
 | `EXPO_PUBLIC_API_URL`              | Expo側のWorkers接続先。秘密情報は入れない                                                                |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | 任意。Androidのアプリ内Googleログイン用のウェブクライアントID（公開値）。未設定ならAndroidもブラウザ方式 |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Androidでは必須。アプリ内Googleログイン用のウェブクライアントID（公開値）。`apps/mobile/eas.json` の `build.base.env` に置き、`npm run apk:android` は未設定だとビルドしない |
 
 Resendで `flocka.zofax.net` を追加し、管理画面に示されたDNSレコードを設定して検証を完了します。DNSレコードの値を推測で設定しません。APIキーとDNS設定は本実装に含めて公開しません。
 
@@ -70,7 +70,7 @@ GoogleのローカルWeb開発では `http://localhost:8787/api/auth/callback/go
 
 Androidでは、ブラウザを開かず、端末のGoogleアカウント選択（Credential Manager）を使ってIDトークンを取得し、`signIn.social({ provider: "google", idToken: { token, nonce } })` でBetter Authへ渡します。サーバーはGoogleの公開鍵で署名・発行元・有効期限・`aud`・`nonce` を検証してからセッションを発行します。ネイティブのIDトークンの `aud` は、アプリが `serverClientId` として渡した**ウェブアプリケーションのクライアントID**になるため、サーバーの既存の `GOOGLE_CLIENT_ID` でそのまま検証できます（Better Auth 1.7.7のソースと、`tests/google-sign-in.integration.test.ts` の偽のGoogle鍵で確認）。iOSとWebは従来のブラウザ方式のままです。
 
-アプリ側の設定は `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`（ウェブアプリケーションのクライアントID。公開して構わない値で、秘密ではありません）だけで、読む場所は [google-config.ts](../apps/mobile/src/features/auth/google-config.ts) の1か所です。**ビルド時に設定されたときだけ**ネイティブ方式が有効になります。未設定のビルドでは、Androidも従来のブラウザ方式へ戻り、`[auth] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID was not set at build time` をログに1回出します。サーバー側の変更・秘密情報の追加は要りません。
+アプリ側の設定は `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`（ウェブアプリケーションのクライアントID。公開して構わない値で、秘密ではありません）だけで、読む場所は [google-config.ts](../apps/mobile/src/features/auth/google-config.ts) の1か所です。値はビルド時にJavaScriptへ埋め込まれます。Androidは常にネイティブ方式で、ブラウザ方式へは切り替えません。値が無いビルドではボタンを押すと「Googleログインの設定が不足しています」と表示し、`[auth] native Google sign-in is not configured` をログに出します。`npm run apk:android` は値が無い・形式が違うときはビルドを止め、Gradleが古いJavaScriptを使い回さないよう毎回作り直します。サーバー側の変更・秘密情報の追加は要りません。
 
 運営者がGoogle Cloudで行うこと（アプリ側のコードだけでは動きません）:
 
