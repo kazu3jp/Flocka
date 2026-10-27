@@ -79,6 +79,8 @@ export const LAYOUT = {
   sheetGap: 14,
   /** Distance of floating banners from the screen sides. */
   toastInset: 12,
+  /** Width of the app column on a native tablet, centered on the stage. */
+  tabletMaxWidth: 560,
 } as const;
 
 export const S = StyleSheet.create({

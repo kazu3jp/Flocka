@@ -344,6 +344,8 @@ export function Header({
         accessibilityRole="header"
         display
         size={20}
+        // A long card or person's name keeps the header at most two lines high.
+        numberOfLines={2}
         style={{ flex: 1, lineHeight: 26 }}
       >
         {title}

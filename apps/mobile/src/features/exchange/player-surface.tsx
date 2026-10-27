@@ -288,6 +288,7 @@ export function PlayerSurface({
                   accessibilityRole="button"
                   accessibilityLabel="選ぶ"
                   onPress={onPick}
+                  hitSlop={{ top: 4, bottom: 4 }}
                   style={{
                     minHeight: 36,
                     flexDirection: "row",

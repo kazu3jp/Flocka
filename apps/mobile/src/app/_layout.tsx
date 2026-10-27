@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "../store";
-import { C, T } from "../components/ui";
+import { C, LAYOUT, T } from "../components/ui";
 import { AppFrame } from "../components/app-frame";
 
 const WEB_FONTS = {
@@ -32,7 +32,9 @@ export default function RootLayout() {
   const [loaded, error] = useAppFonts(),
     { width, height } = useWindowDimensions(),
     desktop = Platform.OS === "web" && width > 760,
-    framed = Platform.OS === "web" && width > 500;
+    framed = Platform.OS === "web" && width > 500,
+    // A native tablet keeps the phone layout in a wider centered column.
+    tablet = Platform.OS !== "web" && width > LAYOUT.tabletMaxWidth;
   if (error)
     return (
       <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
@@ -78,7 +80,7 @@ export default function RootLayout() {
         <AppFrame
           borderRadius={framed ? 48 : 0}
           style={{
-            width: framed ? 390 : "100%",
+            width: framed ? 390 : tablet ? LAYOUT.tabletMaxWidth : "100%",
             height: framed ? Math.min(844, height - 48) : "100%",
             backgroundColor: C.blue,
             borderRadius: framed ? 48 : 0,

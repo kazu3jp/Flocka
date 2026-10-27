@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Linking, Platform, View } from "react-native";
+import { Linking, Platform, View, useWindowDimensions } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useScreenFocused } from "../../components/screen-focus";
 import QRCode from "react-native-qrcode-svg";
@@ -9,11 +9,15 @@ import {
   Btn,
   C,
   Choice,
+  FIXED_LOOKING_BOARD,
   Header,
+  LAYOUT,
   Panel,
   S,
   T,
 } from "../../components/ui";
+import { useAppWidth } from "../../components/app-frame";
+import { fitDisplayName } from "../../components/responsive-scale";
 import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
 import {
@@ -26,6 +30,27 @@ import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
 
 const RESCAN_DELAY_MS = 2000;
+
+/**
+ * The QR code and the camera take a share of the screen height, up to their
+ * size on a tall phone, so the rest of the screen stays in view on a short one.
+ */
+function useScanSizes() {
+  const { height, fontScale } = useWindowDimensions();
+  const panelInnerWidth =
+    useAppWidth() - 2 * LAYOUT.screenPadding - 2 * LAYOUT.panelPadding;
+  return {
+    qr: clamp(Math.round(height * 0.3), 160, Math.min(230, panelInnerWidth)),
+    camera: clamp(Math.round(height * 0.4), 220, 320),
+    panelInnerWidth,
+    fontScale,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function Scan() {
   const { s, api, refresh, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
@@ -44,7 +69,8 @@ export function Scan() {
       busy: creating,
       renew,
     } = useInvite(),
-    { busy, error, run } = useAction();
+    { busy, error, run } = useAction(),
+    sizes = useScanSizes();
   useEffect(
     () => () => {
       if (rescanTimer.current) clearTimeout(rescanTimer.current);
@@ -106,7 +132,7 @@ export function Scan() {
     });
   };
   return (
-    <Board>
+    <Board scroll contentStyle={FIXED_LOOKING_BOARD}>
       <Header title="QRで交換" onBack={nav.pop} />
       <View style={S.row}>
         <View style={S.fill}>
@@ -133,7 +159,7 @@ export function Scan() {
             {invite ? (
               <QRCode
                 value={inviteQR(invite.code)}
-                size={230}
+                size={sizes.qr}
                 color={C.ink}
                 backgroundColor={C.paper}
               />
@@ -147,7 +173,18 @@ export function Scan() {
               </T>
             )}
             <Avatar name={s.profile.name} avatar={s.profile.avatar} size={56} />
-            <T display color={C.ink} size={20}>
+            <T
+              display
+              color={C.ink}
+              size={fitDisplayName({
+                name: s.profile.name,
+                availableWidth: sizes.panelInnerWidth,
+                maxSize: 20,
+                minSize: 14,
+                fontScale: sizes.fontScale,
+              })}
+              style={{ textAlign: "center" }}
+            >
               {s.profile.name}
             </T>
             {invite && (
@@ -173,7 +210,7 @@ export function Scan() {
           {permissionView === "granted" && focused ? (
             <View
               style={{
-                height: 320,
+                height: sizes.camera,
                 borderWidth: 3,
                 borderColor: C.yellow,
                 borderRadius: 20,

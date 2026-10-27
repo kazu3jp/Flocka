@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, F, LAYOUT, SP } from "./theme";
 import { usePresenceMotion } from "./motion";
 import { T } from "./text";
+import { useKeyboardHeight } from "./use-keyboard-height";
 
 type SheetFeedback = { content: React.ReactNode; register?: () => () => void };
 const FeedbackContext = createContext<SheetFeedback>({ content: null });
@@ -58,6 +59,7 @@ export function ToastBanner({
   focused: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   // The banner eases out after the notification clears, so it keeps the last text.
   const [last, setLast] = useState<Notification | null>(null);
   if (notification && notification !== last) setLast(notification);
@@ -73,7 +75,11 @@ export function ToastBanner({
       accessibilityLiveRegion="polite"
       style={{
         position: "absolute",
-        bottom: (focused ? 96 : 80) + insets.bottom,
+        // Above the tab bar, or above the keyboard while one is typing.
+        bottom: Math.max(
+          (focused ? 96 : 80) + insets.bottom,
+          keyboardHeight + LAYOUT.toastInset,
+        ),
         left: LAYOUT.toastInset,
         right: LAYOUT.toastInset,
         flexDirection: "row",

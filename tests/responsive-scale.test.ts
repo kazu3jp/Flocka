@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   DISPLAY_FONT_MAX_MULTIPLIER,
   appliedFontScale,
+  cardHeightInRow,
   displayTextEm,
   fanCardHeightFor,
   fitDisplayName,
@@ -59,4 +60,13 @@ test("an unmeasured card keeps the requested size", () => {
 test("a fan needs room for its rotation and is dropped when too small", () => {
   assert.ok(fanCardHeightFor(244, 96) > 96);
   assert.equal(fanCardHeightFor(100, 96), 0);
+});
+
+test("a row of cards keeps its height on a 390pt phone and shrinks as a whole on a narrower one", () => {
+  // 390pt window less the 14pt screen padding on each side.
+  assert.equal(cardHeightInRow(362, 3, 8, 220), 220);
+  assert.equal(cardHeightInRow(292, 3, 8, 220), 184);
+  assert.equal(cardHeightInRow(292, 3, 10, 230), 181);
+  // A tablet's wider column never grows the cards past their height.
+  assert.equal(cardHeightInRow(532, 3, 8, 220), 220);
 });

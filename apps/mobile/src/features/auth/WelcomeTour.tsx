@@ -152,6 +152,8 @@ export function WelcomeTour() {
               setIndex(i);
               setPaused(true);
             }}
+            // The row stays thin; the tap area reaches the full target height.
+            hitSlop={{ top: 10, bottom: 10 }}
             style={{ width: 44, minHeight: 24, justifyContent: "center" }}
           >
             <View

@@ -16,6 +16,7 @@ import {
   C,
   Field,
   Icon,
+  LAYOUT,
   LinkButton,
   Panel,
   S,
@@ -23,6 +24,8 @@ import {
   T,
   Sheet,
 } from "../../components/ui";
+import { useAppWidth } from "../../components/app-frame";
+import { cardHeightInRow } from "../../components/responsive-scale";
 import {
   CARDS,
   SNS_PLATFORM_LABELS,
@@ -67,6 +70,9 @@ const STEPS = [
 ];
 const LAST_STEP = STEPS.length - 1;
 
+/** The deck preview sizes its cards for the three the picker allows at most. */
+const DECK_PREVIEW_COLUMNS = 3;
+
 export function Onboarding() {
   const { data } = useAuth();
   const { s, update, api, refresh, nav, toast, saveProfile } = useApp(),
@@ -78,6 +84,12 @@ export function Onboarding() {
     [snsInvalid, setSnsInvalid] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const deckCardHeight = cardHeightInRow(
+    useAppWidth() - 2 * LAYOUT.screenPadding,
+    DECK_PREVIEW_COLUMNS,
+    LAYOUT.blockGap,
+    230,
+  );
   const previousStep = useCallback(
     () => setStep((current) => Math.max(0, current - 1)),
     [],
@@ -161,28 +173,6 @@ export function Onboarding() {
   };
   return (
     <Board>
-      {step === LAST_STEP && !data?.user.termsAccepted && (
-        <Panel style={S.gap}>
-          <LinkButton
-            color={C.ink}
-            label="利用規約"
-            onPress={() => setLegal("利用規約")}
-          />
-          <LinkButton
-            color={C.ink}
-            label="プライバシーポリシー"
-            onPress={() => setLegal("プライバシーポリシー")}
-          />
-          <View style={S.row}>
-            <Switch
-              accessibilityLabel="利用規約とプライバシーポリシーに同意する"
-              value={agree}
-              onValueChange={setAgree}
-            />
-            <T color={C.ink}>内容を確認し、同意する</T>
-          </View>
-        </Panel>
-      )}
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
           <LegalDocument title={legal} />
@@ -294,7 +284,7 @@ export function Onboarding() {
                 <StrengthCard
                   key={k}
                   card={bareCard(k)}
-                  style={{ flex: 1, height: 230 }}
+                  style={{ flex: 1, height: deckCardHeight }}
                 />
               ))}
             </View>
@@ -341,6 +331,28 @@ export function Onboarding() {
               color={C.ink}
               onPress={() => setStep(3)}
             />
+          </Panel>
+        )}
+        {step === LAST_STEP && !data?.user.termsAccepted && (
+          <Panel style={S.gap}>
+            <LinkButton
+              color={C.ink}
+              label="利用規約"
+              onPress={() => setLegal("利用規約")}
+            />
+            <LinkButton
+              color={C.ink}
+              label="プライバシーポリシー"
+              onPress={() => setLegal("プライバシーポリシー")}
+            />
+            <View style={S.row}>
+              <Switch
+                accessibilityLabel="利用規約とプライバシーポリシーに同意する"
+                value={agree}
+                onValueChange={setAgree}
+              />
+              <T color={C.ink}>内容を確認し、同意する</T>
+            </View>
           </Panel>
         )}
       </ScrollView>

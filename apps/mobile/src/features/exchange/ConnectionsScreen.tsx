@@ -153,6 +153,7 @@ export function Connections() {
                     <T
                       color={C.ink}
                       size={14}
+                      numberOfLines={1}
                       style={{
                         fontFamily: F.bold,
                         lineHeight: 22.4,
@@ -163,7 +164,12 @@ export function Connections() {
                     </T>
                     {pending && <PendingBadge />}
                   </View>
-                  <T color={C.muted} size={12.5} style={{ lineHeight: 24.75 }}>
+                  <T
+                    color={C.muted}
+                    size={12.5}
+                    numberOfLines={2}
+                    style={{ lineHeight: 24.75 }}
+                  >
                     {description}
                   </T>
                 </View>

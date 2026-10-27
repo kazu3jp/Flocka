@@ -150,6 +150,7 @@ export function PasswordField({
           aria-pressed={show}
           accessibilityState={{ selected: show }}
           onPress={() => setShow(!show)}
+          hitSlop={{ top: 2, bottom: 2 }}
           style={{
             position: "absolute",
             right: 6,

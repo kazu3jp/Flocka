@@ -22,6 +22,8 @@ export function GiveMode({
           accessibilityState={{ selected: mode === value }}
           aria-selected={mode === value}
           onPress={() => onChange(value)}
+          // 42 tall as in the design; the tap area reaches the full target.
+          hitSlop={{ top: 1, bottom: 1 }}
           style={{
             flex: 1,
             minHeight: 42,

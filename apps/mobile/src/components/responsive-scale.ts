@@ -95,3 +95,21 @@ export function fanCardHeightFor(
   const cardHeight = availableHeight / FAN_ROTATION_ALLOWANCE;
   return cardHeight >= minimumCardHeight ? cardHeight : 0;
 }
+
+/**
+ * Height of a card in a row of `count` cards that share `rowWidth`. On a
+ * 390pt phone a three-card row keeps its full `height`; on a narrower phone
+ * the cards grow no taller than twice their width, so they shrink as a whole
+ * instead of becoming thin strips.
+ */
+export function cardHeightInRow(
+  rowWidth: number,
+  count: number,
+  gap: number,
+  height: number,
+) {
+  const cardWidth = (rowWidth - gap * (count - 1)) / count;
+  return Math.min(height, Math.round(cardWidth * TALL_CARD_ASPECT));
+}
+
+const TALL_CARD_ASPECT = 2;

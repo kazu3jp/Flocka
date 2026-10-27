@@ -96,6 +96,8 @@ export function Deco({ cardKey }: { cardKey: string }) {
             accessibilityState={{ selected: tab === key }}
             disabled={busy}
             onPress={() => setTab(key)}
+            // 42 tall as in the design; the tap area reaches the full target.
+            hitSlop={{ top: 1, bottom: 1 }}
             style={{
               flex: 1,
               minHeight: 42,
