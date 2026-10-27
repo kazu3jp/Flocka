@@ -52,8 +52,8 @@ export function AccountPanel() {
             if (!busy) setAsk(false);
           }}
         >
-          <T size={13}>
-            この端末のログイン状態を解除します。保存したデータは同じアカウントでログインすると開けます。
+          <T size={14} color={C.muted}>
+            もう一度ログインすると、デッキや証言をそのまま使えます。
           </T>
           {error ? <T color={C.danger}>{error}</T> : null}
           <Btn

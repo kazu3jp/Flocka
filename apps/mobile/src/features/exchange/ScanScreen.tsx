@@ -30,6 +30,7 @@ import {
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
 import { useStartExchange } from "./use-start-exchange";
+import { QrFinder } from "./qr-finder";
 import { useScreenVisit } from "../sync/use-screen-visit";
 
 const RESCAN_DELAY_MS = 2000;
@@ -40,15 +41,22 @@ const RESCAN_DELAY_MS = 2000;
  */
 function useScanSizes() {
   const { height, fontScale } = useWindowDimensions();
-  const panelInnerWidth =
-    useAppWidth() - 2 * LAYOUT.screenPadding - 2 * LAYOUT.panelPadding;
+  const contentWidth = useAppWidth() - 2 * LAYOUT.screenPadding;
+  // The source's .qr-card is at most 300 wide with 20 padding.
+  const cardWidth = Math.min(contentWidth, QR_CARD_MAX_WIDTH);
+  const cardInnerWidth = cardWidth - 2 * QR_CARD_PADDING;
   return {
-    qr: clamp(Math.round(height * 0.3), 160, Math.min(230, panelInnerWidth)),
-    camera: clamp(Math.round(height * 0.4), 220, 320),
-    panelInnerWidth,
+    cardWidth,
+    cardInnerWidth,
+    qr: clamp(Math.round(height * 0.3), 160, cardInnerWidth),
+    // The source's .qr-finder is a square of at most 280.
+    finder: clamp(Math.round(height * 0.4), 200, Math.min(280, contentWidth)),
     fontScale,
   };
 }
+
+const QR_CARD_MAX_WIDTH = 300;
+const QR_CARD_PADDING = 20;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -157,7 +165,17 @@ export function Scan() {
       </View>
       {mode === "show" ? (
         <View style={{ flex: 1, justifyContent: "center", gap: 16 }}>
-          <Panel style={{ alignItems: "center", gap: 16, paddingVertical: 28 }}>
+          <Panel
+            testID="qr-card"
+            style={{
+              width: sizes.cardWidth,
+              alignSelf: "center",
+              alignItems: "center",
+              gap: 14,
+              padding: QR_CARD_PADDING,
+              borderRadius: 22,
+            }}
+          >
             {invite ? (
               <QRCode
                 value={inviteQR(invite.code)}
@@ -174,21 +192,31 @@ export function Scan() {
                     : "交換コードを作成できませんでした。「QRを更新する」を押してください。"}
               </T>
             )}
-            <Avatar name={s.profile.name} avatar={s.profile.avatar} size={56} />
-            <T
-              display
-              color={C.ink}
-              size={fitDisplayName({
-                name: s.profile.name,
-                availableWidth: sizes.panelInnerWidth,
-                maxSize: 20,
-                minSize: 14,
-                fontScale: sizes.fontScale,
-              })}
-              style={{ textAlign: "center" }}
+            <View
+              style={[S.row, { justifyContent: "center", maxWidth: "100%" }]}
             >
-              {s.profile.name}
-            </T>
+              <Avatar
+                name={s.profile.name}
+                avatar={s.profile.avatar}
+                size={36}
+              />
+              <T
+                display
+                color={C.ink}
+                numberOfLines={2}
+                size={fitDisplayName({
+                  name: s.profile.name,
+                  // Beside the 36 avatar and the row's gap.
+                  availableWidth: sizes.cardInnerWidth - 36 - LAYOUT.blockGap,
+                  maxSize: 18,
+                  minSize: 14,
+                  fontScale: sizes.fontScale,
+                })}
+                style={{ flexShrink: 1 }}
+              >
+                {s.profile.name}
+              </T>
+            </View>
             {invite && (
               <T color={C.muted} size={12}>
                 有効期限{" "}
@@ -196,8 +224,8 @@ export function Scan() {
               </T>
             )}
           </Panel>
-          <T size={12}>
-            相手が読み取ると確認画面が開きます。双方が「交換する」を押すと成立します。
+          <T size={13} color={C.pale} style={{ textAlign: "center" }}>
+            相手のアプリでこのQRを読み取ってもらうと、交換の確認に進みます。
           </T>
           <Btn
             plain
@@ -210,15 +238,7 @@ export function Scan() {
       ) : (
         <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
           {permissionView === "granted" && focused ? (
-            <View
-              style={{
-                height: sizes.camera,
-                borderWidth: 3,
-                borderColor: C.yellow,
-                borderRadius: 20,
-                overflow: "hidden",
-              }}
-            >
+            <QrFinder size={sizes.finder}>
               <CameraView
                 key={cameraKey}
                 style={S.fill}
@@ -226,7 +246,7 @@ export function Scan() {
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={({ data }) => receive(data)}
               />
-            </View>
+            </QrFinder>
           ) : (
             <Panel style={S.gap}>
               <T color={C.ink}>
