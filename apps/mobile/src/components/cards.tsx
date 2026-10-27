@@ -188,6 +188,9 @@ export const CardPattern = memo(function CardPattern({
   );
 });
 
+// The No. label's right edge inside the art (5px inset plus the label).
+const CARD_NUMBER_LABEL_WIDTH = 44;
+
 /**
  * Pass `height` when the caller already sizes the card, so the name and
  * flavor text are final on the first render instead of after a layout pass.
@@ -238,6 +241,15 @@ export const StrengthCard = memo(function StrengthCard({
           setMeasuredHeight(event.nativeEvent.layout.height)
       : undefined;
   const [artSize, setArtSize] = useState({ width: 100, height: 100 });
+  // The illustration keeps the source's size (74% x 84% of the art, centered);
+  // the No. label shows only where it fits beside it instead of covering it.
+  const illustrationSize = Math.min(
+    artSize.width * 0.74,
+    artSize.height * 0.84,
+    150,
+  );
+  const showNumber =
+    (artSize.width - illustrationSize) / 2 >= CARD_NUMBER_LABEL_WIDTH;
   const showFlavor = large || cardHeight >= 225;
   const nameSize = large
     ? 18
@@ -334,6 +346,29 @@ export const StrengthCard = memo(function StrengthCard({
             自分も選んだ
           </T>
         )}
+        {/* In the band rather than stamped on the art, so it never covers the illustration. */}
+        {card.confirmed && card.discovered && (
+          <T
+            display
+            color={C.stampInk}
+            size={10.5}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            style={{
+              flexShrink: 1,
+              backgroundColor: "rgba(255,255,255,0.7)",
+              borderWidth: 1.5,
+              borderColor: C.stampBorder,
+              borderRadius: 5,
+              paddingVertical: 1,
+              paddingHorizontal: 3,
+              lineHeight: 13.2,
+            }}
+          >
+            新発見
+          </T>
+        )}
       </View>
       <View
         onLayout={(event) => {
@@ -360,24 +395,26 @@ export const StrengthCard = memo(function StrengthCard({
         }}
       >
         <CardPattern card={card} selfOnly={selfOnly} {...artSize} />
-        <View style={{ position: "absolute", left: 5, top: 4, zIndex: 4 }}>
-          <T
-            color={C.ink}
-            size={10}
-            style={{
-              fontFamily: F.bold,
-              lineHeight: 13,
-              backgroundColor: C.paper,
-              borderWidth: 1.5,
-              borderColor: C.ink,
-              borderRadius: 5,
-              paddingHorizontal: 5,
-              paddingVertical: 1,
-            }}
-          >
-            No.{String(card.no).padStart(2, "0")}
-          </T>
-        </View>
+        {showNumber && (
+          <View style={{ position: "absolute", left: 5, top: 4, zIndex: 4 }}>
+            <T
+              color={C.ink}
+              size={10}
+              style={{
+                fontFamily: F.bold,
+                lineHeight: 13,
+                backgroundColor: C.paper,
+                borderWidth: 1.5,
+                borderColor: C.ink,
+                borderRadius: 5,
+                paddingHorizontal: 5,
+                paddingVertical: 1,
+              }}
+            >
+              No.{String(card.no).padStart(2, "0")}
+            </T>
+          </View>
+        )}
         <CardIllustration
           cardKey={card.key}
           confirmed={card.confirmed}
@@ -401,28 +438,6 @@ export const StrengthCard = memo(function StrengthCard({
               }}
             />
           ))}
-        {card.confirmed && card.discovered && (
-          <T
-            display
-            color={C.stampInk}
-            size={11}
-            style={{
-              position: "absolute",
-              right: 6,
-              top: 6,
-              transform: [{ rotate: "10deg" }],
-              backgroundColor: "rgba(255,255,255,0.7)",
-              borderWidth: 2,
-              borderColor: C.stampBorder,
-              borderRadius: 6,
-              paddingVertical: 3,
-              paddingHorizontal: 6,
-              lineHeight: 13.2,
-            }}
-          >
-            新発見
-          </T>
-        )}
         {card.deco?.stickers.map((k, i) => {
           const layout = card.deco?.layout?.[k];
           const position = layout?.position ?? ["br", "bl", "tr", "tl"][i % 4];
