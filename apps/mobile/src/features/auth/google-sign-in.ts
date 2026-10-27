@@ -3,8 +3,8 @@ import { UserFacingError } from "../sync/user-facing-error";
 import { assertAuthResult, getAuthClient } from "./client";
 import { browserFlowErrorMessage } from "./auth-error-message";
 import {
-  nativeGoogleSignInAvailable,
   requestGoogleIdToken,
+  usesNativeGoogleSignIn,
 } from "./google-native-signin";
 import { watchOAuthErrorRedirect } from "./oauth-error-redirect";
 
@@ -22,15 +22,15 @@ function googleRedirectTargets(returnURL?: string) {
 }
 
 /**
- * Signs in with Google. Android with a configured client ID uses the native
- * account sheet and exchanges its ID token; everything else uses the browser
- * redirect. Resolves to "cancelled" when the person closed the sheet, and
- * throws a message written for the user for every real failure.
+ * Signs in with Google. Android uses the native account sheet and exchanges
+ * its ID token; iOS and the web use the browser redirect. Resolves to
+ * "cancelled" when the person closed the sheet, and throws a message written
+ * for the user for every real failure.
  */
 export async function signInWithGoogle(
   returnURL?: string,
 ): Promise<"done" | "cancelled"> {
-  if (nativeGoogleSignInAvailable()) {
+  if (usesNativeGoogleSignIn()) {
     const credential = await requestGoogleIdToken();
     if (!credential) return "cancelled";
     assertAuthResult(

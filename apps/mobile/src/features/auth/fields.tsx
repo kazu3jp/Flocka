@@ -208,10 +208,11 @@ export function SocialButtons({
             ]}
           >
             <GoogleMark />
+            {/* A line as tall as the font cuts off the descender of "g" on Android. */}
             <T
               color={C.ink}
               size={16}
-              style={{ fontFamily: F.bold, lineHeight: 16 }}
+              style={{ fontFamily: F.bold, lineHeight: 22 }}
             >
               Googleで続ける
             </T>
