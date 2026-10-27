@@ -1,57 +1,69 @@
 import { z } from "zod";
 
 /**
- * SNS links are self-declared handles. Flocka never verifies ownership, and a
- * link is never stored as a free-form URL: only a per-platform handle is kept,
- * and the URL is rebuilt from a fixed https template. This is what keeps
+ * Links on the profile card are self-declared. Flocka never verifies
+ * ownership. A service link is never stored as a free-form URL: only a
+ * per-service handle is kept, and the URL is rebuilt from a fixed https
+ * template. The person's own website is the one free URL, kept only as a
+ * canonical http(s) URL without credentials or a port. This is what keeps
  * javascript:, data: and look-alike hosts out of the profile card.
  */
 export const SNS_PLATFORMS = [
   "x",
-  "instagram",
-  "tiktok",
-  "youtube",
   "github",
-  "line",
+  "zenn",
+  "qiita",
+  "note",
+  "bluesky",
+  "website",
 ] as const;
 export type SnsPlatform = (typeof SNS_PLATFORMS)[number];
+type SnsService = Exclude<SnsPlatform, "website">;
 
 export const SNS_PLATFORM_LABELS: Record<SnsPlatform, string> = {
   x: "X",
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
   github: "GitHub",
-  line: "LINE",
+  zenn: "Zenn",
+  qiita: "Qiita",
+  note: "note",
+  bluesky: "Bluesky",
+  website: "Webサイト",
 };
 
-/** What the profile editor asks for, per platform. */
+/**
+ * Placeholder of each field in the profile editor. Short enough for a narrow
+ * phone; the note under the fields says a profile URL also works.
+ */
 export const SNS_INPUT_HINTS: Record<SnsPlatform, string> = {
-  x: "@ユーザー名 またはプロフィールURL",
-  instagram: "@ユーザー名 またはプロフィールURL",
-  tiktok: "@ユーザー名 またはプロフィールURL",
-  youtube: "@ハンドル またはチャンネルURL",
-  github: "ユーザー名 またはプロフィールURL",
-  line: "LINE ID またはLINEのプロフィールURL",
+  x: "@ユーザー名",
+  github: "ユーザー名",
+  zenn: "@ユーザー名",
+  qiita: "@ユーザー名",
+  note: "@ノートID",
+  bluesky: "@ハンドル",
+  website: "https://example.com",
 };
 
 export type SnsLink = { platform: SnsPlatform; value: string };
 
 export const SNS_INPUT_MAX_LENGTH = 200;
 
-const HANDLE_PATTERNS: Record<SnsPlatform, RegExp> = {
+const BLUESKY_DEFAULT_DOMAIN = ".bsky.social";
+
+const HANDLE_PATTERNS: Record<SnsService, RegExp> = {
   x: /^[A-Za-z0-9_]{1,15}$/,
-  instagram: /^[A-Za-z0-9._]{1,30}$/,
-  tiktok: /^[A-Za-z0-9._]{2,24}$/,
-  youtube: /^[A-Za-z0-9._-]{3,30}$/,
   github: /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/,
-  line: /^[A-Za-z0-9._-]{4,20}$/,
+  zenn: /^[A-Za-z0-9_]{1,30}$/,
+  qiita: /^[A-Za-z0-9_-]{1,40}$/,
+  note: /^[A-Za-z0-9_]{1,30}$/,
+  // A domain name: lowercase labels joined by dots.
+  bluesky:
+    /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
 };
 
 /** Site paths that look like a handle but are not a profile. */
-const RESERVED_PATHS: Partial<Record<SnsPlatform, ReadonlySet<string>>> = {
+const RESERVED_PATHS: Partial<Record<SnsService, ReadonlySet<string>>> = {
   x: new Set(["home", "i", "intent", "share", "search", "explore", "settings"]),
-  instagram: new Set(["p", "reel", "reels", "explore", "accounts", "stories"]),
   github: new Set([
     "orgs",
     "settings",
@@ -62,72 +74,131 @@ const RESERVED_PATHS: Partial<Record<SnsPlatform, ReadonlySet<string>>> = {
     "marketplace",
     "topics",
   ]),
+  zenn: new Set([
+    "articles",
+    "books",
+    "scraps",
+    "topics",
+    "search",
+    "dashboard",
+    "enter",
+    "about",
+    "events",
+  ]),
+  qiita: new Set([
+    "items",
+    "tags",
+    "organizations",
+    "search",
+    "trend",
+    "settings",
+    "login",
+    "signup",
+    "advent-calendar",
+    "api",
+  ]),
+  note: new Set([
+    "notes",
+    "hashtag",
+    "search",
+    "login",
+    "signup",
+    "topics",
+    "contests",
+    "magazines",
+    "settings",
+  ]),
 };
 
-const PROFILE_HOSTS: Record<SnsPlatform, readonly string[]> = {
+const PROFILE_HOSTS: Record<SnsService, readonly string[]> = {
   x: ["x.com", "twitter.com"],
-  instagram: ["instagram.com"],
-  tiktok: ["tiktok.com"],
-  youtube: ["youtube.com"],
   github: ["github.com"],
-  line: ["line.me"],
+  zenn: ["zenn.dev"],
+  qiita: ["qiita.com"],
+  note: ["note.com"],
+  bluesky: ["bsky.app"],
 };
 
-const URL_TEMPLATES: Record<SnsPlatform, (handle: string) => string> = {
+const URL_TEMPLATES: Record<SnsService, (handle: string) => string> = {
   x: (handle) => `https://x.com/${handle}`,
-  instagram: (handle) => `https://www.instagram.com/${handle}`,
-  tiktok: (handle) => `https://www.tiktok.com/@${handle}`,
-  youtube: (handle) => `https://www.youtube.com/@${handle}`,
   github: (handle) => `https://github.com/${handle}`,
-  line: (handle) => `https://line.me/ti/p/~${handle}`,
+  zenn: (handle) => `https://zenn.dev/${handle}`,
+  qiita: (handle) => `https://qiita.com/${handle}`,
+  note: (handle) => `https://note.com/${handle}`,
+  bluesky: (handle) => `https://bsky.app/profile/${handle}`,
 };
 
-/** Prefix the platform puts before the handle inside its profile URL. */
-const URL_HANDLE_PREFIX: Record<SnsPlatform, string> = {
-  x: "",
-  instagram: "",
-  tiktok: "@",
-  youtube: "@",
-  github: "",
-  line: "~",
-};
+const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const SCHEMELESS_URL = /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+\//i;
 
-/** The handle inside a profile URL of this platform, or null for any other URL. */
-function handleFromProfileUrl(
-  platform: SnsPlatform,
-  input: string,
-): string | null {
+/** An http(s) URL without credentials or a port; a missing scheme means https. */
+function parseWebUrl(input: string): URL | null {
   let url: URL;
   try {
-    url = new URL(input);
+    url = new URL(SCHEME.test(input) ? input : `https://${input}`);
   } catch {
     return null;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   if (url.username || url.password || url.port) return null;
+  return url;
+}
+
+/** The handle inside a profile URL of this service, or null for any other URL. */
+function handleFromProfileUrl(
+  platform: SnsService,
+  input: string,
+): string | null {
+  const url = parseWebUrl(input);
+  if (!url) return null;
   const host = url.hostname.toLowerCase().replace(/^(www|m|mobile)\./, "");
   if (!PROFILE_HOSTS[platform].includes(host)) return null;
   const segments = url.pathname.split("/").filter(Boolean);
-  const prefix = URL_HANDLE_PREFIX[platform];
-  let candidate: string | undefined;
-  if (platform === "line") {
-    const path = segments[0] === "R" ? segments.slice(1) : segments;
-    if (path.length !== 3 || path[0] !== "ti" || path[1] !== "p") return null;
-    candidate = path[2];
-  } else {
-    if (segments.length !== 1) return null;
-    candidate = segments[0];
-  }
-  if (prefix && !candidate.startsWith(prefix)) return null;
-  const handle = prefix ? candidate.slice(prefix.length) : candidate;
+  if (platform === "bluesky")
+    return segments.length === 2 && segments[0] === "profile"
+      ? segments[1].toLowerCase()
+      : null;
+  if (segments.length !== 1) return null;
+  const handle = segments[0];
   if (RESERVED_PATHS[platform]?.has(handle.toLowerCase())) return null;
   return handle;
 }
 
+function normalizeHandle(platform: SnsService, input: string): string | null {
+  let handle: string | null;
+  if (SCHEME.test(input) || SCHEMELESS_URL.test(input))
+    handle = handleFromProfileUrl(platform, input);
+  else {
+    handle = input.startsWith("@") ? input.slice(1) : input;
+    if (RESERVED_PATHS[platform]?.has(handle.toLowerCase())) handle = null;
+    else if (platform === "bluesky") {
+      handle = handle.toLowerCase();
+      // "alice" is short for the default "alice.bsky.social".
+      if (!handle.includes(".")) handle += BLUESKY_DEFAULT_DOMAIN;
+    }
+  }
+  return handle !== null && HANDLE_PATTERNS[platform].test(handle)
+    ? handle
+    : null;
+}
+
+/** A canonical http(s) URL on a dotted host name, or null. */
+function normalizeWebsite(input: string): string | null {
+  const url = parseWebUrl(input);
+  if (!url) return null;
+  const host = url.hostname.toLowerCase();
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) || /^[\d.]+$/.test(host))
+    return null;
+  // Profile URLs belong in their service's field.
+  if (snsPlatformOfProfileUrl(url.href)) return null;
+  return url.href.length <= SNS_INPUT_MAX_LENGTH ? url.href : null;
+}
+
 /**
- * Accepts a bare handle, "@handle", or the platform's own profile URL and
- * returns the canonical handle. Anything else (other schemes, other hosts,
- * paths that are not a profile, over-long input) returns null.
+ * Accepts a bare handle, "@handle", or the service's own profile URL and
+ * returns the canonical handle; for the website, an http(s) URL, returned
+ * canonical. Anything else (other schemes, other hosts, paths that are not a
+ * profile, over-long input) returns null.
  */
 export function normalizeSnsHandle(
   platform: SnsPlatform,
@@ -135,36 +206,53 @@ export function normalizeSnsHandle(
 ): string | null {
   const trimmed = input.trim();
   if (!trimmed || trimmed.length > SNS_INPUT_MAX_LENGTH) return null;
-  let handle: string | null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed))
-    handle = handleFromProfileUrl(platform, trimmed);
-  else if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(trimmed))
-    handle = handleFromProfileUrl(platform, `https://${trimmed}`);
-  else {
-    const prefix = platform === "line" ? "~" : "@";
-    handle = trimmed.startsWith(prefix) ? trimmed.slice(1) : trimmed;
-    if (RESERVED_PATHS[platform]?.has(handle.toLowerCase())) handle = null;
-  }
-  return handle !== null && HANDLE_PATTERNS[platform].test(handle)
-    ? handle
-    : null;
+  if (!Object.hasOwn(SNS_PLATFORM_LABELS, platform)) return null;
+  return platform === "website"
+    ? normalizeWebsite(trimmed)
+    : normalizeHandle(platform, trimmed);
 }
 
 /**
- * The https URL to open for a stored link, or null when the stored value does
- * not pass validation (for example a stale cache). Callers open only this value.
+ * The service whose profile URL this is, so a URL pasted into another field
+ * can point the person to the right one. Null for handles and for URLs that
+ * are no service's profile.
  */
-export function snsLinkUrl(link: SnsLink): string | null {
-  if (!Object.hasOwn(URL_TEMPLATES, link.platform)) return null;
-  const handle = normalizeSnsHandle(link.platform, link.value);
-  return handle === link.value ? URL_TEMPLATES[link.platform](handle) : null;
+export function snsPlatformOfProfileUrl(input: string): SnsService | null {
+  const trimmed = input.trim();
+  if (!SCHEME.test(trimmed) && !SCHEMELESS_URL.test(trimmed)) return null;
+  return (
+    SNS_PLATFORMS.filter(
+      (platform): platform is SnsService => platform !== "website",
+    ).find((platform) => handleFromProfileUrl(platform, trimmed) !== null) ??
+    null
+  );
 }
 
-/** Text shown on the card: the handle as the platform writes it. */
-export function snsLinkDisplay(link: SnsLink): string {
-  return link.platform === "github" || link.platform === "line"
+/**
+ * The URL to open for a stored link, or null when the stored value does not
+ * pass validation (for example a stale cache). Callers open only this value.
+ */
+export function snsLinkUrl(link: SnsLink): string | null {
+  if (normalizeSnsHandle(link.platform, link.value) !== link.value) return null;
+  return link.platform === "website"
     ? link.value
-    : `@${link.value}`;
+    : URL_TEMPLATES[link.platform](link.value);
+}
+
+/** Text shown on the card: the handle as the service writes it, or the site's address. */
+export function snsLinkDisplay(link: SnsLink): string {
+  if (link.platform === "website") {
+    // Without "https://", and reading back to the same URL in the editor.
+    const url = parseWebUrl(link.value);
+    if (!url) return link.value;
+    const address =
+      url.hostname +
+      (url.pathname === "/" ? "" : url.pathname) +
+      url.search +
+      url.hash;
+    return url.protocol === "http:" ? `http://${address}` : address;
+  }
+  return link.platform === "github" ? link.value : `@${link.value}`;
 }
 
 export const snsLinkSchema = z
@@ -175,10 +263,10 @@ export const snsLinkSchema = z
   .strict()
   .refine(
     (link) => normalizeSnsHandle(link.platform, link.value) === link.value,
-    "SNSのユーザー名の形式が正しくありません",
+    "SNSのユーザー名またはURLの形式が正しくありません",
   );
 
-/** At most one link per platform. */
+/** At most one link per service. */
 export const snsLinksSchema = z
   .array(snsLinkSchema)
   .max(SNS_PLATFORMS.length)

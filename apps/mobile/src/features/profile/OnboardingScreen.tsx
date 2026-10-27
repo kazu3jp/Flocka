@@ -75,7 +75,7 @@ export function Onboarding() {
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
-    [snsPending, setSnsPending] = useState(false),
+    [snsInvalid, setSnsInvalid] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
   const previousStep = useCallback(
@@ -89,7 +89,7 @@ export function Onboarding() {
       : step === 3
         ? sel.length >= 2
         : step === 4
-          ? !snsPending
+          ? !snsInvalid
           : true;
   const finish = async () => {
     if (busy) return;
@@ -282,7 +282,7 @@ export function Onboarding() {
           <SnsLinksEditor
             links={profile.snsLinks}
             onChange={(snsLinks) => setProfile({ ...profile, snsLinks })}
-            onPendingChange={setSnsPending}
+            onInvalidChange={setSnsInvalid}
             showTitle={false}
           />
         )}

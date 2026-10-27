@@ -91,7 +91,14 @@ const vectors = {
       "utf8",
     ),
   ),
+  // Brand marks for SNS links: one 24x24 path each, filled by the app.
+  sns: {},
 };
+for (const file of fs.readdirSync(path.join(root, "design/sns-icons")).sort())
+  if (file.endsWith(".svg"))
+    vectors.sns[file.slice(0, -4)] = fs
+      .readFileSync(path.join(root, "design/sns-icons", file), "utf8")
+      .match(/<path d="([^"]+)"/)[1];
 for (const [k, c] of Object.entries(catalog.CARDS))
   vectors.cards[k] = normalize(
     renderToStaticMarkup(React.createElement(Illust, { k, h: c.h })),
@@ -140,7 +147,7 @@ fs.writeFileSync(
   JSON.stringify(vectors, null, 2) + "\n",
 );
 console.log(
-  "Imported 21 card illustrations, 12 stickers, 6 avatars, brand icon, and exact sRGB tokens.",
+  "Imported 21 card illustrations, 12 stickers, 6 avatars, brand icon, SNS marks, and exact sRGB tokens.",
 );
 
 for (const [name, width] of [

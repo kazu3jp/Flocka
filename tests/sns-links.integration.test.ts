@@ -162,3 +162,24 @@ test("the server rejects links that are not a valid handle for the platform", as
     await f.runtime.dispose();
   }
 });
+
+test("links to services no longer offered are removed by the migration", async () => {
+  const f = await createAuthRuntime({ throughMigration: "0012_sns_links.sql" });
+  try {
+    const owner = await f.register("見せる人");
+    const legacy = [
+      { platform: "x", value: "flocka_app" },
+      { platform: "instagram", value: "flocka.app" },
+      { platform: "github", value: "kazu3jp" },
+      { platform: "line", value: "flocka01" },
+    ];
+    await f.db
+      .prepare("UPDATE accounts SET sns_links_json = ? WHERE id = ?")
+      .bind(JSON.stringify(legacy), owner.player.id)
+      .run();
+    await f.applyMigration("0013_sns_links_engineer_services.sql");
+    assert.deepEqual((await owner.api.getMe()).profile.snsLinks, links);
+  } finally {
+    await f.runtime.dispose();
+  }
+});

@@ -11,7 +11,7 @@ export function SelfEdit() {
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
     [snsLinks, setSnsLinks] = useState(s.profile.snsLinks),
-    [snsPending, setSnsPending] = useState(false),
+    [snsInvalid, setSnsInvalid] = useState(false),
     { busy, error, run } = useAction(),
     startVisit = useScreenVisit();
   return (
@@ -37,13 +37,13 @@ export function SelfEdit() {
       <SnsLinksEditor
         links={snsLinks}
         onChange={setSnsLinks}
-        onPendingChange={setSnsPending}
+        onInvalidChange={setSnsInvalid}
       />
       <Btn
         label="保存"
         disabled={
           busy ||
-          snsPending ||
+          snsInvalid ||
           !profile.name.trim() ||
           sel.length < 2 ||
           sel.length > 3
