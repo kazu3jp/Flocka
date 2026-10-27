@@ -13,7 +13,7 @@ import {
   STRENGTH_GROUPS,
   type AvatarData,
 } from "@flocka/domain";
-import { Avatar, Btn, C, Choice, LinkButton, S, Sheet, SP, T } from "./ui";
+import { Avatar, Btn, C, Choice, F, LinkButton, S, Sheet, SP, T } from "./ui";
 
 export function CardPicker({
   selected,
@@ -177,6 +177,10 @@ export function AvatarPicker({
       );
     }
   };
+  const motifRows = Array.from(
+    { length: Math.ceil(AV_MOTIFS.length / 3) },
+    (_, row) => AV_MOTIFS.slice(row * 3, row * 3 + 3),
+  );
   return (
     <View style={S.gap}>
       <View style={{ alignItems: "center" }}>
@@ -199,21 +203,62 @@ export function AvatarPicker({
         ))}
       </View>
       {avatar.type === "motif" && (
-        <View style={S.wrap}>
-          {AV_MOTIFS.map(([k, l]) => (
-            <Choice
-              key={k}
-              label={l}
-              selected={avatar.motif === k}
-              style={{ alignItems: "center" }}
-              onPress={() => onChange({ ...avatar, motif: k })}
-            >
-              <CachedSvgXml
-                xml={(vectors.motifs as Record<string, string>)[k]}
-                width={32}
-                height={32}
-              />
-            </Choice>
+        // Three equal columns like the decoration options (.deco-grid), with
+        // spacers keeping a short last row aligned to the grid.
+        <View testID="avatar-motifs" style={{ gap: 8 }}>
+          {motifRows.map((row, rowIndex) => (
+            <View key={rowIndex} style={{ flexDirection: "row", gap: 8 }}>
+              {row.map(([k, l]) => (
+                <Choice
+                  key={k}
+                  label={l}
+                  selected={avatar.motif === k}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 82,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 4,
+                    paddingVertical: 8,
+                    paddingHorizontal: 4,
+                    borderRadius: 14,
+                  }}
+                  onPress={() => onChange({ ...avatar, motif: k })}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      borderWidth: 2,
+                      borderColor: C.ink,
+                      backgroundColor: avatar.color,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <CachedSvgXml
+                      xml={(vectors.motifs as Record<string, string>)[k]}
+                      width={32}
+                      height={32}
+                    />
+                  </View>
+                  <T
+                    size={12.5}
+                    color={C.ink}
+                    numberOfLines={1}
+                    style={{ fontFamily: F.bold, lineHeight: 20.625 }}
+                  >
+                    {l}
+                  </T>
+                </Choice>
+              ))}
+              {Array.from({ length: 3 - row.length }, (_, column) => (
+                <View key={`empty-${column}`} style={{ flex: 1 }} />
+              ))}
+            </View>
           ))}
         </View>
       )}
@@ -222,7 +267,10 @@ export function AvatarPicker({
       ) : (
         <>
           <T size={13}>背景色</T>
-          <View style={[S.row, { justifyContent: "space-between" }]}>
+          {/* space-between alone spaces the swatches; the row's gap would push the last one off a 320px screen. */}
+          <View
+            style={[S.row, { justifyContent: "space-between", gap: SP.xs }]}
+          >
             {AV_COLORS.map((color, i) => (
               <Pressable
                 key={color}
