@@ -15,7 +15,7 @@ import {
   useReduceMotion,
 } from "../../components/motion";
 
-export type TabItem = {
+type TabItem = {
   tab: Tab;
   label: string;
   icon: string;

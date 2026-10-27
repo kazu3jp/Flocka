@@ -19,8 +19,8 @@ export const RECEIVING_SWITCHES = [
   },
 ] as const;
 
-export type ReceivingKey = (typeof RECEIVING_SWITCHES)[number]["key"];
-export type ReceivingSettings = Record<ReceivingKey, boolean>;
+type ReceivingKey = (typeof RECEIVING_SWITCHES)[number]["key"];
+type ReceivingSettings = Record<ReceivingKey, boolean>;
 
 export type VisibilityLine = {
   key: "vibe" | "proof" | "sender" | "profile" | "blocked";

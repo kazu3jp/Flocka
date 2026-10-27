@@ -17,7 +17,7 @@ import {
   BODY_FONT_MAX_MULTIPLIER,
   DISPLAY_FONT_MAX_MULTIPLIER,
 } from "./responsive-scale";
-import { C, F } from "./theme";
+import { C, F, OUTLINE } from "./theme";
 
 export const ForegroundColor = createContext<string>(C.white);
 
@@ -236,7 +236,7 @@ export function Avatar({
         width: size,
         height: size,
         borderRadius: size / 2,
-        borderWidth: 2.5,
+        borderWidth: OUTLINE.width,
         borderColor: C.ink,
         backgroundColor: avatar?.color || AV_COLORS[0],
         overflow: "hidden",

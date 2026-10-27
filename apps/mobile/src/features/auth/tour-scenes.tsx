@@ -1,7 +1,15 @@
 import React from "react";
 import { Animated, View } from "react-native";
 import { CARDS, PEER_PROFILE, bareCard } from "@flocka/domain";
-import { Avatar, C, Icon, S, StrengthCard, T } from "../../components/ui";
+import {
+  Avatar,
+  C,
+  Icon,
+  S,
+  StrengthCard,
+  T,
+  OUTLINE,
+} from "../../components/ui";
 import Svg, { Path, Rect } from "react-native-svg";
 import {
   eased,
@@ -252,10 +260,10 @@ function ExchangeScene({ reduced }: { reduced: boolean }) {
           height: 52,
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: `3px 3px 0 ${C.ink}`,
+          boxShadow: OUTLINE.shadow,
           borderRadius: 26,
           backgroundColor: C.yellow,
-          borderWidth: 2.5,
+          borderWidth: OUTLINE.width,
           borderColor: C.ink,
         }}
       >
@@ -358,7 +366,7 @@ function GuessScene({ reduced }: { reduced: boolean }) {
             marginLeft: -20,
             marginTop: -20,
             borderRadius: 20,
-            borderWidth: 2.5,
+            borderWidth: OUTLINE.width,
             borderColor: C.ink,
             backgroundColor: C.pink,
             width: 40,

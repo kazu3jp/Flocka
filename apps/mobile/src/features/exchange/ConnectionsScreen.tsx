@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { Connection } from "@flocka/domain";
 import {
@@ -13,6 +13,7 @@ import {
   S,
   Sheet,
   T,
+  OUTLINE,
 } from "../../components/ui";
 import { StaggerItem } from "../../components/motion";
 import { useApp } from "../../store";
@@ -61,15 +62,38 @@ export function Connections() {
   const removal = useConnectionRemoval();
   const pull = usePullRefresh();
   const [filter, setFilter] = useState<ConnectionFilter>("all");
-  const active = s.connections.filter(
-    (connection) =>
-      connection.status !== "cancelled" &&
-      !s.blocked.includes(connection.peerId),
+  const active = useMemo(
+    () =>
+      s.connections.filter(
+        (connection) =>
+          connection.status !== "cancelled" &&
+          !s.blocked.includes(connection.peerId),
+      ),
+    [s.connections, s.blocked],
+  );
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        FILTERS.map(([value]) => [
+          value,
+          active.filter((connection) => matchesFilter(connection, value))
+            .length,
+        ]),
+      ) as Record<ConnectionFilter, number>,
+    [active],
   );
   // Newest exchanges first.
-  const connections = active
-    .filter((connection) => matchesFilter(connection, filter))
-    .sort((a, b) => exchangedTime(b).localeCompare(exchangedTime(a)));
+  const connections = useMemo(
+    () =>
+      active
+        .filter((connection) => matchesFilter(connection, filter))
+        .sort((a, b) => exchangedTime(b).localeCompare(exchangedTime(a))),
+    [active, filter],
+  );
+  const sentById = useMemo(
+    () => new Map(s.sentVibes.map((piece) => [piece.id, piece])),
+    [s.sentVibes],
+  );
   return (
     <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="つながった人" onBack={nav.pop} />
@@ -83,7 +107,7 @@ export function Connections() {
             <View key={value} style={S.fill}>
               <Choice
                 accessibilityRole="tab"
-                label={`${label}（${active.filter((connection) => matchesFilter(connection, value)).length}）`}
+                label={`${label}（${counts[value]}）`}
                 selected={filter === value}
                 onPress={() => setFilter(value)}
                 style={{ alignItems: "center" }}
@@ -107,19 +131,18 @@ export function Connections() {
           testID="connections-list"
           style={{
             backgroundColor: C.paper,
-            borderWidth: 2.5,
+            borderWidth: OUTLINE.width,
             borderColor: C.ink,
             borderRadius: 16,
-            boxShadow: `3px 3px 0 ${C.ink}`,
+            boxShadow: OUTLINE.shadow,
             overflow: "hidden",
           }}
         >
           {connections.map((connection, index) => {
-            const name =
-              peers[connection.peerId]?.profile.name ?? "プロフィールを取得中";
-            const sent = s.sentVibes.find(
-              (piece) => piece.id === connection.vibe,
-            );
+            const name = peers[connection.peerId]?.profile.name ?? "相手";
+            const sent = connection.vibe
+              ? sentById.get(connection.vibe)
+              : undefined;
             const pending = connection.status === "pending";
             const description = pending
               ? connection.myApproved
@@ -153,6 +176,7 @@ export function Connections() {
                     <T
                       color={C.ink}
                       size={14}
+                      numberOfLines={1}
                       style={{
                         fontFamily: F.bold,
                         lineHeight: 22.4,
@@ -163,7 +187,12 @@ export function Connections() {
                     </T>
                     {pending && <PendingBadge />}
                   </View>
-                  <T color={C.muted} size={12.5} style={{ lineHeight: 24.75 }}>
+                  <T
+                    color={C.muted}
+                    size={12.5}
+                    numberOfLines={2}
+                    style={{ lineHeight: 24.75 }}
+                  >
                     {description}
                   </T>
                 </View>

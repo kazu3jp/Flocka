@@ -28,7 +28,7 @@ import {
 
 const TABS: Tab[] = ["find", "exchange", "pr"];
 /** Marks a screen kept mounted out of view, so tests can leave it out. */
-export const HIDDEN_SCREEN_TEST_ID = "hidden-screen";
+const HIDDEN_SCREEN_TEST_ID = "hidden-screen";
 
 export function screenFor({ id, params }: Entry) {
   const key = params?.key ?? "",

@@ -16,6 +16,8 @@ import {
   C,
   Field,
   Icon,
+  InlineError,
+  LAYOUT,
   LinkButton,
   Panel,
   S,
@@ -23,6 +25,8 @@ import {
   T,
   Sheet,
 } from "../../components/ui";
+import { useAppWidth } from "../../components/app-frame";
+import { cardHeightInRow } from "../../components/responsive-scale";
 import {
   CARDS,
   SNS_PLATFORM_LABELS,
@@ -30,8 +34,10 @@ import {
   snsLinkDisplay,
 } from "@flocka/domain";
 import { useApp } from "../../store";
+import { userFacingError } from "../sync/user-facing-error";
 import { useBackStep } from "../navigation/use-back-step";
 import { SnsLinksEditor } from "./SnsLinksEditor";
+import { useAccountSetup } from "./use-account-setup";
 const STEPS = [
   [
     "ニックネーム",
@@ -67,9 +73,12 @@ const STEPS = [
 ];
 const LAST_STEP = STEPS.length - 1;
 
+/** The deck preview sizes its cards for the three the picker allows at most. */
+const DECK_PREVIEW_COLUMNS = 3;
+
 export function Onboarding() {
   const { data } = useAuth();
-  const { s, update, api, refresh, nav, toast, saveProfile } = useApp(),
+  const { s, update, refresh, nav, toast, saveProfile } = useApp(),
     [agree, setAgree] = useState(false),
     [legal, setLegal] = useState<LegalTitle | null>(null),
     [step, setStep] = useState(0),
@@ -77,7 +86,14 @@ export function Onboarding() {
     [sel, setSel] = useState(s.self),
     [snsInvalid, setSnsInvalid] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null);
+    [error, setError] = useState<string | null>(null),
+    setUpAccount = useAccountSetup();
+  const deckCardHeight = cardHeightInRow(
+    useAppWidth() - 2 * LAYOUT.screenPadding,
+    DECK_PREVIEW_COLUMNS,
+    LAYOUT.blockGap,
+    230,
+  );
   const previousStep = useCallback(
     () => setStep((current) => Math.max(0, current - 1)),
     [],
@@ -105,28 +121,11 @@ export function Onboarding() {
         name: profile.name.trim(),
         role: profile.role.trim(),
       };
-      if (!data?.user.termsAccepted) await api.acceptTerms();
-      await api.createAccount(
-        input.avatar.type === "photo"
-          ? {
-              ...input,
-              avatar: { ...input.avatar, type: "initial", photo: undefined },
-            }
-          : input,
+      const { saved, photoFailed } = await setUpAccount(
+        input,
         sel,
+        !!data?.user.termsAccepted,
       );
-      // The account exists from here on. A photo that fails to upload must not
-      // undo it: finish with an initial avatar and offer to send the photo again.
-      let saved = input;
-      let photoFailed = false;
-      if (input.avatar.type === "photo" && input.avatar.photo)
-        try {
-          await api.uploadAvatar(input.avatar.photo);
-        } catch {
-          photoFailed = true;
-          saved = { ...input, avatar: { ...input.avatar, type: "initial" } };
-        }
-      await api.updateProfile(saved, sel);
       update((x) => {
         x.profile = saved;
         x.self = sel;
@@ -150,49 +149,19 @@ export function Onboarding() {
         );
       else toast("デッキができた！");
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "プロフィールを保存できませんでした",
-      );
+      setError(userFacingError(error, "プロフィールを保存できませんでした"));
     } finally {
       setBusy(false);
     }
   };
   return (
     <Board>
-      {step === LAST_STEP && !data?.user.termsAccepted && (
-        <Panel style={S.gap}>
-          <LinkButton
-            color={C.ink}
-            label="利用規約"
-            onPress={() => setLegal("利用規約")}
-          />
-          <LinkButton
-            color={C.ink}
-            label="プライバシーポリシー"
-            onPress={() => setLegal("プライバシーポリシー")}
-          />
-          <View style={S.row}>
-            <Switch
-              accessibilityLabel="利用規約とプライバシーポリシーに同意する"
-              value={agree}
-              onValueChange={setAgree}
-            />
-            <T color={C.ink}>内容を確認し、同意する</T>
-          </View>
-        </Panel>
-      )}
       {legal && (
         <Sheet title={legal} onClose={() => setLegal(null)}>
           <LegalDocument title={legal} />
         </Sheet>
       )}
-      {error ? (
-        <T accessibilityRole="alert" color={C.yellow}>
-          {error}
-        </T>
-      ) : null}
+      <InlineError text={error} />
       <View style={[S.row, { minHeight: 48 }]}>
         {step > 0 ? (
           <Pressable
@@ -294,7 +263,7 @@ export function Onboarding() {
                 <StrengthCard
                   key={k}
                   card={bareCard(k)}
-                  style={{ flex: 1, height: 230 }}
+                  style={{ flex: 1, height: deckCardHeight }}
                 />
               ))}
             </View>
@@ -341,6 +310,28 @@ export function Onboarding() {
               color={C.ink}
               onPress={() => setStep(3)}
             />
+          </Panel>
+        )}
+        {step === LAST_STEP && !data?.user.termsAccepted && (
+          <Panel style={S.gap}>
+            <LinkButton
+              color={C.ink}
+              label="利用規約"
+              onPress={() => setLegal("利用規約")}
+            />
+            <LinkButton
+              color={C.ink}
+              label="プライバシーポリシー"
+              onPress={() => setLegal("プライバシーポリシー")}
+            />
+            <View style={S.row}>
+              <Switch
+                accessibilityLabel="利用規約とプライバシーポリシーに同意する"
+                value={agree}
+                onValueChange={setAgree}
+              />
+              <T color={C.ink}>内容を確認し、同意する</T>
+            </View>
           </Panel>
         )}
       </ScrollView>

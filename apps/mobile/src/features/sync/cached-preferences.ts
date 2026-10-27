@@ -24,7 +24,7 @@ export function readPreferenceSyncMark(
   return null;
 }
 
-export type CachedPreferencePlan =
+type CachedPreferencePlan =
   | { kind: "none" }
   /** Unsaved edits based on the server's current revision: send them. */
   | { kind: "upload"; data: Preferences; revision: number; legacy: boolean }

@@ -61,6 +61,8 @@ export function SnsLinkList({ links }: { links: SnsLink[] }) {
                 ),
               );
             }}
+            // Half the 6pt gap on each side: wider taps that never overlap a neighbour.
+            hitSlop={3}
             style={({ pressed }) => ({
               minHeight: 28,
               maxWidth: "100%",

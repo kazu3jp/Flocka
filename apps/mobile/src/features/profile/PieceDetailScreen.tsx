@@ -17,6 +17,7 @@ import {
 } from "../../components/ui";
 import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
+import { useTestimonyActions } from "./use-testimony-actions";
 
 /** Describes the opening guess without calling a skipped guess a miss. */
 function guessResult(p: Piece) {
@@ -27,8 +28,8 @@ function guessResult(p: Piece) {
 }
 
 export function PieceDetail({ id }: { id: string }) {
-  const { s, nav, api, refresh, toast, d, peers, setOpening, offerUndo } =
-      useApp(),
+  const { s, nav, d, peers, setOpening } = useApp(),
+    actions = useTestimonyActions(),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation();
   const p = allPieces(s).find((p) => p.id === id);
@@ -65,23 +66,7 @@ export function PieceDetail({ id }: { id: string }) {
     );
   const changeVisibility = (visibility: "private" | "public" | "hidden") => {
     const apply = () => {
-      void run(async () => {
-        if (p.visibility === visibility) return;
-        if (p.visibilityRevision === undefined)
-          throw new Error("最新の証言を読み込み直してください");
-        const previous = p.visibility;
-        const saved = await api.changeVisibility(
-          id,
-          visibility,
-          p.visibilityRevision,
-        );
-        offerUndo(
-          "公開範囲を変更しました",
-          () => api.changeVisibility(id, previous, saved.visibilityRevision),
-          "公開範囲を元に戻しました",
-        );
-        await refresh();
-      });
+      void run(() => actions.changeVisibility(p, visibility));
     };
     if (visibility === "public")
       ask(
@@ -97,7 +82,7 @@ export function PieceDetail({ id }: { id: string }) {
       <Header title="証言" onBack={nav.pop} />
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
-          {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
+          {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
           {p.kind === "proof" ? "見た場面" : "会話の印象"}
         </T>
         <T display color={C.ink} size={20}>
@@ -174,11 +159,7 @@ export function PieceDetail({ id }: { id: string }) {
                   "通報する？",
                   `「${reason}」として運営に送信します。`,
                   () => {
-                    void run(async () => {
-                      await api.requestModeration(id, "report", reason);
-                      await refresh();
-                      toast("通報を受け付けました");
-                    });
+                    void run(() => actions.report(id, reason));
                   },
                   "通報する",
                 )
@@ -199,16 +180,7 @@ export function PieceDetail({ id }: { id: string }) {
             () => {
               void run(async () => {
                 const blockingVisit = visit.current;
-                const saved = await api.block(p.fromId);
-                if (saved.undoToken) {
-                  const token = saved.undoToken;
-                  offerUndo(
-                    "ブロックしました",
-                    () => api.unblock(p.fromId, token),
-                    "ブロックを取り消しました",
-                  );
-                } else toast("すでにブロック中です");
-                await refresh();
+                await actions.block(p.fromId);
                 if (blockingVisit && visit.current === blockingVisit) nav.pop();
               });
             },
@@ -226,15 +198,7 @@ export function PieceDetail({ id }: { id: string }) {
             "削除を依頼する？",
             "この証言の削除依頼を運営に送信します。",
             () => {
-              void run(async () => {
-                const request = await api.requestModeration(id, "deletion");
-                offerUndo(
-                  "削除依頼を受け付けました",
-                  () => api.withdrawRequest(request.id),
-                  "削除依頼を取り消しました",
-                );
-                await refresh();
-              });
+              void run(() => actions.requestDeletion(id));
             },
             "依頼する",
           )

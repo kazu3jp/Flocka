@@ -137,7 +137,7 @@ export function Give({ cid }: { cid: string }) {
               size={20}
               style={{ textAlign: "center", lineHeight: 28 }}
             >
-              {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+              {peers[c.peerId]?.profile.name ?? "相手"}
               に印象を贈りました
             </T>
           </PopIn>
@@ -234,7 +234,7 @@ export function Give({ cid }: { cid: string }) {
         style={{ paddingVertical: 10, paddingHorizontal: 14 }}
       >
         <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
-          {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}に贈る印象
+          {peers[c.peerId]?.profile.name ?? "相手"}に贈る印象
         </T>
         <T color={C.ink} size={14} style={{ lineHeight: 22.4, marginTop: 4 }}>
           {mode === "pick"

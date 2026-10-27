@@ -10,9 +10,18 @@ import {
   LinkButton,
   StrengthCard,
   T,
+  OUTLINE,
 } from "../../components/ui";
+import { SegmentedTabs } from "../../components/segmented-tabs";
 import { DecorationSwatch } from "./DecorationSwatch";
 import { useDecoration } from "./use-decoration";
+
+const DECORATION_TABS = [
+  ["pattern", "模様"],
+  ["frame", "フレーム"],
+  ["stickers", "シール"],
+  ["color", "色"],
+] as const;
 
 export function Deco({ cardKey }: { cardKey: string }) {
   const {
@@ -75,49 +84,14 @@ export function Deco({ cardKey }: { cardKey: string }) {
           height={previewHeight - 8}
         />
       </View>
-      <View
+      <SegmentedTabs
         testID="decoration-tabs"
-        accessibilityLabel="デコの種類"
-        style={{ flexDirection: "row", gap: 6 }}
-      >
-        {(
-          [
-            ["pattern", "模様"],
-            ["frame", "フレーム"],
-            ["stickers", "シール"],
-            ["color", "色"],
-          ] as const
-        ).map(([key, label]) => (
-          <Pressable
-            key={key}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            aria-pressed={tab === key}
-            accessibilityState={{ selected: tab === key }}
-            disabled={busy}
-            onPress={() => setTab(key)}
-            style={{
-              flex: 1,
-              minHeight: 42,
-              borderRadius: 12,
-              borderWidth: 2.5,
-              borderColor: C.ink,
-              backgroundColor: tab === key ? C.yellow : C.paper,
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: tab === key ? `3px 3px 0 ${C.ink}` : "none",
-            }}
-          >
-            <T
-              color={C.ink}
-              size={13}
-              style={{ fontFamily: F.bold, lineHeight: 21.45 }}
-            >
-              {label}
-            </T>
-          </Pressable>
-        ))}
-      </View>
+        label="デコの種類"
+        options={DECORATION_TABS}
+        selected={tab}
+        onSelect={setTab}
+        disabled={busy}
+      />
       <ScrollView
         testID="decoration-workspace"
         style={{ flex: 1, minHeight: 0 }}
@@ -172,7 +146,7 @@ export function Deco({ cardKey }: { cardKey: string }) {
                       paddingVertical: 8,
                       paddingHorizontal: 4,
                       borderRadius: 14,
-                      borderWidth: 2.5,
+                      borderWidth: OUTLINE.width,
                       borderColor: C.ink,
                       backgroundColor: selected ? C.yellow : C.paper,
                       boxShadow: `2px 2px 0 ${C.ink}`,

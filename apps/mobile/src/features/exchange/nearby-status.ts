@@ -36,7 +36,7 @@ export function nearbyStatus(input: NearbyStatusInput): NearbyStatus {
 export const isScanning = (status: NearbyStatus) =>
   status === "searching" || status === "found";
 
-export type NearbyCopy = { label: string; hint: string; spoken: string };
+type NearbyCopy = { label: string; hint: string; spoken: string };
 
 export function nearbyCopy(
   status: NearbyStatus,

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, View } from "react-native";
-import { C } from "../../components/theme";
+import { C, OUTLINE } from "../../components/theme";
 import { NATIVE_DRIVER, useReduceMotion } from "../../components/motion";
 
-export const RADAR_SIZE = 220;
+const RADAR_SIZE = 220;
 const RING_COUNT = 3;
 const RING_PERIOD_MS = 2700;
 const RING_STAGGER_MS = RING_PERIOD_MS / RING_COUNT;
@@ -89,7 +89,7 @@ export function RadarRipple({
                   width: RADAR_SIZE,
                   height: RADAR_SIZE,
                   borderRadius: RADAR_SIZE / 2,
-                  borderWidth: 2.5,
+                  borderWidth: OUTLINE.width,
                   borderColor: color,
                 },
                 animate

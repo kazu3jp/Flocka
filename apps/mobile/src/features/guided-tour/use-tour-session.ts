@@ -16,12 +16,12 @@ import {
 } from "./tour-steps";
 
 /** A target that has not shown up after this long is skipped, not waited for. */
-export const TOUR_TARGET_TIMEOUT_MS = 1500;
+const TOUR_TARGET_TIMEOUT_MS = 1500;
 /**
  * The target is measured again this often, so scrolling, rotation, the
  * keyboard and a screen still sliding in all move the cut-out with them.
  */
-export const TOUR_MEASURE_INTERVAL_MS = 100;
+const TOUR_MEASURE_INTERVAL_MS = 100;
 
 /**
  * One run of the tour: the current step, the measured box of its target, and

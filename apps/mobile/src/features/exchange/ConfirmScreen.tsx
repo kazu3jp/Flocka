@@ -9,22 +9,27 @@ import {
   FIXED_LOOKING_BOARD,
   Header,
   LinkButton,
-  Panel,
   Sheet,
   T,
   InlineError,
 } from "../../components/ui";
 import { useApp } from "../../store";
+import { useConfirmation } from "../../components/pickers";
+import { useExchangeDecision } from "./use-exchange-decision";
 import { Player } from "./player-card";
+import { Chip } from "../../components/chip";
+import { ExchangeMemoRow } from "./exchange-memo-row";
 
 export function Confirm({ cid }: { cid: string }) {
-  const { s, nav, api, refresh, toast, peers } = useApp(),
+  const { s, nav, toast, peers } = useApp(),
+    decision = useExchangeDecision(cid),
     [memoOpen, setMemoOpen] = useState(false),
     c = s.connections.find((c) => c.id === cid),
     [context, setContextDraft] = useState(
       c?.context ?? { place: "", trigger: "" },
     ),
     { busy, error, run } = useAction(),
+    { ask, dialog } = useConfirmation(),
     startVisit = useScreenVisit(cid);
   if (!c)
     return (
@@ -40,15 +45,9 @@ export function Confirm({ cid }: { cid: string }) {
       setMemoOpen(true);
       return;
     }
-    // After this account approved, the same request only updates the memo.
     const editingMemo = c.myApproved || c.status === "accepted";
     void run(async () => {
-      const exchange = await api.approveExchange(
-        cid,
-        context.place,
-        context.trigger,
-      );
-      await refresh();
+      const exchange = await decision.approve(context, editingMemo);
       setMemoOpen(false);
       toast(
         editingMemo
@@ -67,31 +66,28 @@ export function Confirm({ cid }: { cid: string }) {
         title="交換"
         onBack={nav.pop}
         right={
-          <T size={12}>{c.status === "accepted" ? "交換成立" : "内容確認"}</T>
+          <Chip label={c.status === "accepted" ? "交換成立" : "内容確認"} />
         }
       />
       <Player peerId={c.peerId} />
       {!pending && c.status !== "cancelled" && (
-        <Panel style={{ padding: 10 }}>
-          <T color={C.muted} size={12}>
-            出会いのメモ
-          </T>
-          <T color={C.ink} size={13}>
-            {c.context.place} · {c.context.trigger}
-          </T>
-          <LinkButton
-            label="メモを編集"
-            color={C.ink}
-            onPress={() => setMemoOpen(true)}
-          />
-        </Panel>
+        <ExchangeMemoRow
+          place={c.context.place}
+          trigger={c.context.trigger}
+          onPress={() => setMemoOpen(true)}
+        />
       )}
       {c.status === "accepted" ? (
         <>
           <T size={14} style={{ textAlign: "center" }}>
-            {peers[c.peerId]?.profile.name ?? "プロフィールを取得中"}
+            {peers[c.peerId]?.profile.name ?? "相手"}
             とつながりました！
           </T>
+          {!c.vibe && (
+            <T size={14} color={C.pale} style={{ textAlign: "center" }}>
+              次は、相手に感じた印象をひとつ贈れます。
+            </T>
+          )}
           <Btn
             label={c.vibe ? "交換へ戻る" : "印象を贈る"}
             onPress={() => (c.vibe ? nav.root() : nav.replace("give", { cid }))}
@@ -109,19 +105,26 @@ export function Confirm({ cid }: { cid: string }) {
           />
           <LinkButton
             label="キャンセル"
-            onPress={() => {
-              void run(async () => {
-                const sameVisit = startVisit();
-                await api.cancelExchange(cid);
-                await refresh();
-                toast("キャンセルしました");
-                if (sameVisit()) nav.pop();
-              });
-            }}
+            disabled={busy}
+            onPress={() =>
+              ask(
+                "交換をキャンセルする？",
+                "この交換は成立しません。もう一度つながるには、交換し直してください。",
+                () =>
+                  void run(async () => {
+                    const sameVisit = startVisit();
+                    await decision.cancel();
+                    toast("キャンセルしました");
+                    if (sameVisit()) nav.pop();
+                  }),
+                "キャンセルする",
+              )
+            }
           />
         </>
       )}
       <InlineError text={error} />
+      {dialog}
       {memoOpen && c.status !== "cancelled" && (
         <Sheet title="出会いのメモ" onClose={() => setMemoOpen(false)}>
           <T size={13}>

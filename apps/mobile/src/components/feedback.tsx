@@ -7,9 +7,10 @@ import React, {
 } from "react";
 import { Animated, Pressable, View, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { C, F, LAYOUT, SP } from "./theme";
+import { C, F, LAYOUT, SP, OUTLINE } from "./theme";
 import { usePresenceMotion } from "./motion";
 import { T } from "./text";
+import { useKeyboardHeight } from "./use-keyboard-height";
 
 type SheetFeedback = { content: React.ReactNode; register?: () => () => void };
 const FeedbackContext = createContext<SheetFeedback>({ content: null });
@@ -58,6 +59,7 @@ export function ToastBanner({
   focused: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   // The banner eases out after the notification clears, so it keeps the last text.
   const [last, setLast] = useState<Notification | null>(null);
   if (notification && notification !== last) setLast(notification);
@@ -73,20 +75,24 @@ export function ToastBanner({
       accessibilityLiveRegion="polite"
       style={{
         position: "absolute",
-        bottom: (focused ? 96 : 80) + insets.bottom,
+        // Above the tab bar, or above the keyboard while one is typing.
+        bottom: Math.max(
+          (focused ? 96 : 80) + insets.bottom,
+          keyboardHeight + LAYOUT.toastInset,
+        ),
         left: LAYOUT.toastInset,
         right: LAYOUT.toastInset,
         flexDirection: "row",
         alignItems: "center",
         gap: LAYOUT.blockGap,
         backgroundColor: C.yellow,
-        borderWidth: 2.5,
+        borderWidth: OUTLINE.width,
         borderColor: C.ink,
         borderRadius: 14,
         paddingVertical: 11,
         paddingLeft: 14,
         paddingRight: 10,
-        boxShadow: `4px 4px 0 ${C.ink}`,
+        boxShadow: OUTLINE.raisedShadow,
         // The source's toastIn: rise 10px from 96% scale while fading in.
         opacity: progress,
         transform: [

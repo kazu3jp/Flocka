@@ -1,5 +1,6 @@
 import React from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
+import { Pressable, View } from "react-native";
+import { useAppWidth } from "../../components/app-frame";
 import {
   Board,
   Btn,
@@ -31,7 +32,7 @@ const ACTION_GAP = 10;
  * narrow for that.
  */
 function useActionsStacked() {
-  const { width } = useWindowDimensions();
+  const width = useAppWidth();
   const eachWidth = (width - 2 * LAYOUT.screenPadding - ACTION_GAP) / 2;
   const labelWidth =
     ACTION_LABEL_WIDTH *

@@ -6,7 +6,7 @@ export type TourNode = {
 };
 
 /** Read-only, so a ref to a View (or Pressable) fits without a cast. */
-export type TourTargetRef = { readonly current: TourNode | null };
+type TourTargetRef = { readonly current: TourNode | null };
 
 /**
  * Which element answers to which target id right now. Screens register a ref,

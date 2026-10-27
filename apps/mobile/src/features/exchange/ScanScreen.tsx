@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Linking, Platform, View } from "react-native";
+import { Linking, Platform, View, useWindowDimensions } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useScreenFocused } from "../../components/screen-focus";
 import QRCode from "react-native-qrcode-svg";
@@ -9,13 +9,19 @@ import {
   Btn,
   C,
   Choice,
+  FIXED_LOOKING_BOARD,
   Header,
+  InlineError,
+  LAYOUT,
   Panel,
   S,
   T,
 } from "../../components/ui";
+import { useAppWidth } from "../../components/app-frame";
+import { fitDisplayName } from "../../components/responsive-scale";
 import { inviteQR, parseInviteQR } from "@flocka/domain";
 import { useApp } from "../../store";
+import { UserFacingError } from "../sync/user-facing-error";
 import {
   CAMERA_PERMISSION_COPY,
   cameraPermissionView,
@@ -23,11 +29,41 @@ import {
 } from "./camera-permission";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
+import { useStartExchange } from "./use-start-exchange";
+import { QrFinder } from "./qr-finder";
 import { useScreenVisit } from "../sync/use-screen-visit";
 
 const RESCAN_DELAY_MS = 2000;
+
+/**
+ * The QR code and the camera take a share of the screen height, up to their
+ * size on a tall phone, so the rest of the screen stays in view on a short one.
+ */
+function useScanSizes() {
+  const { height, fontScale } = useWindowDimensions();
+  const contentWidth = useAppWidth() - 2 * LAYOUT.screenPadding;
+  // The source's .qr-card is at most 300 wide with 20 padding.
+  const cardWidth = Math.min(contentWidth, QR_CARD_MAX_WIDTH);
+  const cardInnerWidth = cardWidth - 2 * QR_CARD_PADDING;
+  return {
+    cardWidth,
+    cardInnerWidth,
+    qr: clamp(Math.round(height * 0.3), 160, cardInnerWidth),
+    // The source's .qr-finder is a square of at most 280.
+    finder: clamp(Math.round(height * 0.4), 200, Math.min(280, contentWidth)),
+    fontScale,
+  };
+}
+
+const QR_CARD_MAX_WIDTH = 300;
+const QR_CARD_PADDING = 20;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function Scan() {
-  const { s, api, refresh, nav } = useApp(),
+  const { s, nav } = useApp(),
     [mode, setMode] = useState<"show" | "scan">("show"),
     [permission, requestPermission] = useCameraPermissions(),
     focused = useScreenFocused(),
@@ -44,7 +80,11 @@ export function Scan() {
       busy: creating,
       renew,
     } = useInvite(),
-    { busy, error, run } = useAction();
+    { busy, error, run } = useAction(),
+    sizes = useScanSizes(),
+    startExchange = useStartExchange(),
+    // Remounting the camera clears a code still in view, so a rescan starts fresh.
+    [cameraKey, setCameraKey] = useState(0);
   useEffect(
     () => () => {
       if (rescanTimer.current) clearTimeout(rescanTimer.current);
@@ -88,13 +128,9 @@ export function Scan() {
     void run(async () => {
       const sameVisit = startVisit();
       const code = parseInviteQR(value);
-      if (!code) throw new Error("Flockaの交換用QRを読み取ってください");
-      const exchange = await api.startExchange(code);
-      await refresh();
-      // A late response must not replace a later visit or another screen.
-      if (!sameVisit()) return;
-      opened = true;
-      nav.replace("confirm", { cid: exchange.id });
+      if (!code)
+        throw new UserFacingError("Flockaの交換用QRを読み取ってください");
+      opened = await startExchange(code, sameVisit);
     }).finally(() => {
       if (opened) return;
       // Reopen the camera after the error has been on screen long enough to read,
@@ -106,7 +142,7 @@ export function Scan() {
     });
   };
   return (
-    <Board>
+    <Board scroll contentStyle={FIXED_LOOKING_BOARD}>
       <Header title="QRで交換" onBack={nav.pop} />
       <View style={S.row}>
         <View style={S.fill}>
@@ -129,11 +165,21 @@ export function Scan() {
       </View>
       {mode === "show" ? (
         <View style={{ flex: 1, justifyContent: "center", gap: 16 }}>
-          <Panel style={{ alignItems: "center", gap: 16, paddingVertical: 28 }}>
+          <Panel
+            testID="qr-card"
+            style={{
+              width: sizes.cardWidth,
+              alignSelf: "center",
+              alignItems: "center",
+              gap: 14,
+              padding: QR_CARD_PADDING,
+              borderRadius: 22,
+            }}
+          >
             {invite ? (
               <QRCode
                 value={inviteQR(invite.code)}
-                size={230}
+                size={sizes.qr}
                 color={C.ink}
                 backgroundColor={C.paper}
               />
@@ -146,10 +192,31 @@ export function Scan() {
                     : "交換コードを作成できませんでした。「QRを更新する」を押してください。"}
               </T>
             )}
-            <Avatar name={s.profile.name} avatar={s.profile.avatar} size={56} />
-            <T display color={C.ink} size={20}>
-              {s.profile.name}
-            </T>
+            <View
+              style={[S.row, { justifyContent: "center", maxWidth: "100%" }]}
+            >
+              <Avatar
+                name={s.profile.name}
+                avatar={s.profile.avatar}
+                size={36}
+              />
+              <T
+                display
+                color={C.ink}
+                numberOfLines={2}
+                size={fitDisplayName({
+                  name: s.profile.name,
+                  // Beside the 36 avatar and the row's gap.
+                  availableWidth: sizes.cardInnerWidth - 36 - LAYOUT.blockGap,
+                  maxSize: 18,
+                  minSize: 14,
+                  fontScale: sizes.fontScale,
+                })}
+                style={{ flexShrink: 1 }}
+              >
+                {s.profile.name}
+              </T>
+            </View>
             {invite && (
               <T color={C.muted} size={12}>
                 有効期限{" "}
@@ -157,8 +224,8 @@ export function Scan() {
               </T>
             )}
           </Panel>
-          <T size={12}>
-            相手が読み取ると確認画面が開きます。双方が「交換する」を押すと成立します。
+          <T size={13} color={C.pale} style={{ textAlign: "center" }}>
+            相手のアプリでこのQRを読み取ってもらうと、交換の確認に進みます。
           </T>
           <Btn
             plain
@@ -171,22 +238,15 @@ export function Scan() {
       ) : (
         <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
           {permissionView === "granted" && focused ? (
-            <View
-              style={{
-                height: 320,
-                borderWidth: 3,
-                borderColor: C.yellow,
-                borderRadius: 20,
-                overflow: "hidden",
-              }}
-            >
+            <QrFinder size={sizes.finder}>
               <CameraView
+                key={cameraKey}
                 style={S.fill}
                 facing="back"
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={({ data }) => receive(data)}
               />
-            </View>
+            </QrFinder>
           ) : (
             <Panel style={S.gap}>
               <T color={C.ink}>
@@ -203,22 +263,29 @@ export function Scan() {
               ) : null}
             </Panel>
           )}
+          <T
+            size={13}
+            accessibilityLiveRegion="polite"
+            style={{ textAlign: "center" }}
+          >
+            {busy
+              ? "読み取りました。交換を始めています…"
+              : "相手のQRを枠の中に合わせてください"}
+          </T>
           <Btn
             plain
             small
             label="もう一度読み取る"
             disabled={busy}
             onPress={() => {
+              if (rescanTimer.current) clearTimeout(rescanTimer.current);
               scanned.current = false;
+              setCameraKey((key) => key + 1);
             }}
           />
         </View>
       )}
-      {error || inviteError ? (
-        <T color={C.yellow} accessibilityRole="alert">
-          {error || inviteError}
-        </T>
-      ) : null}
+      <InlineError text={error || inviteError} />
     </Board>
   );
 }

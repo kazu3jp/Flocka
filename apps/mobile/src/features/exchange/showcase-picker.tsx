@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
+import { Pressable, View } from "react-native";
 import type { Card } from "@flocka/domain";
 import { Btn, C, Sheet, StrengthCard, T } from "../../components/ui";
-import { useModalFrame } from "../../components/app-frame";
+import { useAppWidth } from "../../components/app-frame";
 import type { useShowcase } from "./use-showcase";
 import { SHOWCASE_CHOICE_GAP, showcaseChoiceLayout } from "./showcase-layout";
 
@@ -17,11 +17,9 @@ export function ShowcasePicker({
   cards: Card[];
   selection: ReturnType<typeof useShowcase>;
 }) {
-  // The sheet spans the window (or the web preview frame), so the grid width
-  // is known before layout; measuring only corrects cases like a scrollbar.
-  const frame = useModalFrame();
-  const windowSize = useWindowDimensions();
-  const expectedWidth = (frame?.width ?? windowSize.width) - SHEET_PADDING * 2;
+  // The sheet spans the app's column, so the grid width is known before
+  // layout; measuring only corrects cases like a scrollbar.
+  const expectedWidth = useAppWidth() - SHEET_PADDING * 2;
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
   const choice = showcaseChoiceLayout(measuredWidth ?? expectedWidth);
   return (

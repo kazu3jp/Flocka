@@ -16,6 +16,7 @@ import {
   S,
   T,
   inputMinHeight,
+  OUTLINE,
 } from "../../components/ui";
 
 /** The shared form geometry from the original authentication screens. */
@@ -150,6 +151,7 @@ export function PasswordField({
           aria-pressed={show}
           accessibilityState={{ selected: show }}
           onPress={() => setShow(!show)}
+          hitSlop={{ top: 2, bottom: 2 }}
           style={{
             position: "absolute",
             right: 6,
@@ -196,11 +198,11 @@ export function SocialButtons({
               {
                 minHeight: height <= 720 ? 50 : 54,
                 justifyContent: "center",
-                borderWidth: 2.5,
+                borderWidth: OUTLINE.width,
                 borderColor: C.ink,
                 borderRadius: 14,
                 backgroundColor: C.paper,
-                boxShadow: `3px 3px 0 ${C.ink}`,
+                boxShadow: OUTLINE.shadow,
                 opacity: enabled ? 1 : 0.55,
               },
             ]}

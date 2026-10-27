@@ -6,7 +6,6 @@ import React, { memo, useId, useMemo, useState } from "react";
 import {
   StyleSheet,
   View,
-  useWindowDimensions,
   type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
@@ -22,7 +21,7 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import { ART_COLORS, type Card } from "@flocka/domain";
-import { C, F, S } from "./theme";
+import { C, F, OUTLINE } from "./theme";
 import { T } from "./text";
 import { SquishPressable } from "./motion";
 
@@ -310,7 +309,7 @@ export const StrengthCard = memo(function StrengthCard({
           height: 26,
           flexDirection: "row",
           alignItems: "center",
-          borderBottomWidth: 2.5,
+          borderBottomWidth: OUTLINE.width,
           borderColor: C.ink,
           justifyContent: "space-between",
           gap: 6,
@@ -666,14 +665,14 @@ export const LockedCard = memo(function LockedCard({
       }}
       style={[
         {
-          borderWidth: 2.5,
+          borderWidth: OUTLINE.width,
           borderColor: C.ink,
           borderRadius: 14,
           backgroundColor: C.dark,
           overflow: "hidden",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: `3px 3px 0 ${C.ink}`,
+          boxShadow: OUTLINE.shadow,
         },
         style,
       ]}
@@ -729,27 +728,3 @@ export const LockedCard = memo(function LockedCard({
     </View>
   );
 });
-
-export function ResponsiveCards({
-  cards,
-  onPress,
-}: {
-  cards: Card[];
-  onPress?: (k: string) => void;
-}) {
-  const { width } = useWindowDimensions();
-  const w = Math.min(width, 460);
-  return (
-    <View style={S.grid}>
-      {cards.map((c) => (
-        <StrengthCard
-          key={c.key}
-          card={c}
-          onPress={onPress ? () => onPress(c.key) : undefined}
-          style={{ width: (w - 38) / 2, height: 220 }}
-          height={220}
-        />
-      ))}
-    </View>
-  );
-}

@@ -11,7 +11,7 @@ import { usePressMotion } from "./use-press-motion";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export type SquishPressableProps = Omit<PressableProps, "style"> & {
+type SquishPressableProps = Omit<PressableProps, "style"> & {
   /** Like Pressable's, the function form receives the pressed state. */
   style?:
     | StyleProp<ViewStyle>

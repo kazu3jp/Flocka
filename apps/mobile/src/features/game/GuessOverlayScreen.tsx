@@ -17,6 +17,7 @@ import {
   Header,
   Icon,
   InlineError,
+  LAYOUT,
   LinkButton,
   Panel,
   S,
@@ -34,11 +35,18 @@ import {
   type State,
 } from "@flocka/domain";
 import { useSheetFeedback } from "../../components/feedback";
+import { useAppWidth, useModalFrame } from "../../components/app-frame";
+import { cardHeightInRow } from "../../components/responsive-scale";
 import { PopIn } from "../../components/motion";
 import { useApp } from "../../store";
+import { useOpenTestimony } from "./use-open-testimony";
 import { hapticSuccess } from "../haptics/haptics";
 
 /** The headline after opening; skipping is neither a hit nor a miss. */
+/** The true card and two wrong ones (optionsFor), side by side. */
+const GUESS_OPTION_COUNT = 3;
+const GUESS_OPTION_GAP = 8;
+
 function openingResult(guess: string | null, card: string, self: boolean) {
   if (!guess || guess === "skip") return "開封！";
   if (guess === card) return "的中！";
@@ -46,7 +54,8 @@ function openingResult(guess: string | null, card: string, self: boolean) {
 }
 
 function GuessContent({ id }: { id: string }) {
-  const { s, d, nav, api, refresh, toast, setOpening, peers } = useApp(),
+  const { s, d, nav, toast, setOpening, peers } = useApp(),
+    openTestimony = useOpenTestimony(),
     { busy, error, run } = useAction(),
     p = allPieces(s).find((p) => p.id === id),
     [wasConfirmed] = useState(p ? d.cards[p.card].confirmed : false),
@@ -81,6 +90,12 @@ function GuessContent({ id }: { id: string }) {
     // p is re-found on each render; its id and card identify it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, p?.id, p?.card, guess]);
+  const optionHeight = cardHeightInRow(
+    useAppWidth() - 2 * LAYOUT.screenPadding,
+    GUESS_OPTION_COUNT,
+    GUESS_OPTION_GAP,
+    220,
+  );
   const became = !!after?.confirmed && !wasConfirmed,
     hit = !!p && guess === p.card;
   // Celebrate only results the server saved: a correct guess or a new confirmed card.
@@ -107,8 +122,7 @@ function GuessContent({ id }: { id: string }) {
     if (locked) return;
     setPending(k);
     void run(async () => {
-      const saved = await api.openTestimony(p.id, k);
-      await refresh();
+      const saved = await openTestimony(p.id, k);
       setGuess(saved.guess ?? "skip");
       if (reduced) {
         setStage("open");
@@ -158,15 +172,15 @@ function GuessContent({ id }: { id: string }) {
                 color={C.ink}
                 style={{ marginTop: -48, marginBottom: 30 }}
               >
-                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より
+                {peers[p.fromId]?.profile.name ?? "相手"}より
               </T>
             </Animated.View>
             <T display size={24} style={{ textAlign: "center" }}>
-              {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}の
+              {peers[p.fromId]?.profile.name ?? "相手"}の
               {p.kind === "vibe" ? "印象" : "メモ"}は、
               {"\n"}どのカードの証言？
             </T>
-            <View style={[S.row, { gap: 8 }]}>
+            <View style={[S.row, { gap: GUESS_OPTION_GAP }]}>
               {opts.map((k) => (
                 <View
                   key={k}
@@ -177,7 +191,7 @@ function GuessContent({ id }: { id: string }) {
                   }}
                   style={{
                     flex: 1,
-                    height: 220,
+                    height: optionHeight,
                     opacity: chosen && chosen !== k ? 0.4 : 1,
                     transform: [{ translateY: chosen === k ? -6 : 0 }],
                   }}
@@ -223,7 +237,7 @@ function GuessContent({ id }: { id: string }) {
           <>
             <Panel>
               <T size={12} color={C.muted}>
-                {peers[p.fromId]?.profile.name ?? "プロフィールを取得中"}より ·{" "}
+                {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
                 {p.kind === "vibe" ? "会話の印象" : "見た場面"}
               </T>
               <T display size={20} color={C.ink}>
@@ -304,17 +318,35 @@ function GuessContent({ id }: { id: string }) {
 
 export function GuessOverlay() {
   const { opening, setOpening } = useApp();
+  const frame = useModalFrame();
   // Toasts raised while the overlay is open render inside its native window.
   const { content: feedback, register } = useSheetFeedback();
   useEffect(() => (opening ? register?.() : undefined), [opening, register]);
   return (
     <Modal
       visible={!!opening}
+      transparent={!!frame}
       animationType="fade"
       onRequestClose={() => setOpening(null)}
     >
-      {opening ? <GuessContent id={opening} key={opening} /> : null}
-      {opening ? feedback : null}
+      {/* The web preview and a tablet show the challenge inside the app's column. */}
+      <View
+        style={[
+          S.fill,
+          frame && {
+            position: "absolute",
+            left: frame.x,
+            top: frame.y,
+            width: frame.width,
+            height: frame.height,
+            borderRadius: frame.borderRadius,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        {opening ? <GuessContent id={opening} key={opening} /> : null}
+        {opening ? feedback : null}
+      </View>
     </Modal>
   );
 }

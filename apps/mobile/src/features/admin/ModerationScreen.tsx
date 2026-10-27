@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import type { ModerationCursor, PendingModeration } from "@flocka/domain";
-import { Board, Btn, C, Header, Panel, S, T } from "../../components/ui";
+import {
+  Board,
+  Btn,
+  C,
+  Header,
+  InlineError,
+  Panel,
+  S,
+  T,
+} from "../../components/ui";
 import { useApp } from "../../store";
-import { useAction } from "../sync/use-action";
+import { useModerationQueue } from "./use-moderation-queue";
 
 const OUTCOMES = [
   ["removed", "証言を削除", "運営が証言を削除しました"],
@@ -11,30 +18,9 @@ const OUTCOMES = [
 ] as const;
 
 export function Moderation() {
-  const { api, nav, toast, isAdmin } = useApp(),
-    [items, setItems] = useState<PendingModeration[]>([]),
-    [next, setNext] = useState<ModerationCursor | null>(null),
-    [loaded, setLoaded] = useState(false),
-    { busy, error, run } = useAction();
-  const load = useCallback(
-    (after: ModerationCursor | null) =>
-      run(async () => {
-        // The cursor follows the last loaded request, so resolving shown items
-        // never skips the requests after them.
-        const result = await api.pendingModeration(after);
-        setItems((current) =>
-          after ? [...current, ...result.items] : result.items,
-        );
-        setNext(result.next);
-        setLoaded(true);
-      }),
-    // `run` is stable for the lifetime of the screen.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api],
-  );
-  useEffect(() => {
-    if (isAdmin) void load(null);
-  }, [isAdmin, load]);
+  const { nav, isAdmin } = useApp(),
+    { items, next, loaded, busy, error, loadMore, resolve } =
+      useModerationQueue();
   if (!isAdmin)
     return (
       <Board>
@@ -45,7 +31,7 @@ export function Moderation() {
   return (
     <Board scroll>
       <Header title="通報の対応" onBack={nav.pop} />
-      {error ? <T color={C.yellow}>{error}</T> : null}
+      <InlineError text={error} />
       {loaded && !items.length && (
         <T size={13}>
           {next === null
@@ -66,26 +52,13 @@ export function Moderation() {
               plain={status !== "removed"}
               label={label}
               disabled={busy}
-              onPress={() => {
-                void run(async () => {
-                  await api.resolveModeration(item.id, status, note);
-                  setItems((current) =>
-                    current.filter((other) => other.id !== item.id),
-                  );
-                  toast("対応を記録しました");
-                });
-              }}
+              onPress={() => resolve(item.id, status, note)}
             />
           ))}
         </Panel>
       ))}
       {next !== null && (
-        <Btn
-          plain
-          label="さらに読み込む"
-          disabled={busy}
-          onPress={() => void load(next)}
-        />
+        <Btn plain label="さらに読み込む" disabled={busy} onPress={loadMore} />
       )}
     </Board>
   );

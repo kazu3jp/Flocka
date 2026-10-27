@@ -22,7 +22,7 @@ export const TOUR_POPOVER_MARGIN = 14;
 /** Distance between the cut-out and the popover. */
 export const TOUR_POPOVER_GAP = 14;
 /** Half the width of the pointer, so it never sits on a rounded corner. */
-export const TOUR_POINTER_INSET = 22;
+const TOUR_POINTER_INSET = 22;
 
 /** `target` and `origin` are in the same (window) coordinates. */
 export function relativeRect(target: Rect, origin: Rect): Rect {
@@ -133,9 +133,9 @@ export function dimRects(bounds: Size, hole: Rect | null) {
   };
 }
 
-export type PopoverPlacement = "below" | "above" | "over";
+type PopoverPlacement = "below" | "above" | "over";
 
-export type PopoverPosition = {
+type PopoverPosition = {
   left: number;
   top: number;
   width: number;

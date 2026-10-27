@@ -2,7 +2,6 @@ import { LegalDocument } from "./LegalDocument";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Redirect, useLocalSearchParams, type Href } from "expo-router";
-import { z } from "zod";
 import {
   Board,
   Brand,
@@ -17,8 +16,10 @@ import {
   Sheet,
   SP,
   T,
+  OUTLINE,
 } from "../../components/ui";
-import { API_URL, assertAuthResult, getAuthClient } from "./client";
+import { assertAuthResult, getAuthClient } from "./client";
+import { fetchAuthProviders } from "./auth-config";
 import { browserFlowErrorMessage } from "./auth-error-message";
 import { signInWithGoogle } from "./google-sign-in";
 import { userFacingError } from "../sync/user-facing-error";
@@ -76,13 +77,9 @@ export function AuthScreen({
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
-    void fetch(API_URL + "/auth/config", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("認証設定を読み込めませんでした");
-        const config = z
-          .object({ providers: z.array(z.literal("google")) })
-          .parse(await response.json());
-        if (mounted.current) setProviders(config.providers);
+    void fetchAuthProviders(controller.signal)
+      .then((providers) => {
+        if (mounted.current) setProviders(providers);
       })
       .catch((error) => {
         if (mounted.current && error.name !== "AbortError")
@@ -373,6 +370,11 @@ export function AuthScreen({
                   ]}
                 >
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      wait ? `コードを再送（あと${wait}秒）` : "コードを再送"
+                    }
+                    accessibilityState={{ disabled: wait > 0 || busy }}
                     disabled={wait > 0 || busy}
                     onPress={() => void run(sendCode)}
                     style={{ minHeight: 44, justifyContent: "center" }}
@@ -383,9 +385,8 @@ export function AuthScreen({
                   </Pressable>
                   <LinkButton
                     label="メールアドレスを変更"
-                    onPress={() => {
-                      if (!busy) go("signup");
-                    }}
+                    disabled={busy}
+                    onPress={() => go("signup")}
                   />
                 </View>
               </>
@@ -438,7 +439,7 @@ export function AuthScreen({
                         style={{
                           width: 26,
                           height: 26,
-                          borderWidth: 2.5,
+                          borderWidth: OUTLINE.width,
                           borderColor: C.ink,
                           borderRadius: 7,
                           backgroundColor: agree ? C.yellow : C.paper,
