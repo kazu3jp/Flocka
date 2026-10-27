@@ -24,6 +24,7 @@
     "export:native": "npm run export:native -w @flocka/mobile --",
     "verify:export": "node tools/verify-export.mjs",
     "apk:android": "node tools/build-apk.mjs",
+    "ipa:ios": "node tools/build-ipa.mjs",
     "build:api": "npm run build -w @flocka/api",
     "eval:pr-ai": "tsx tools/eval-pr-ai.mjs",
     "import:design": "node tools/import-design.cjs",

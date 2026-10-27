@@ -1,41 +1,19 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import {
+  mobile,
+  productionApiUrl,
+  publishToDist,
+  readJson,
+  root,
+  run,
+} from "./release-build.mjs";
 
 // Builds a standalone release APK (JavaScript bundled, no Metro needed) that
 // talks to the production API. Extra arguments go to Gradle, for example
 // `npm run apk:android -- -PreactNativeArchitectures=arm64-v8a`.
-const root = new URL("../", import.meta.url);
-const mobile = fileURLToPath(new URL("apps/mobile/", root));
-const readJson = (path) =>
-  JSON.parse(readFileSync(new URL(path, root), "utf8"));
 const isWindows = process.platform === "win32";
-
-function productionApiUrl() {
-  const url =
-    process.env.EXPO_PUBLIC_API_URL ??
-    readJson("apps/mobile/eas.json").build.base.env.EXPO_PUBLIC_API_URL;
-  assert(url, "No EXPO_PUBLIC_API_URL in the environment or eas.json");
-  const api = new URL(url);
-  assert.equal(
-    api.protocol,
-    "https:",
-    "A standalone APK requires an HTTPS API",
-  );
-  assert(
-    !["localhost", "127.0.0.1", "[::1]", "10.0.2.2"].includes(api.hostname),
-    "A standalone APK must not target a local test server",
-  );
-  return url;
-}
 
 // Android signs in with the native Google sheet only when the Web application
 // client ID is embedded at build time; without it the button cannot work as
@@ -55,20 +33,6 @@ function googleWebClientId() {
     "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be a Google OAuth client ID",
   );
   return id.trim();
-}
-
-// Windows needs a shell for npx and .bat files; one quoted command line keeps
-// paths with spaces intact there.
-function run(command, args, cwd, env) {
-  const line = [command, ...args]
-    .map((part) => (part.includes(" ") ? `"${part}"` : part))
-    .join(" ");
-  console.log(`\n> ${line}`);
-  const result = isWindows
-    ? spawnSync(line, { cwd, env, stdio: "inherit", shell: true })
-    : spawnSync(command, args, { cwd, env, stdio: "inherit" });
-  if (result.status !== 0)
-    throw new Error(`${command} failed with exit code ${result.status}`);
 }
 
 const env = {
@@ -105,13 +69,8 @@ run(
   env,
 );
 
-const version = readJson("apps/mobile/app.json").expo.version;
-const built = new URL(
-  "apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
-  root,
+const apk = publishToDist(
+  new URL("app/build/outputs/apk/release/app-release.apk", android),
+  "release.apk",
 );
-mkdirSync(new URL("dist/", root), { recursive: true });
-const output = new URL(`dist/flocka-${version}-release.apk`, root);
-copyFileSync(built, output);
-const sha256 = createHash("sha256").update(readFileSync(output)).digest("hex");
-console.log(`\nAPK: ${fileURLToPath(output)}\nSHA-256: ${sha256}`);
+console.log(`\nAPK: ${apk.path}\nSHA-256: ${apk.sha256}`);
