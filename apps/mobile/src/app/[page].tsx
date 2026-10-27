@@ -27,7 +27,12 @@ import {
   SP,
   T,
 } from "../components/ui";
-import { SCREENS, type ScreenId, type Tab } from "@flocka/domain";
+import {
+  SCREENS,
+  tabSelectResetsStack,
+  type ScreenId,
+  type Tab,
+} from "@flocka/domain";
 import { useApp, useAppStatus } from "../store";
 
 /** Toasts read their own status so showing one does not redraw the screen. */
@@ -182,9 +187,8 @@ export default function Screen() {
                     : null,
             }))}
             current={n.tab}
-            // Coming back to exchange always lands on the own player card.
             onSelect={(tab) =>
-              nav.goTab(tab, undefined, n.tab === tab || tab === "exchange")
+              nav.goTab(tab, undefined, tabSelectResetsStack(tab, n.tab))
             }
           />
         )}

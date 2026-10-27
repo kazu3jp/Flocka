@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { initNav, navigationForRoute, validNav } from "@flocka/domain";
+import {
+  initNav,
+  navigationForRoute,
+  tabSelectResetsStack,
+  validNav,
+} from "@flocka/domain";
 
 test("external routes select their tab and preserve valid back history", () => {
   const initial = initNav();
@@ -70,4 +75,12 @@ test("onboarding and detail screens without their id never enter a tab stack", (
     params: { id: "p1" },
   });
   assert.equal(validNav(piece), true);
+});
+
+test("tapping the deck or exchange tab opens its root; pr keeps its history", () => {
+  assert.equal(tabSelectResetsStack("find", "pr"), true);
+  assert.equal(tabSelectResetsStack("find", "exchange"), true);
+  assert.equal(tabSelectResetsStack("exchange", "find"), true);
+  assert.equal(tabSelectResetsStack("pr", "find"), false);
+  assert.equal(tabSelectResetsStack("pr", "pr"), true);
 });
