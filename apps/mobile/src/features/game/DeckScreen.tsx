@@ -25,6 +25,7 @@ import {
 } from "../../components/ui";
 
 import {
+  Nudge,
   ProgressFill,
   SquishPressable,
   StaggerItem,
@@ -108,7 +109,12 @@ export function Deck() {
     [lockedHint, setLockedHint] = useState(false),
     [gridHeight, setGridHeight] = useState(0),
     [cardTextHeight, setCardTextHeight] = useState(0),
-    measured = useRef({ row: 0, art: Infinity, pending: false }),
+    [nameLines, setNameLines] = useState<Record<string, number>>({}),
+    measured = useRef({
+      row: 0,
+      art: new Map<string, number>(),
+      pending: false,
+    }),
     firstRowTarget = useTourTarget(TOUR_TARGETS.deckCards),
     questTarget = useTourTarget(TOUR_TARGETS.deckQuest),
     giveTarget = useTourTarget(TOUR_TARGETS.deckGive),
@@ -159,24 +165,43 @@ export function Deck() {
     rowNeed,
   );
   // The illustration reports before its row does, so pair the two only once
-  // the whole layout pass has reported (on the next frame).
+  // the whole layout pass has reported (on the next frame). Rows reserve
+  // different name lines, so the shortest illustration shown sets the need.
   const reviewRows = () => {
     if (measured.current.pending) return;
     measured.current.pending = true;
     requestAnimationFrame(() => {
       const current = measured.current;
       current.pending = false;
-      if (current.row <= 0 || !Number.isFinite(current.art)) return;
-      const text = current.row - current.art;
+      const art = Math.min(
+        ...shown.map((card) => current.art.get(card.key) ?? Infinity),
+      );
+      if (current.row <= 0 || !Number.isFinite(art)) return;
+      const text = current.row - art;
       setCardTextHeight((previous) =>
         Math.abs(text - previous) > 1 ? text : previous,
       );
     });
   };
-  const measureArt = (artHeight: number) => {
-    measured.current.art = artHeight;
+  const measureArt = (key: string, artHeight: number) => {
+    measured.current.art.set(key, artHeight);
     reviewRows();
   };
+  const measureNameLines = (key: string, lines: number) =>
+    setNameLines((current) =>
+      current[key] === lines ? current : { ...current, [key]: lines },
+    );
+  // A one-line name leaves its line to the illustration, unless the other
+  // card in the row needs two; until measured, a card keeps room for two.
+  const rowNameLines = (row: number) =>
+    Math.max(
+      1,
+      ...slots
+        .slice(row * 2, row * 2 + 2)
+        .map((slot) =>
+          slot && slot !== "more" ? (nameLines[slot.key] ?? 2) : 1,
+        ),
+    );
   const compact = height <= 720;
   const grid = (
     <View style={{ flex: scrollGrid ? undefined : 1, gap: DECK_GRID_GAP }}>
@@ -218,7 +243,9 @@ export function Deck() {
                   <StrengthCard
                     card={c}
                     style={S.fill}
-                    onArtHeight={measureArt}
+                    onArtHeight={(artHeight) => measureArt(c.key, artHeight)}
+                    nameLines={rowNameLines(row)}
+                    onNameLines={(lines) => measureNameLines(c.key, lines)}
                     onPress={() => nav.push("card", { key: c.key })}
                   />
                 ) : (
@@ -290,88 +317,90 @@ export function Deck() {
         </View>
       </View>
       {quest && (
-        <SquishPressable
-          {...questTarget}
-          testID="deck-challenge"
-          pressScale={0.98}
-          accessibilityRole="button"
-          accessibilityLabel={
-            challenge
-              ? "予想チャレンジ！"
-              : unsent.length
-                ? "交換した人に印象を贈ろう"
-                : "まずは交換しよう"
-          }
-          onPress={goQuest}
-        >
-          <Panel
-            style={[
-              S.row,
-              {
-                paddingVertical: 8,
-                paddingHorizontal: 10,
-                gap: 10,
-                backgroundColor: C.yellow,
-              },
-            ]}
+        <Nudge>
+          <SquishPressable
+            {...questTarget}
+            testID="deck-challenge"
+            pressScale={0.98}
+            accessibilityRole="button"
+            accessibilityLabel={
+              challenge
+                ? "予想チャレンジ！"
+                : unsent.length
+                  ? "交換した人に印象を贈ろう"
+                  : "まずは交換しよう"
+            }
+            onPress={goQuest}
           >
-            <View style={{ width: 42, height: 32 }}>
-              {(challenge ? d.unopened.slice(0, 3) : [null]).map(
-                (piece, index) => (
-                  <View
-                    key={piece?.id ?? "exchange"}
-                    style={{
-                      position: "absolute",
-                      left: challenge ? index * 5 : 4,
-                      top: challenge ? index * 3 : 4,
-                      transform: [
-                        { rotate: `${challenge ? (index - 1) * 8 : 0}deg` },
-                      ],
-                    }}
-                  >
-                    <Envelope size={34} />
-                  </View>
-                ),
-              )}
-            </View>
-            <View style={S.fill}>
+            <Panel
+              style={[
+                S.row,
+                {
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  gap: 10,
+                  backgroundColor: C.yellow,
+                },
+              ]}
+            >
+              <View style={{ width: 42, height: 32 }}>
+                {(challenge ? d.unopened.slice(0, 3) : [null]).map(
+                  (piece, index) => (
+                    <View
+                      key={piece?.id ?? "exchange"}
+                      style={{
+                        position: "absolute",
+                        left: challenge ? index * 5 : 4,
+                        top: challenge ? index * 3 : 4,
+                        transform: [
+                          { rotate: `${challenge ? (index - 1) * 8 : 0}deg` },
+                        ],
+                      }}
+                    >
+                      <Envelope size={34} />
+                    </View>
+                  ),
+                )}
+              </View>
+              <View style={S.fill}>
+                <T
+                  display
+                  balanced
+                  size={15}
+                  color={C.ink}
+                  style={{ lineHeight: 18.75 }}
+                >
+                  {challenge
+                    ? "予想チャレンジ！"
+                    : unsent.length
+                      ? "交換した人に印象を贈ろう"
+                      : "まずは交換しよう"}
+                </T>
+                <BannerCaption>
+                  {challenge
+                    ? `封筒${d.unopened.length}通・どのカードか当てよう`
+                    : unsent.length
+                      ? `まだ印象を贈っていない人が${unsent.length}人います`
+                      : "会った人と、カードを交換"}
+                </BannerCaption>
+              </View>
               <T
                 display
-                balanced
-                size={15}
-                color={C.ink}
-                style={{ lineHeight: 18.75 }}
+                size={13}
+                color={C.yellow}
+                style={{
+                  backgroundColor: C.ink,
+                  borderRadius: 10,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  lineHeight: 13,
+                }}
               >
-                {challenge
-                  ? "予想チャレンジ！"
-                  : unsent.length
-                    ? "交換した人に印象を贈ろう"
-                    : "まずは交換しよう"}
+                {challenge ? "開ける" : unsent.length ? "贈る" : "交換"}
               </T>
-              <BannerCaption>
-                {challenge
-                  ? `封筒${d.unopened.length}通・どのカードか当てよう`
-                  : unsent.length
-                    ? `まだ印象を贈っていない人が${unsent.length}人います`
-                    : "会った人と、カードを交換"}
-              </BannerCaption>
-            </View>
-            <T
-              display
-              size={13}
-              color={C.yellow}
-              style={{
-                backgroundColor: C.ink,
-                borderRadius: 10,
-                paddingVertical: 8,
-                paddingHorizontal: 10,
-                lineHeight: 13,
-              }}
-            >
-              {challenge ? "開ける" : unsent.length ? "贈る" : "交換"}
-            </T>
-          </Panel>
-        </SquishPressable>
+            </Panel>
+          </SquishPressable>
+        </Nudge>
       )}
       <View
         style={{ flex: 1, minHeight: 0 }}

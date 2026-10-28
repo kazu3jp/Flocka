@@ -7,6 +7,7 @@ export { SquishPressable } from "./SquishPressable";
 export { ScreenEntrance } from "./ScreenEntrance";
 export { StaggerItem } from "./StaggerItem";
 export { PopIn } from "./PopIn";
+export { Nudge } from "./Nudge";
 export { PopOnChange } from "./PopOnChange";
 export { SelectionFill } from "./SelectionFill";
 export { EnterOnMount } from "./EnterOnMount";
