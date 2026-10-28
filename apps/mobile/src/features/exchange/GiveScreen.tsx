@@ -6,6 +6,7 @@ import {
   Board,
   Btn,
   C,
+  Envelope,
   F,
   Header,
   LAYOUT,
@@ -22,7 +23,7 @@ import { useConfirmation } from "../../components/pickers";
 import { useBackStep } from "../navigation/use-back-step";
 import { hapticSuccess } from "../haptics/haptics";
 import { GiveReason, ImpressionLabel, ImpressionSummary } from "./give-content";
-import { GiveMode, VibeOptions } from "./give-controls";
+import { GiveMode, GiveStep, VibeOptions } from "./give-controls";
 import { PeerAvatar } from "./player-card";
 
 export function Give({ cid }: { cid: string }) {
@@ -152,56 +153,55 @@ export function Give({ cid }: { cid: string }) {
         <Btn plain label="交換へ戻る" onPress={nav.root} />
       </Board>
     );
+  const context = [c.context.place, c.context.trigger]
+    .filter(Boolean)
+    .join(" ／ ");
   return (
     <Board scroll form>
-      <Header
-        title="印象を贈る"
-        onBack={() => leave(nav.pop)}
-        right={
-          <View style={[S.row, { gap: 8 }]}>
-            <PeerAvatar id={c.peerId} size={32} />
-            <T style={{ fontFamily: F.bold, lineHeight: 24.75 }}>{peerName}</T>
-          </View>
-        }
-      />
-      <View testID="give-instructions">
-        <T display size={20} style={{ lineHeight: 28 }}>
-          相手のいいなと思ったところは？
-        </T>
-        <T size={14} color={C.pale} style={{ marginTop: 6, lineHeight: 22.4 }}>
-          {mode === "pick"
-            ? "言葉を1つ選び、そう感じた理由を添えて贈ってください。"
-            : "どんな場面で、なぜそう感じたかを8文字以上で書いてください。要約は任意です。"}
-        </T>
-      </View>
+      <Header title="印象を贈る" onBack={() => leave(nav.pop)} />
+      {/* Who it goes to, with where you met: the one line of context needed. */}
       <Panel
         testID="give-exchange-context"
-        style={{ paddingVertical: 10, paddingHorizontal: 14 }}
+        style={[S.row, { paddingVertical: 10, paddingHorizontal: 14, gap: 12 }]}
       >
-        <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
-          交換のきっかけ
-        </T>
-        <T color={C.ink} size={14} style={{ lineHeight: 22.4 }}>
-          {[c.context.place, c.context.trigger].filter(Boolean).join(" ／ ") ||
-            "まだ記入されていません"}
-        </T>
-        {/* Always shown: hiding it once a choice is made pulled the options up under the finger. */}
+        <PeerAvatar id={c.peerId} size={44} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T display color={C.ink} size={18} style={{ lineHeight: 24 }}>
+            {peerName}へ
+          </T>
+          <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+            {context || "出会いのメモは未記入"}
+          </T>
+        </View>
         <LinkButton
-          label="出会いのメモを編集"
+          label="メモ"
+          accessibilityLabel="出会いのメモを編集"
           color={C.ink}
           onPress={() => nav.push("confirm", { cid })}
         />
       </Panel>
       <GiveMode mode={mode} onChange={setMode} />
-      {mode === "pick" && <VibeOptions selected={sel} onChange={setSel} />}
-      <GiveReason
-        mode={mode}
-        text={text}
-        onChange={(value) => {
-          setText(value);
-          setSum(null);
-        }}
-      />
+      {mode === "pick" && (
+        <View testID="give-instructions" style={{ gap: 10 }}>
+          <GiveStep number={1} title="いいなと思ったところ" note="1つ選ぶ" />
+          <VibeOptions selected={sel} onChange={setSel} />
+        </View>
+      )}
+      <View style={{ gap: 10 }}>
+        <GiveStep
+          number={mode === "pick" ? 2 : 1}
+          title={mode === "pick" ? "そう感じた理由" : "印象と、その理由"}
+          note={mode === "pick" ? "ひとことでOK" : "8文字以上"}
+        />
+        <GiveReason
+          mode={mode}
+          text={text}
+          onChange={(value) => {
+            setText(value);
+            setSum(null);
+          }}
+        />
+      </View>
       {mode === "free" && (
         <>
           <View style={[S.row, { justifyContent: "space-between" }]}>
@@ -229,28 +229,39 @@ export function Give({ cid }: { cid: string }) {
         </>
       )}
       <View style={{ flexGrow: 1 }} />
+      {/* The envelope as it will arrive: the word and the reason together. */}
       <Panel
         testID="give-selection-preview"
-        style={{ paddingVertical: 10, paddingHorizontal: 14 }}
+        accessibilityRole="summary"
+        style={[S.row, { paddingVertical: 10, paddingHorizontal: 14, gap: 12 }]}
       >
-        <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
-          {peers[c.peerId]?.profile.name ?? "相手"}に贈る印象
-        </T>
-        <T color={C.ink} size={14} style={{ lineHeight: 22.4, marginTop: 4 }}>
-          {mode === "pick"
-            ? sel
-              ? `「${sel}」`
-              : "上から言葉を1つ選んでください"
-            : text.trim() || "相手に感じた印象を書いてください"}
-        </T>
+        <Envelope size={34} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T color={C.muted} size={12.5} style={{ lineHeight: 19.375 }}>
+            {peerName}に贈る印象
+          </T>
+          <T
+            color={C.ink}
+            size={15}
+            style={{ fontFamily: F.bold, lineHeight: 22 }}
+          >
+            {mode === "pick"
+              ? sel
+                ? `「${sel}」`
+                : "まだ選んでいません"
+              : sum
+                ? `「${sum.label}」`
+                : text.trim()
+                  ? "自由に書いた印象"
+                  : "まだ書いていません"}
+          </T>
+          {text.trim() ? (
+            <T color={C.muted} size={12.5} numberOfLines={2}>
+              {text.trim()}
+            </T>
+          ) : null}
+        </View>
       </Panel>
-      <T
-        size={12.5}
-        color={C.pale}
-        style={{ textAlign: "center", lineHeight: 19.375 }}
-      >
-        贈った印象は、相手のデッキに証言として届きます。
-      </T>
       <Btn
         label="この印象を贈る"
         loading={busy}

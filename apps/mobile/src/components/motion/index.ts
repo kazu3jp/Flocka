@@ -4,7 +4,7 @@ export { usePressMotion } from "./use-press-motion";
 export { useEnterMotion } from "./use-enter-motion";
 export { usePresenceMotion } from "./use-presence-motion";
 export { SquishPressable } from "./SquishPressable";
-export { ScreenEntrance } from "./ScreenEntrance";
+export { ScreenEntrance, type ScreenEnter } from "./ScreenEntrance";
 export { StaggerItem } from "./StaggerItem";
 export { PopIn } from "./PopIn";
 export { Nudge } from "./Nudge";

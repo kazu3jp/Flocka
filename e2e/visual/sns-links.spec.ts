@@ -48,63 +48,51 @@ test("a peer without SNS links shows no SNS block", async ({
   await expect(page.getByTestId("sns-links")).toHaveCount(0);
 });
 
-test("the profile editor rejects unsafe links and saves several services to the own card", async ({
+test("pasting a profile URL adds that service, and a bare name asks which service", async ({
   page,
   context,
 }, testInfo) => {
   await signInFixture(context, "empty", `sns-edit-${testInfo.project.name}`);
-  await page.goto("/selfEdit");
+  await page.goto("/me");
+  await page
+    .getByRole("button", { name: "SNS・Webサイト", exact: true })
+    .click();
   const editor = page.getByTestId("sns-links-editor");
-  await expect(editor).not.toContainText("自己申告です");
-  const zenn = editor.getByRole("textbox", {
-    name: "ZennのIDまたはURL",
+  const field = editor.getByRole("textbox", {
+    name: "プロフィールのURLまたはユーザー名",
     exact: true,
   });
-  const x = editor.getByRole("textbox", {
-    name: "XのIDまたはURL",
-    exact: true,
-  });
-  const github = editor.getByRole("textbox", {
-    name: "GitHubのIDまたはURL",
-    exact: true,
-  });
-  await zenn.fill("javascript:alert(1)");
-  await x.click();
-  await expect(
-    editor.getByText("Zennのユーザー名またはURLを確認してください"),
-  ).toBeVisible();
-  // An invalid field must not be saved or dropped silently.
-  await expect(
-    page.getByRole("button", { name: "保存", exact: true }),
-  ).toBeDisabled();
+  const add = editor.getByRole("button", { name: "追加する", exact: true });
+  // Unusable text is never added, and says why once the field is left.
+  await field.fill("javascript:alert(1)");
+  await field.blur();
+  await expect(editor.getByText(/このURLは追加できません/)).toBeVisible();
+  await expect(add).toBeDisabled();
   await capture(page, "sns-editor-error");
-  // A profile URL pasted into another service's field names the right one.
-  await zenn.fill("https://x.com/flocka_app");
-  await x.click();
+  // A profile URL names its service and is saved as it is added.
+  await field.fill("https://x.com/flocka_app");
+  await expect(editor.getByTestId("sns-entry-preview")).toContainText(
+    "@flocka_app",
+  );
+  await add.click();
+  await expect(field).toHaveValue("");
   await expect(
-    editor.getByText("XのURLです。Xの欄に入力してください"),
+    editor.getByRole("button", { name: "Xを削除", exact: true }),
   ).toBeVisible();
-  await zenn.fill("");
-  await x.fill("https://x.com/flocka_app");
-  await github.fill("kazu3jp");
-  const website = editor.getByRole("textbox", {
-    name: "WebサイトのURL",
-    exact: true,
-  });
-  // A profile URL is refused as the website, too.
-  await website.fill("https://github.com/kazu3jp");
-  await x.click();
+  // A bare name fits several services, so the person picks one.
+  await field.fill("kazu3jp");
+  await expect(add).toBeDisabled();
+  await editor.getByRole("button", { name: "GitHub", exact: true }).click();
+  await add.click();
   await expect(
-    editor.getByText("GitHubのURLです。GitHubの欄に入力してください"),
+    editor.getByRole("button", { name: "GitHubを削除", exact: true }),
   ).toBeVisible();
-  await website.fill("flocka.dev/about");
+  await field.fill("flocka.dev/about");
+  await add.click();
   await expect(
-    page.getByRole("button", { name: "保存", exact: true }),
-  ).toBeEnabled();
-  await page.getByRole("button", { name: "保存", exact: true }).click();
-  await expect(
-    page.getByText("プロフィールを保存しました", { exact: true }),
+    editor.getByRole("button", { name: "Webサイトを削除", exact: true }),
   ).toBeVisible();
+  await capture(page, "sns-editor");
   await page.goto("/exchange");
   await expect(
     page.getByRole("button", { name: "X @flocka_app", exact: true }),

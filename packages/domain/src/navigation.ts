@@ -13,6 +13,7 @@ export const SCREENS = [
   "pieces",
   "piece",
   "settings",
+  "sns",
   "moderation",
   "exchange",
   "connections",

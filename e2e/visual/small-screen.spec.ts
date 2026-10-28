@@ -264,6 +264,7 @@ test.describe("small screens", () => {
           "/me",
           "/selfEdit",
           "/settings",
+          "/sns",
           "/collection",
         ]) {
           await page.goto(path);

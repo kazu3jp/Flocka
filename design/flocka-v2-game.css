@@ -218,6 +218,14 @@ button.gcard:hover { transform: translateY(-3px) rotate(-.6deg); }
 .vopt { min-height: 58px; border-radius: 14px; border: var(--ol); background: var(--paper); color: var(--ink); box-shadow: var(--sh-s); font: 400 16px/1.35 var(--disp); padding: 0 10px; display: flex; align-items: center; justify-content: center; text-align: center; transition: transform .12s var(--pop), background .15s; }
 .vopt:hover { background: var(--paper-2); }
 .vopt[aria-checked="true"] { background: var(--yellow); transform: translateY(-4px) rotate(-1.5deg); box-shadow: var(--sh); }
+.vopt { gap: 8px; }
+.vopt i { flex: none; width: 30px; height: 30px; display: grid; place-items: center; }
+.vopt i svg { width: 100%; height: 100%; }
+.give-step { display: flex; align-items: center; gap: 8px; font: 700 16px/1.5 var(--body); }
+.give-step i { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink); background: var(--yellow); color: var(--ink); font: 400 14px/1 var(--disp); font-style: normal; }
+.give-step em { margin-left: auto; font-style: normal; font-size: 12.5px; font-weight: 500; color: var(--on-blue-muted); }
+.give-to { display: block; font: 400 18px/1.35 var(--disp); }
+.give-preview-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .person { width: 100%; min-height: 62px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: var(--ol); background: var(--paper); color: var(--ink); box-shadow: var(--sh-s); text-align: left; transition: transform .1s; }
 .person:hover { background: var(--paper-2); }
 .person[aria-checked="true"] { background: var(--yellow); }
