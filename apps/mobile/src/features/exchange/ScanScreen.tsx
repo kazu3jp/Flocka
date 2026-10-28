@@ -82,9 +82,7 @@ export function Scan() {
     } = useInvite(),
     { busy, error, run } = useAction(),
     sizes = useScanSizes(),
-    startExchange = useStartExchange(),
-    // Remounting the camera clears a code still in view, so a rescan starts fresh.
-    [cameraKey, setCameraKey] = useState(0);
+    startExchange = useStartExchange();
   useEffect(
     () => () => {
       if (rescanTimer.current) clearTimeout(rescanTimer.current);
@@ -227,20 +225,21 @@ export function Scan() {
           <T size={13} color={C.pale} style={{ textAlign: "center" }}>
             相手のアプリでこのQRを読み取ってもらうと、交換の確認に進みます。
           </T>
-          <Btn
-            plain
-            small
-            label="QRを更新する"
-            disabled={creating}
-            onPress={() => void renew()}
-          />
+          {/* The code renews itself on expiry; a failed renewal is retried here. */}
+          {!invite && !creating && (
+            <Btn
+              plain
+              small
+              label="QRを更新する"
+              onPress={() => void renew()}
+            />
+          )}
         </View>
       ) : (
         <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
           {permissionView === "granted" && focused ? (
             <QrFinder size={sizes.finder}>
               <CameraView
-                key={cameraKey}
                 style={S.fill}
                 facing="back"
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
@@ -272,17 +271,6 @@ export function Scan() {
               ? "読み取りました。交換を始めています…"
               : "相手のQRを枠の中に合わせてください"}
           </T>
-          <Btn
-            plain
-            small
-            label="もう一度読み取る"
-            disabled={busy}
-            onPress={() => {
-              if (rescanTimer.current) clearTimeout(rescanTimer.current);
-              scanned.current = false;
-              setCameraKey((key) => key + 1);
-            }}
-          />
         </View>
       )}
       <InlineError text={error || inviteError} />

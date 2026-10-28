@@ -2,7 +2,7 @@ import { useAuth, SessionStatus } from "../features/auth/provider";
 import { SignOutAction } from "../features/auth/SignOutAction";
 import React from "react";
 import { Redirect } from "expo-router";
-import { LoadingBoard } from "../components/loading";
+import { LaunchCover } from "../components/loading";
 import { Board, Btn, T } from "../components/ui";
 import { currentEntry, routeFor, useApp } from "../store";
 export default function Index() {
@@ -24,7 +24,7 @@ export default function Index() {
         <SignOutAction />
       </Board>
     );
-  if (!ready) return <LoadingBoard label="デッキを読み込み中…" />;
+  if (!ready) return <LaunchCover label="デッキを読み込み中" />;
   return (
     <Redirect
       href={routeFor(s.onboarded ? currentEntry(n) : { id: "onboarding" })}

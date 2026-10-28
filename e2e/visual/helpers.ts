@@ -57,9 +57,7 @@ export async function compareLayout(
 
 export async function ready(page: Page) {
   await page.evaluate(() => document.fonts.ready);
-  await expect(
-    page.getByText("デッキを読み込み中…", { exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("launch-cover")).toHaveCount(0);
   await page.mouse.move(-1, -1);
 }
 /**

@@ -1,25 +1,62 @@
 import React from "react";
 import { View } from "react-native";
 import { SkeletonBlock, Spinner } from "./motion";
-import { Board, T } from "./ui";
-import { C } from "./theme";
+import { Brand, T } from "./text";
+import { C, F } from "./theme";
 
 /** Spinner on the blue board, for places the whole screen waits on the server. */
 function Loader({ size = 20 }: { size?: number }) {
   return <Spinner size={size} color={C.yellow} trackColor={`${C.white}33`} />;
 }
 
-/** A whole-screen wait: the branded spinner above the same status text. */
-export function LoadingBoard({ label }: { label: string }) {
+/**
+ * The launch cover: the welcome screen's brand (icon, Flocka, tagline) over a
+ * spinner, the same through font loading, the session check and the deck
+ * load, so the steps behind it never show. Screen readers hear `label`.
+ * Before the fonts load, the words keep their place but stay invisible.
+ */
+export function LaunchCover({
+  label,
+  fontsLoaded = true,
+}: {
+  label: string;
+  fontsLoaded?: boolean;
+}) {
   return (
-    <Board>
+    <View
+      testID="launch-cover"
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityLiveRegion="polite"
+      style={{
+        flex: 1,
+        backgroundColor: C.blue,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 28,
+        padding: 24,
+      }}
+    >
       <View style={{ alignItems: "center", gap: 14 }}>
-        <Loader size={32} />
-        <T color={C.pale} accessibilityLiveRegion="polite">
-          {label}
-        </T>
+        <Brand size={88} />
+        <View
+          style={{
+            alignItems: "center",
+            gap: 6,
+            opacity: fontsLoaded ? 1 : 0,
+          }}
+        >
+          <T display size={30} style={{ lineHeight: 36 }}>
+            Flocka
+          </T>
+          <T size={13} color={C.pale} style={{ fontFamily: F.bold }}>
+            仲間の言葉で、強みが見つかる
+          </T>
+        </View>
       </View>
-    </Board>
+      <Loader size={28} />
+    </View>
   );
 }
 
