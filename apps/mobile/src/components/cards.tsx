@@ -189,6 +189,8 @@ export const CardPattern = memo(function CardPattern({
 
 // The No. label's right edge inside the art (5px inset plus the label).
 const CARD_NUMBER_LABEL_WIDTH = 44;
+// The No. label's top inset; it keeps the same room below it.
+const CARD_NUMBER_LABEL_INSET = 4;
 
 /**
  * Pass `height` when the caller already sizes the card, so the name and
@@ -247,8 +249,13 @@ export const StrengthCard = memo(function StrengthCard({
     artSize.height * 0.84,
     150,
   );
+  // The label's height follows the font scale, so it is measured; it keeps its
+  // last height while hidden, as only the art changes whether it fits.
+  const [numberHeight, setNumberHeight] = useState(0);
   const showNumber =
     (artSize.width - illustrationSize) / 2 >= CARD_NUMBER_LABEL_WIDTH;
+  const numberFits =
+    artSize.height >= numberHeight + 2 * CARD_NUMBER_LABEL_INSET;
   const showFlavor = large || cardHeight >= 225;
   const nameSize = large
     ? 18
@@ -395,7 +402,19 @@ export const StrengthCard = memo(function StrengthCard({
       >
         <CardPattern card={card} selfOnly={selfOnly} {...artSize} />
         {showNumber && (
-          <View style={{ position: "absolute", left: 5, top: 4, zIndex: 4 }}>
+          <View
+            onLayout={(event) => {
+              const next = event.nativeEvent.layout.height;
+              if (next > 0 && next !== numberHeight) setNumberHeight(next);
+            }}
+            style={{
+              position: "absolute",
+              left: 5,
+              top: CARD_NUMBER_LABEL_INSET,
+              zIndex: 4,
+              display: numberFits ? "flex" : "none",
+            }}
+          >
             <T
               color={C.ink}
               size={10}

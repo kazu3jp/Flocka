@@ -100,12 +100,13 @@ button { cursor: pointer; background: none; border: 0; -webkit-tap-highlight-col
 .panel .link:hover, .sheet .link:hover { background: var(--paper-2); }
 
 /* ---------- challenge banner ---------- */
-.quest { flex: none; display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; text-align: left; background: var(--yellow); color: var(--ink); border: var(--ol); border-radius: 16px; box-shadow: var(--sh); transition: transform .1s, box-shadow .1s; animation: nudge 2.4s ease-in-out 1s 2; }
+.quest { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; background: var(--yellow); color: var(--ink); border: var(--ol); border-radius: 16px; box-shadow: var(--sh); transition: transform .1s, box-shadow .1s; animation: nudge 2.4s ease-in-out 1s 2; }
 .quest:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
-.quest-env { position: relative; width: 52px; height: 40px; flex: none; }
-.quest-env svg { position: absolute; width: 44px; height: 32px; }
-.quest b { font: 400 17px/1.25 var(--disp); display: block; }
-.quest .go { font: 400 14px/1 var(--disp); background: var(--ink); color: var(--yellow); padding: 10px 12px; border-radius: 10px; }
+.quest-env { position: relative; width: 42px; height: 32px; flex: none; }
+.quest-env svg { position: absolute; width: 34px; height: 24.75px; }
+.quest b { font: 400 15px/1.25 var(--disp); display: block; }
+.quest .cap, .prbar .cap { display: block; font-size: 11.5px; line-height: 1.45; }
+.quest .go { font: 400 13px/1 var(--disp); background: var(--ink); color: var(--yellow); padding: 8px 10px; border-radius: 10px; }
 
 /* ---------- deck grid & cards ---------- */
 .deck { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -150,15 +151,15 @@ button.gcard:hover { transform: translateY(-3px) rotate(-.6deg); }
 .flash { animation: flash .9s var(--pop) both; }
 
 /* ---------- PR bar ---------- */
-.prbar { flex: none; display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; background: var(--ink); color: var(--on-blue); border: var(--ol); border-radius: 16px; text-align: left; }
+.prbar { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; background: var(--ink); color: var(--on-blue); border: var(--ol); border-radius: 16px; text-align: left; }
 .prbar:hover { background: oklch(0.27 0.03 265); }
 .prbar.ready { background: var(--paper); color: var(--ink); box-shadow: var(--sh); }
 .prbar.ready:hover { background: var(--paper-2); }
-.prbar b { font: 400 16px/1.3 var(--disp); display: block; }
-.prbar .meter { display: flex; gap: 4px; margin-top: 4px; }
-.prbar .meter i { width: 26px; height: 8px; border-radius: 4px; background: oklch(1 0 0 / .2); }
+.prbar b { font: 400 14px/1.3 var(--disp); display: block; }
+.prbar .meter { display: flex; gap: 4px; margin-top: 3px; }
+.prbar .meter i { width: 22px; height: 6px; border-radius: 3px; background: oklch(1 0 0 / .2); }
 .prbar .meter i.on { background: var(--yellow); }
-.prbar .doc { width: 40px; height: 48px; flex: none; border-radius: 6px; background: var(--paper); border: var(--ol); display: grid; place-items: center; font: 400 15px/1 var(--disp); color: var(--ink); }
+.prbar .doc { width: 32px; height: 38px; flex: none; border-radius: 6px; background: var(--paper); border: var(--ol); display: grid; place-items: center; font: 400 13px/1 var(--disp); color: var(--ink); }
 .prbar.ready .doc { background: var(--yellow); }
 
 /* ---------- guess challenge ---------- */
@@ -279,7 +280,7 @@ button.list-row:hover { background: var(--paper-2); }
 @keyframes nudge { 0%, 100% { transform: none; } 10% { transform: rotate(-1.5deg); } 20% { transform: rotate(1.5deg); } 30% { transform: none; } }
 @keyframes blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
-@media (max-height: 720px) { .btn { min-height: 50px; } .hud { min-height: 44px; } .quest { padding: 8px 10px; } }
+@media (max-height: 720px) { .btn { min-height: 50px; } .hud { min-height: 44px; } }
 
 /* item illustration replaces the single-kanji glyph */
 .gcard .illust { position: relative; width: 74%; height: 84%; max-width: 150px; filter: drop-shadow(2px 3px 0 oklch(0.2 0.03 265 / .35)); transform: rotate(-3deg); }

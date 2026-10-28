@@ -84,20 +84,19 @@ const DECK_SCROLLING_ROW_HEIGHT = 150;
 const DECK_GRID_GAP = 10;
 /**
  * Smallest illustration a shared row may leave a card. The source design
- * itself leaves 22 at 390x640 (30 at 320x740, 39 at 360x748); enlarged text
- * squeezes it further (8 at 360x748 with a 1.3 font), and the system font
- * scale is not always visible to the app, so the deck measures what is left.
+ * itself leaves little more than this on short screens; enlarged text
+ * squeezes it further, and the system font scale is not always visible to
+ * the app, so the deck measures what is left. A card hides its No. label
+ * when the illustration is too short for it.
  */
 const DECK_CARD_MIN_ART_HEIGHT = 22;
 const DECK_ROUNDING_SLACK = 2;
 
 function BannerCaption({ children }: { children: React.ReactNode }) {
-  // The source's inline .cap sits on the 15px body text's 24.75px line box.
+  // The source's .quest .cap / .prbar .cap: a block line of 11.5px at 1.45.
   return (
-    <T size={15} color={C.ink} balanced style={{ lineHeight: 24.75 }}>
-      <T size={12.5} color={C.ink} style={{ lineHeight: 19.375 }}>
-        {children}
-      </T>
+    <T size={11.5} color={C.ink} balanced style={{ lineHeight: 16.675 }}>
+      {children}
     </T>
   );
 }
@@ -309,14 +308,14 @@ export function Deck() {
             style={[
               S.row,
               {
-                paddingVertical: compact ? 8 : 10,
-                paddingHorizontal: compact ? 10 : 12,
-                gap: 12,
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+                gap: 10,
                 backgroundColor: C.yellow,
               },
             ]}
           >
-            <View style={{ width: 52, height: 40 }}>
+            <View style={{ width: 42, height: 32 }}>
               {(challenge ? d.unopened.slice(0, 3) : [null]).map(
                 (piece, index) => (
                   <View
@@ -330,7 +329,7 @@ export function Deck() {
                       ],
                     }}
                   >
-                    <Envelope size={44} />
+                    <Envelope size={34} />
                   </View>
                 ),
               )}
@@ -339,9 +338,9 @@ export function Deck() {
               <T
                 display
                 balanced
-                size={17}
+                size={15}
                 color={C.ink}
-                style={{ lineHeight: 21.25 }}
+                style={{ lineHeight: 18.75 }}
               >
                 {challenge
                   ? "予想チャレンジ！"
@@ -359,14 +358,14 @@ export function Deck() {
             </View>
             <T
               display
-              size={14}
+              size={13}
               color={C.yellow}
               style={{
                 backgroundColor: C.ink,
                 borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-                lineHeight: 14,
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+                lineHeight: 13,
               }}
             >
               {challenge ? "開ける" : unsent.length ? "贈る" : "交換"}
@@ -413,9 +412,9 @@ export function Deck() {
           style={[
             S.row,
             {
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              gap: 12,
+              paddingVertical: 8,
+              paddingHorizontal: 10,
+              gap: 10,
               backgroundColor: d.prCard ? C.paper : C.ink,
               boxShadow: d.prCard ? `4px 4px 0 ${C.ink}` : "none",
             },
@@ -423,8 +422,8 @@ export function Deck() {
         >
           <View
             style={{
-              width: 40,
-              height: 48,
+              width: 32,
+              height: 38,
               backgroundColor: d.prCard ? C.yellow : C.paper,
               borderWidth: OUTLINE.width,
               borderColor: C.ink,
@@ -433,16 +432,16 @@ export function Deck() {
               justifyContent: "center",
             }}
           >
-            <T display color={C.ink} size={15} style={{ lineHeight: 15 }}>
+            <T display color={C.ink} size={13} style={{ lineHeight: 13 }}>
               PR
             </T>
           </View>
           <View style={S.fill}>
             <T
               display
-              size={16}
+              size={14}
               color={d.prCard ? C.ink : C.white}
-              style={{ lineHeight: 20.8 }}
+              style={{ lineHeight: 18.2 }}
             >
               {d.prCard
                 ? "自己PRが書けます！"
@@ -451,14 +450,14 @@ export function Deck() {
             {d.prCard ? (
               <BannerCaption>「{d.prCard.name}」から下書きを生成</BannerCaption>
             ) : (
-              <View style={[S.row, { gap: 4, marginTop: 4 }]}>
+              <View style={[S.row, { gap: 4, marginTop: 3 }]}>
                 {[0, 1].map((i) => (
                   <ProgressFill
                     key={i}
                     filled={i < d.best}
                     fillColor={C.yellow}
                     trackColor="rgba(255,255,255,0.2)"
-                    style={{ width: 26, height: 8, borderRadius: 4 }}
+                    style={{ width: 22, height: 6, borderRadius: 3 }}
                   />
                 ))}
               </View>
