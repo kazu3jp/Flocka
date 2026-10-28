@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Platform } from "react-native";
 import type { FlockaApiClient } from "@flocka/api-client";
 import { UserFacingError, userFacingError } from "../sync/user-facing-error";
+import { createDeviceTokenChangeFilter } from "./device-token-change";
 import { parsePendingTokens } from "./pending-tokens";
 
 const deviceKey = (accountId: string) => `flocka:push-device:${accountId}`;
@@ -20,7 +21,9 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
-export const storedPushToken = (accountId: string) =>
+/** The device token is one per device, whichever account registers it. */
+const deviceTokens = createDeviceTokenChangeFilter();
+export const storedPushToken =(accountId: string) =>
   AsyncStorage.getItem(deviceKey(accountId));
 
 async function pendingUnregisters(accountId: string) {
@@ -94,7 +97,11 @@ async function registerPush(
       "通知が許可されていません。端末の設定から変更できます。",
     );
   }
-  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+  const devicePushToken = await Notifications.getDevicePushTokenAsync();
+  deviceTokens.remember(devicePushToken.data);
+  const token = (
+    await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken })
+  ).data;
   const previous = await storedPushToken(accountId);
   await api.registerPushDevice(
     token,
@@ -200,8 +207,8 @@ export function usePushRegistration(
     };
     void refreshRegistration();
     // The OS can rotate the device token; register the Expo token derived from it again.
-    const rotation = Notifications.addPushTokenListener(() => {
-      if (active) void refreshRegistration();
+    const rotation = Notifications.addPushTokenListener((token) => {
+      if (active && deviceTokens.changed(token.data)) void refreshRegistration();
     });
     return () => {
       active = false;
