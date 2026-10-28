@@ -37,30 +37,39 @@ for (const kind of ["vibe", "proof"] as const) {
       await deliveryReleased;
       return route.continue();
     });
-    if (kind === "vibe") {
-      await page.goto(`/give?cid=${fixture.exchanges![0]}`);
-      await page
-        .getByRole("radio", { name: "話しやすい", exact: true })
-        .click();
-    } else {
-      await page.goto("/memo");
-      await page.getByRole("radio", { name: "ミナト", exact: true }).click();
-      await page.getByRole("button", { name: "次へ", exact: true }).click();
-      await page
-        .getByRole("radio", { name: "人と情報をつなぐ力", exact: true })
-        .click();
-      await page.getByRole("button", { name: "次へ", exact: true }).click();
+    // An episode is what the form sends once the first impression is given.
+    const cid = fixture.exchanges![0];
+    if (kind === "proof") {
+      const response = await context.request.post("/v1/testimonies", {
+        data: {
+          exchangeId: cid,
+          kind: "vibe",
+          card: "warm",
+          label: "話しやすい",
+          text: "最初に話しかけてくれた",
+        },
+      });
+      expect(response.ok()).toBe(true);
     }
-    await page.getByRole("textbox").fill(text);
+    await page.goto(`/give?cid=${cid}`);
+    await expect(
+      page.getByText(kind === "vibe" ? "第一印象を贈る" : "エピソードを贈る", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page
+      .getByRole("radio", { name: "人と情報をつなぐ力", exact: true })
+      .click();
+    await page.getByRole("textbox").fill(text.slice(0, 40));
     const submit = page.getByRole("button", {
-      name: kind === "vibe" ? "この印象を贈る" : "封筒で贈る",
+      name: "封筒で贈る",
       exact: true,
     });
     await submit.click();
     await expect(page.getByRole("alert")).toHaveText(
       "送信を再試行してください",
     );
-    await expect(page.getByRole("textbox")).toHaveValue(text);
+    await expect(page.getByRole("textbox")).toHaveValue(text.slice(0, 40));
     failDelivery = false;
     await page.route("**/v1/sync?*", (route) => route.abort("failed"));
     await submit.click();
@@ -71,13 +80,12 @@ for (const kind of ["vibe", "proof"] as const) {
       "送信は完了しました。最新データの取得に失敗しました。",
     );
     await expect(
-      page.getByText(
-        kind === "vibe" ? "ミナトに印象を贈りました" : "封筒で贈りました",
-        { exact: true },
-      ),
+      page.getByText("ミナトに証言を贈りました", { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("textbox")).toHaveCount(0);
-    await expect(page.getByText(`「${text}」`, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(`「${text.slice(0, 40)}」`, { exact: true }),
+    ).toBeVisible();
     expect(submissions).toBe(2);
     await page.unroute("**/v1/sync?*");
     await page
@@ -93,12 +101,14 @@ for (const kind of ["vibe", "proof"] as const) {
       (piece: { kind: string }) => piece.kind === kind,
     );
     expect(sent).toHaveLength(1);
-    expect(kind === "vibe" ? sent[0].text : sent[0].story).toBe(text);
+    expect(kind === "vibe" ? sent[0].text : sent[0].story).toBe(
+      text.slice(0, 40),
+    );
     await page.reload();
-    if (kind === "vibe")
-      await expect(
-        page.getByText("ミナトに印象を贈りました", { exact: true }),
-      ).toBeVisible();
+    // Reopening never resends; the form is ready for the next episode.
+    await expect(
+      page.getByText("エピソードを贈る", { exact: true }),
+    ).toBeVisible();
     expect(submissions).toBe(2);
   });
 }

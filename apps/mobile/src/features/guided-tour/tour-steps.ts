@@ -57,8 +57,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     target: TOUR_TARGETS.deckGive,
     tab: "find",
     icon: "spark",
-    title: "印象や場面のメモを贈る",
-    lead: "交換した相手に、その人の強みが見えた印象や場面を贈れます。",
+    title: "証言を贈る",
+    lead: "交換した相手に、見たことや感じたことを、その人の強みとして贈れます。",
   },
   {
     key: "card",

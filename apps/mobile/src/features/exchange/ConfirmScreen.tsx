@@ -1,11 +1,10 @@
 import { useAction } from "../sync/use-action";
 import { useScreenVisit } from "../sync/use-screen-visit";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Board,
   Btn,
   C,
-  Field,
   FIXED_LOOKING_BOARD,
   Header,
   LinkButton,
@@ -14,11 +13,13 @@ import {
   InlineError,
 } from "../../components/ui";
 import { useApp } from "../../store";
+import { useScreenFocused } from "../../components/screen-focus";
 import { useConfirmation } from "../../components/pickers";
 import { useExchangeDecision } from "./use-exchange-decision";
 import { Player } from "./player-card";
 import { Chip } from "../../components/chip";
 import { ExchangeMemoRow } from "./exchange-memo-row";
+import { ExchangeMemoFields } from "./exchange-memo-sheet";
 
 export function Confirm({ cid }: { cid: string }) {
   const { s, nav, toast, peers } = useApp(),
@@ -30,7 +31,20 @@ export function Confirm({ cid }: { cid: string }) {
     ),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation(),
-    startVisit = useScreenVisit(cid);
+    startVisit = useScreenVisit(cid),
+    focused = useScreenFocused(),
+    // The status this screen last saw, to notice the moment the exchange is made.
+    seenStatus = useRef(c?.status);
+  const status = c?.status,
+    vibeSent = !!c?.vibe;
+  // Once both approve, the first impression is the next step, so the screen
+  // moves on to it. "あとで" there keeps it for later.
+  useEffect(() => {
+    const before = seenStatus.current;
+    seenStatus.current = status;
+    if (focused && before === "pending" && status === "accepted" && !vibeSent)
+      nav.replace("give", { cid });
+  }, [status, vibeSent, focused, nav, cid]);
   if (!c)
     return (
       <Board>
@@ -58,8 +72,6 @@ export function Confirm({ cid }: { cid: string }) {
       );
     });
   };
-  const setContext = (key: "place" | "trigger", value: string) =>
-    setContextDraft((current) => ({ ...current, [key]: value }));
   return (
     <Board scroll contentStyle={FIXED_LOOKING_BOARD}>
       <Header
@@ -85,11 +97,11 @@ export function Confirm({ cid }: { cid: string }) {
           </T>
           {!c.vibe && (
             <T size={14} color={C.pale} style={{ textAlign: "center" }}>
-              次は、相手に感じた印象をひとつ贈れます。
+              次は、相手の第一印象を贈れます（1人に1回）。
             </T>
           )}
           <Btn
-            label={c.vibe ? "交換へ戻る" : "印象を贈る"}
+            label={c.vibe ? "交換へ戻る" : "第一印象を贈る"}
             onPress={() => (c.vibe ? nav.root() : nav.replace("give", { cid }))}
           />
           {!c.vibe && <LinkButton label="あとで贈る" onPress={nav.root} />}
@@ -130,20 +142,7 @@ export function Confirm({ cid }: { cid: string }) {
           <T size={13}>
             どこで、何をきっかけに交換したか。交換するには両方の入力が必要です。あとから編集できます。
           </T>
-          <Field
-            label="場所・イベント名（必須）"
-            maxLength={60}
-            value={context.place}
-            placeholder="例：学校のラウンジ、勉強会"
-            onChangeText={(v) => setContext("place", v)}
-          />
-          <Field
-            label="交換のきっかけ（必須）"
-            maxLength={100}
-            value={context.trigger}
-            placeholder="例：同じチームで発表を準備した"
-            onChangeText={(v) => setContext("trigger", v)}
-          />
+          <ExchangeMemoFields context={context} onChange={setContextDraft} />
           <Btn
             label={pending ? "保存して交換する" : "保存する"}
             disabled={!done || busy}

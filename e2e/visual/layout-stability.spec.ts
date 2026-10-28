@@ -107,7 +107,7 @@ test("settings switch: a failed save flips it back without moving the switches",
     `stability-${testInfo.project.name}`,
   );
   await page.goto("/settings");
-  const vibe = page.getByRole("switch", { name: "印象を受け取る" });
+  const vibe = page.getByRole("switch", { name: "第一印象を受け取る" });
   // The error appears under the list; the switches above it stay put.
   const targets = {
     vibe,
@@ -129,7 +129,7 @@ test("settings switch: a failed save flips it back without moving the switches",
   await expectSameBoxes(before, targets, "with the error shown", "vibe");
 });
 
-test("give: choosing an option moves no other option", async ({
+test("give: choosing a strength moves no other choice", async ({
   page,
   context,
 }, testInfo) => {
@@ -140,19 +140,15 @@ test("give: choosing an option moves no other option", async ({
   );
   await page.goto(`/give?cid=${fixture.exchanges![1]}`);
   const targets = {
-    tabs: page.getByRole("tab", { name: "言葉を選ぶ" }),
-    first: page.getByRole("radio", { name: "話しやすい", exact: true }),
-    last: page.getByRole("radio", { name: "落ち着いて話せる", exact: true }),
-    reason: page.getByRole("textbox", { name: /なぜそう感じましたか/ }),
+    reason: page.getByRole("textbox", { name: "感じたこととその理由" }),
+    first: page.getByRole("radio", { name: "実装力", exact: true }),
+    last: page.getByRole("radio", { name: "観察力", exact: true }),
   };
   const before = await measureAll(targets);
   await targets.last.click();
-  await expectSameBoxes(
-    { ...before, first: before.first, last: before.last },
-    // The chosen option lifts 4pt by design; compare the others.
-    { tabs: targets.tabs, first: targets.first, reason: targets.reason },
-    "after choosing",
-  );
+  // Tapping the last choice may scroll it into view; positions are compared
+  // relative to the first choice.
+  await expectSameBoxes(before, targets, "after choosing", "first");
 });
 
 test("card: reacting to a card keeps the rest of the page in place", async ({

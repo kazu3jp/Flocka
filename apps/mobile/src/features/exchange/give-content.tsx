@@ -1,45 +1,48 @@
 import { useState } from "react";
 import { TextInput, View } from "react-native";
-import { CachedSvgXml } from "../../components/cached-svg-xml";
-import { CARDS, SELF_OPTIONS } from "@flocka/domain";
-import vectors from "../../vectors.json";
-import { C, Choice, F, Panel, S, SP, T, OUTLINE } from "../../components/ui";
+import { C, S, T } from "../../components/ui";
+import type { TestimonyKind } from "./testimony-kind";
 
+/**
+ * What the giver saw or felt. The numbered step above names the field; its
+ * label here is for screen readers.
+ */
 export function GiveReason({
-  mode,
+  kind,
   text,
+  maxLength,
   onChange,
 }: {
-  mode: "pick" | "free";
+  kind: TestimonyKind;
   text: string;
+  maxLength: number;
   onChange: (text: string) => void;
 }) {
   const [focused, setFocused] = useState(false);
-  const label = mode === "pick" ? "なぜそう感じましたか？" : "印象と、その理由";
   return (
     <View testID="give-reason">
-      {/* The numbered step above names the field; this label is for screen readers. */}
       <TextInput
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        accessibilityLabel={label}
+        accessibilityLabel={
+          kind === "vibe" ? "感じたこととその理由" : "見た場面"
+        }
         multiline
-        maxLength={140}
+        maxLength={maxLength}
         value={text}
         onChangeText={onChange}
         placeholder={
-          mode === "pick"
-            ? "例：困っている人に声をかけてくれた"
-            : "例：LTの質問が的確で、すごく話しやすかった"
+          kind === "vibe"
+            ? "例：初対面でも話しかけてくれて、すぐ打ち解けられた"
+            : "例：登壇後の質問に、図を描いて答えてくれた"
         }
         placeholderTextColor={C.muted}
         style={[
           S.input,
           {
-            minHeight: mode === "pick" ? 100 : 130,
+            minHeight: 110,
             lineHeight: 27.2,
             textAlignVertical: "top",
-            // Match the inline textarea baseline spacing in the source field.
             marginBottom: 6.75,
             outlineStyle: "solid",
             outlineWidth: focused ? 3 : 0,
@@ -48,101 +51,13 @@ export function GiveReason({
           },
         ]}
       />
-      {mode === "pick" && (
-        <T
-          size={12.5}
-          color={C.pale}
-          style={{ lineHeight: 19.375, textAlign: "right" }}
-        >
-          {text.length}/140
-        </T>
-      )}
-    </View>
-  );
-}
-
-export function ImpressionLabel({
-  label,
-  title = "印象",
-}: {
-  label: string;
-  title?: string;
-}) {
-  return (
-    <View style={[S.row, { alignItems: "baseline", gap: 8 }]}>
-      <T
-        size={11}
-        color={C.yellow}
-        style={{
-          fontFamily: F.bold,
-          lineHeight: 11,
-          borderRadius: 6,
-          backgroundColor: C.ink,
-          paddingVertical: 4,
-          paddingHorizontal: 7,
-        }}
-      >
-        {title}
-      </T>
-      <T display size={18} color={C.ink} style={{ lineHeight: 25.2 }}>
-        {label}
-      </T>
-    </View>
-  );
-}
-
-export function ImpressionSummary({
-  summary,
-  onChange,
-}: {
-  summary: { card: string; label: string };
-  onChange: (card: string) => void;
-}) {
-  return (
-    <Panel style={{ padding: SP.md }}>
-      <ImpressionLabel label={summary.label} title="要約" />
       <T
         size={12.5}
-        color={C.muted}
-        style={{ lineHeight: 19.375, marginTop: 8, marginBottom: 6 }}
+        color={C.pale}
+        style={{ lineHeight: 19.375, textAlign: "right" }}
       >
-        近い強みカード（変更できます）
+        {text.length}/{maxLength}
       </T>
-      <View style={S.wrap}>
-        {SELF_OPTIONS.map((key) => (
-          <Choice
-            key={key}
-            label={CARDS[key].name}
-            selected={summary.card === key}
-            onPress={() => onChange(key)}
-            style={{
-              minHeight: 36,
-              paddingVertical: 0,
-              paddingHorizontal: 10,
-              borderWidth: OUTLINE.width,
-              boxShadow: OUTLINE.shadow,
-            }}
-          >
-            <View style={[S.row, { gap: 6 }]}>
-              <CachedSvgXml
-                xml={(vectors.cards as Record<string, string>)[key]}
-                width={26}
-                height={26}
-              />
-              <T size={13} color={C.ink} style={{ fontFamily: F.bold }}>
-                {CARDS[key].name}
-              </T>
-            </View>
-          </Choice>
-        ))}
-      </View>
-      <T
-        size={12.5}
-        color={C.muted}
-        style={{ lineHeight: 19.375, marginTop: 8 }}
-      >
-        キーワードをもとに短い印象にまとめます。原文と要約を一緒に表示します。
-      </T>
-    </Panel>
+    </View>
   );
 }

@@ -66,18 +66,16 @@ test("connection rows, sent details and removal preserve source layout and real 
   );
   await page.getByRole("button", { name: "やめる", exact: true }).click();
   await reference.getByRole("button", { name: "やめる", exact: true }).click();
-  await row.getByRole("button", { name: "印象を贈る", exact: true }).click();
+  await row.getByRole("button", { name: "証言を贈る", exact: true }).click();
   await originalRow
-    .getByRole("button", { name: "印象を贈る", exact: true })
+    .getByRole("button", { name: "証言を贈る", exact: true })
     .click();
   const reason = "初対面から話しかけてくれて、一緒に発表の準備ができた";
   for (const surface of [page, reference]) {
-    await surface
-      .getByRole("radio", { name: "話しやすい", exact: true })
-      .click();
     await surface.getByRole("textbox").fill(reason);
+    await surface.getByRole("radio", { name: /^設計力/ }).click();
     await surface
-      .getByRole("button", { name: "この印象を贈る", exact: true })
+      .getByRole("button", { name: "封筒で贈る", exact: true })
       .click();
   }
   await expect(
@@ -88,12 +86,17 @@ test("connection rows, sent details and removal preserve source layout and real 
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   await reference.getByRole("button", { name: "戻る", exact: true }).click();
   await expect(
-    row.getByText("「話しやすい」を贈った", { exact: true }),
+    row.getByText("第一印象を贈りました・エピソードも贈れます", {
+      exact: true,
+    }),
   ).toBeVisible();
   await snapshot("connections-sent");
-  await row.getByRole("button", { name: "詳細", exact: true }).click();
+  // After the first impression, the same button gives an episode.
+  await row.getByRole("button", { name: "証言を贈る", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/give\\?cid=${id}$`));
-  await expect(page.getByText(`「${reason}」`, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("エピソードを贈る", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "戻る", exact: true }).click();
   const accepted = await (
     await context.request.get(`/v1/exchanges/${id}`)

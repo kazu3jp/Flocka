@@ -349,7 +349,7 @@ function Deck() {
     <span className="quest-env">{d.unopened.slice(0, 3).map((p, i) => <Env key={p.id} style={{ left: i * 5, top: i * 3, transform: `rotate(${(i - 1) * 8}deg)` }} />)}</span>
     <span style={{ flex: 1 }}><b>予想チャレンジ！</b><span className="cap">封筒{d.unopened.length}通・どのカードか当てよう</span></span><span className="go">開ける</span></button>;
   else if (unsent.length) quest = <button className="quest" onClick={() => nav.goTab('exchange', { id: 'connections' })} data-od-id="quest-send-impression">
-    <span className="quest-env"><Env style={{ left: 4, top: 4 }} /></span><span style={{ flex: 1 }}><b>交換した人に印象を贈ろう</b><span className="cap">まだ印象を贈っていない人が{unsent.length}人います</span></span><span className="go">贈る</span></button>;
+    <span className="quest-env"><Env style={{ left: 4, top: 4 }} /></span><span style={{ flex: 1 }}><b>交換した人に第一印象を贈ろう</b><span className="cap">まだ第一印象を贈っていない人が{unsent.length}人います</span></span><span className="go">贈る</span></button>;
   else if (!d.pieces.length) quest = <button className="quest" onClick={() => nav.goTab('exchange')} data-od-id="quest-exchange">
     <span className="quest-env"><Env style={{ left: 4, top: 4 }} /></span><span style={{ flex: 1 }}><b>まずは交換しよう</b><span className="cap">会った人と、カードを交換</span></span><span className="go">交換</span></button>;
   const need = 2 - d.best;
@@ -357,7 +357,7 @@ function Deck() {
     <header className="hud">
       <button className="iconbtn" onClick={() => nav.push('me')} aria-label="自分のページ" style={{ marginLeft: -6 }}><Avatar me size={40} /></button>
       <div className="hud-name">{s.profile.name}<small>強みカード {d.deck.length}枚</small></div>
-      <button className="link" type="button" style={{ flex: 'none', minHeight: 44 }} onClick={() => nav.goTab('exchange', s.connections.some(c => c.status === 'accepted' && !s.blocked.includes(c.peerId)) ? { id: 'connections' } : undefined)} data-od-id="deck-send-impression">印象を贈る</button>
+      <button className="link" type="button" style={{ flex: 'none', minHeight: 44 }} onClick={() => nav.goTab('exchange', s.connections.some(c => c.status === 'accepted' && !s.blocked.includes(c.peerId)) ? { id: 'connections' } : undefined)} data-od-id="deck-send-impression">証言を贈る</button>
     </header>
     {quest}
     <section className="deck" aria-label="強みカード">
@@ -405,7 +405,7 @@ function GuessOverlay() {
       <button className="link" style={{ margin: '8px auto 0' }} onClick={() => stage === 'guess' && choose('skip')}>予想せずに開ける</button>
     </> : <div className="fill" style={{ gap: 14 }}>
       <div className="note slide-up" data-od-id="guess-note">
-        <p className="cap muted">{g.name}より・{p.kind === 'vibe' ? '会話の印象' : '一緒に作業して見た場面'}</p>
+        <p className="cap muted">{g.name}より・{p.kind === 'vibe' ? '第一印象' : 'エピソード'}</p>
         {p.kind === 'vibe' ? (p.text ? <><p className="quote">「{p.text}」</p><p className="sum"><span>要約</span>{p.label}</p></> : <p className="quote-big">「{p.label}」</p>) : <><p className="h2">{p.title}</p><p className="quote">「{p.story}」</p></>}
       </div>
       <div className="row" style={{ justifyContent: 'center', gap: 14 }}>
@@ -561,7 +561,7 @@ function Exchange() {
       <button className="btn btn-go btn-block" onClick={() => nav.push('nearby')} data-od-id="exchange-nearby"><Icon n="swap" s={20} />近くの人と交換</button>
       <button className="btn btn-plain" onClick={() => nav.push('scan')} data-od-id="exchange-qr"><Icon n="qr" s={20} />QRで交換</button>
     </div>
-    {s.connections.some(c => c.status === 'accepted' && !c.vibe && !s.blocked.includes(c.peerId)) && <button className="btn btn-plain btn-block" style={{ flex: 'none' }} onClick={() => nav.push('connections')} data-od-id="exchange-give-entry">交換した人に印象を贈る</button>}
+    {s.connections.some(c => c.status === 'accepted' && !c.vibe && !s.blocked.includes(c.peerId)) && <button className="btn btn-plain btn-block" style={{ flex: 'none' }} onClick={() => nav.push('connections')} data-od-id="exchange-give-entry">交換した人に第一印象を贈る</button>}
     {pick && <Sheet title="相手に見せる強み（3枚まで）" onClose={() => setPick(false)}>
       <div className="pick-grid">{d.deck.map(c => <button key={c.key} className={`pick-cell ${sel.includes(c.key) ? 'on' : ''}`} aria-pressed={sel.includes(c.key)} onClick={() => toggle(c.key)}><GCard c={c} />{sel.includes(c.key) && <span className="pick-no">{sel.indexOf(c.key) + 1}</span>}</button>)}</div>
       <button className="btn btn-go btn-block" style={{ marginTop: 14 }} onClick={() => setPick(false)}>決定</button>
@@ -575,10 +575,9 @@ function Connections() {
   return <main className="view scroll" data-od-id="s03-connections">
     <Header back title="つながった人" />
     {list.length === 0 ? <p className="small on-muted">まだ交換した人はいません。交換画面から、近くの人やQRで交換できます。</p> : <div className="list">{list.map(c => <div key={c.id} className="list-row">
-      <Avatar id={c.peerId} size={38} /><span style={{ flex: 1, minWidth: 0 }}><b className="small" style={{ display: 'block' }}>{PEOPLE[c.peerId].name}</b><span className="cap muted">{c.status === 'pending' ? '承認待ち' : c.vibe ? `「${c.vibe.label}」を贈った` : PEOPLE[c.peerId].rel}</span></span>
-      {c.status === 'pending' ? <button className="link" onClick={() => nav.push('confirm', { cid: c.id })}>確認</button> : <button className="link" onClick={() => nav.push('give', { cid: c.id })}>{c.vibe ? '詳細' : '印象を贈る'}</button>}
+      <Avatar id={c.peerId} size={38} /><span style={{ flex: 1, minWidth: 0 }}><b className="small" style={{ display: 'block' }}>{PEOPLE[c.peerId].name}</b><span className="cap muted">{c.status === 'pending' ? '承認待ち' : c.vibe ? '第一印象を贈りました・エピソードも贈れます' : PEOPLE[c.peerId].rel}</span></span>
+      {c.status === 'pending' ? <button className="link" onClick={() => nav.push('confirm', { cid: c.id })}>確認</button> : <button className="link" onClick={() => nav.push('give', { cid: c.id })}>証言を贈る</button>}
       <button className="iconbtn" aria-label={`${PEOPLE[c.peerId].name}との交換を解除`} onClick={() => setUnlink(c)}><Icon n="x" s={18} /></button></div>)}</div>}
-    {list.some(c => c.status === 'accepted' && !s.blocked.includes(c.peerId)) && <button className="btn btn-plain btn-block" onClick={() => nav.push('memo')} data-od-id="to-memo">見た場面をメモで贈る</button>}
     {unlink && <Sheet title="交換を解除しますか？" onClose={() => setUnlink(null)}>
       <p className="small muted">届いた証言は消えません。</p>
       <div className="btn-row" style={{ marginTop: 16 }}><button className="btn btn-plain" onClick={() => setUnlink(null)}>やめる</button><button className="btn btn-danger" onClick={() => { update(x => { x.connections.find(c => c.id === unlink.id).status = 'cancelled'; }); setUnlink(null); toast('解除しました'); }}>解除</button></div>
@@ -694,7 +693,7 @@ function Confirm({ cid }) {
       {!memoDone && <p className="cap muted center" style={{ marginTop: 8 }}>2つの項目を入力すると進めます</p>}
     </Sheet>}
     <p className="small center" aria-live="polite" style={{ flex: 'none' }}>{c.status === 'accepted' ? `${p.name}とつながりました！` : c.myApproved ? '相手の承認を待っています…' : ''}</p>
-    {c.status === 'accepted' ? c.vibe ? <button className="btn btn-go btn-block" onClick={() => nav.popTo('exchange')} data-od-id="confirm-done">交換へ戻る</button> : <><p className="small on-muted center" data-od-id="confirm-give-hint">次は、相手に感じた印象をひとつ贈れます。</p><button className="btn btn-go btn-block" onClick={() => nav.replace('give', { cid })} data-od-id="confirm-to-give">印象を贈る</button><button className="link" style={{ minHeight: 44 }} onClick={() => nav.popTo('exchange')} data-od-id="confirm-done">あとで贈る</button></>
+    {c.status === 'accepted' ? c.vibe ? <button className="btn btn-go btn-block" onClick={() => nav.popTo('exchange')} data-od-id="confirm-done">交換へ戻る</button> : <><p className="small on-muted center" data-od-id="confirm-give-hint">次は、相手の第一印象を贈れます（1人に1回）。</p><button className="btn btn-go btn-block" onClick={() => nav.replace('give', { cid })} data-od-id="confirm-to-give">第一印象を贈る</button><button className="link" style={{ minHeight: 44 }} onClick={() => nav.popTo('exchange')} data-od-id="confirm-done">あとで贈る</button></>
       : c.myApproved ? <button className="btn btn-plain btn-block" onClick={cancel}>キャンセル</button>
       : <><button className="btn btn-go btn-block" onClick={approve} data-od-id="confirm-approve">交換する</button><button className="link" onClick={cancel}>キャンセル</button></>}
   </main>;
@@ -702,77 +701,69 @@ function Confirm({ cid }) {
 function Give({ cid }) {
   const { s, update, nav, toast } = useApp();
   const c = s.connections.find(x => x.id === cid);
-  const [mode, setMode] = useState('pick');
-  const [sel, setSel] = useState(null);
+  const [kind, setKind] = useState(() => (c && c.vibe ? 'proof' : 'vibe'));
   const [text, setText] = useState('');
-  const [sum, setSum] = useState(null);
-  const [busy, setBusy] = useState(false);
-  if (!c) return <main className="view"><Header back title="贈った印象" /></main>;
+  const [card, setCard] = useState(null);
+  const [ai, setAi] = useState(null);
+  const [memo, setMemo] = useState(null);
+  const [sent, setSent] = useState(null);
+  if (!c) return <main className="view"><Header back title="証言を贈る" /></main>;
   const p = PEOPLE[c.peerId];
-  const runSum = () => { setSum(summarize(text)); };
-  const ready = mode === 'pick' ? !!sel && !!text.trim() : text.trim().length >= 8;
+  const max = kind === 'vibe' ? 140 : 80;
+  const t = text.trim();
+  const ready = !!card && t.length >= 8;
+  const peerSelf = (PEER_PROFILE[c.peerId]?.cards || []).map(([k]) => k);
   const send = () => {
-    if (!ready || c.status !== 'accepted' || c.vibe) return;
-    const v = mode === 'pick' ? { label: sel, card: VIBE_CARD[sel], text: text.trim() } : { ...(sum || summarize(text)), text: text.trim() };
+    if (!ready || c.status !== 'accepted') return;
     const at = new Date().toISOString();
-    update(x => { const cc = x.connections.find(y => y.id === cid); cc.vibe = { ...v, at, mock: true }; x.sentVibes.push({ id: 'sv-' + Date.now(), toId: c.peerId, ...v, context: { ...c.context }, createdAt: at, mock: true }); });
-    toast(`${p.name}に印象を贈りました`);
+    if (kind === 'vibe') update(x => { const cc = x.connections.find(y => y.id === cid); const v = { label: summarize(t).label, card, text: t }; cc.vibe = { ...v, at, mock: true }; x.sentVibes.push({ id: 'sv-' + Date.now(), toId: c.peerId, ...v, context: { ...c.context }, createdAt: at, mock: true }); });
+    else update(x => { x.sentProofs.push({ id: 'sp-' + Date.now(), toId: c.peerId, card, story: t, createdAt: at }); });
+    setSent({ kind, card, text: t });
+    toast(`${p.name}に証言を贈りました`);
   };
-  const later = () => { update(x => { x.connections.find(y => y.id === cid).later = true; }); toast('あとで贈れます'); nav.pop(); };
-  if (c.vibe) return <main className="view scroll" data-od-id="s04-give-done">
+  const another = () => { setSent(null); setText(''); setCard(null); setAi(null); setKind('proof'); };
+  const later = () => { update(x => { x.connections.find(y => y.id === cid).later = true; }); toast('あとで「つながった人」から贈れます'); nav.pop(); };
+  if (sent) return <main className="view scroll" data-od-id="s04-give-done">
     <Header back title="" />
-    <div style={{ display: 'grid', justifyItems: 'center', gap: 14 }}>
-      {c.vibe.text ? <div className="note flash" style={{ width: '100%' }}><p className="cap muted">そう感じた理由</p><p className="quote">「{c.vibe.text}」</p><p className="sum"><span>印象</span>{c.vibe.label}</p></div>
-        : <div className="vopt flash" aria-checked="true" style={{ width: '70%', minHeight: 90, fontSize: 24 }}>{c.vibe.label}</div>}
-      <div className="panel" style={{ padding: 14, width: '100%' }} data-od-id="give-done-context"><p className="cap muted">交換した場所・きっかけ</p><p className="small" style={{ overflowWrap: 'anywhere' }}>{c.context?.place || '場所は未記入'}<br />{c.context?.trigger || 'きっかけは未記入'}</p></div>
-      <p className="h2 center">{p.name}に印象を贈りました</p>
-      <p className="cap on-muted center">{p.name}のデッキに、証言として届きます。</p>
+    <div style={{ display: 'grid', gap: 14 }}>
+      <div className="panel row flash" style={{ padding: 14, gap: 12, alignItems: 'flex-start' }}><i className="give-art"><Illust k={sent.card} h={CARDS[sent.card].h} /></i><span style={{ flex: 1, minWidth: 0 }}><span className="cap muted" style={{ display: 'block' }}>{sent.kind === 'vibe' ? '第一印象' : 'エピソード'}・{CARDS[sent.card].name}</span><b className="quote">「{sent.text}」</b></span></div>
+      <p className="h2 center">{p.name}に証言を贈りました</p>
+      <p className="cap on-muted center">封筒が届き、{p.name}がどの強みか予想して開けます。</p>
     </div>
+    <div className="fill" />
+    <button className="btn btn-plain btn-block" onClick={another}><Icon n="edit" s={18} />エピソードも贈る</button>
     <button className="btn btn-plain btn-block" onClick={() => nav.popTo('exchange')}>交換へ戻る</button>
   </main>;
   const ctx = [c.context?.place, c.context?.trigger].filter(Boolean).join(' ／ ');
+  const choice = k => <button key={k} role="radio" aria-checked={card === k} className="choice" onClick={() => setCard(k)}><i><Illust k={k} h={CARDS[k].h} /></i>{CARDS[k].name}{ai === k && <span className="ai-tag">AI</span>}</button>;
   return <main className="view form" data-od-id="s04-give">
-    <Header back title="印象を贈る" />
-    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-exchange-context"><Avatar id={c.peerId} size={44} /><span style={{ flex: 1, minWidth: 0 }}><b className="give-to">{p.name}へ</b><span className="cap muted" style={{ display: 'block', overflowWrap: 'anywhere' }}>{ctx || '出会いのメモは未記入'}</span></span><button className="link" style={{ minHeight: 44 }} aria-label="出会いのメモを編集" onClick={() => nav.push('confirm', { cid })}>メモ</button></div>
-    <div className="seg" role="group" aria-label="贈り方"><button aria-pressed={mode === 'pick'} onClick={() => setMode('pick')}>言葉を選ぶ</button><button aria-pressed={mode === 'free'} onClick={() => setMode('free')} data-od-id="give-free">自由に書く</button></div>
-    {mode === 'pick' && <div style={{ display: 'grid', gap: 10, flex: 'none' }} data-od-id="give-instructions"><p className="give-step"><i>1</i>いいなと思ったところ<em>1つ選ぶ</em></p>
-      <div className="vgrid" role="radiogroup" aria-label="印象">{VIBES.map(v => <button key={v} role="radio" aria-checked={sel === v} className="vopt" onClick={() => setSel(v)} data-od-id={`give-${v}`}><i><Illust k={VIBE_CARD[v]} h={CARDS[VIBE_CARD[v]].h} /></i>{v}</button>)}</div></div>}
-    <div style={{ display: 'grid', gap: 10, flex: 'none' }}><p className="give-step"><i>{mode === 'pick' ? 2 : 1}</i>{mode === 'pick' ? 'そう感じた理由' : '印象と、その理由'}<em>{mode === 'pick' ? 'ひとことでOK' : '8文字以上'}</em></p>
-      <label className="field" data-od-id="give-reason"><textarea className="textarea" style={{ minHeight: mode === 'pick' ? 100 : 130 }} maxLength={140} value={text} aria-label={mode === 'pick' ? 'なぜそう感じましたか？' : '印象と、その理由'} onChange={e => { setText(e.target.value); setSum(null); }} placeholder={mode === 'pick' ? '例：困っている人に声をかけてくれた' : '例：LTの質問が的確で、すごく話しやすかった'} />{mode === 'pick' && <small className="cap on-muted" style={{ display: 'block', textAlign: 'right' }}>{text.length}/140</small>}</label></div>
-    {mode === 'free' && <>
-      <div className="row between"><span className="cap on-muted">{text.length}/140</span>
-        <button className="btn btn-plain" style={{ minHeight: 44, fontSize: 14, padding: '0 14px' }} disabled={text.trim().length < 8 || busy} onClick={runSum} data-od-id="give-summarize"><Icon n="spark" s={16} />{busy ? '要約中…' : sum ? 'もう一度要約' : '要約する'}</button></div>
-      {sum && <div className="panel fade-in" style={{ padding: 12 }}>
-        <p className="sum" style={{ marginTop: 0 }}><span>要約</span>{sum.label}</p>
-        <p className="cap muted" style={{ margin: '8px 0 6px' }}>近い強みカード（変更できます）</p>
-        <div className="choices">{SELF_OPTIONS.map(k => <button key={k} className="choice" aria-pressed={sum.card === k} onClick={() => setSum({ ...sum, card: k })} style={{ minHeight: 36, padding: '0 10px', fontSize: 13 }}><i><Illust k={k} h={CARDS[k].h} /></i>{CARDS[k].name}</button>)}</div>
-        <p className="cap muted" style={{ marginTop: 8 }}>キーワードをもとに短い印象にまとめます。原文と要約を一緒に表示します。</p>
-      </div>}
-    </>}
+    <Header back title={kind === 'vibe' ? '第一印象を贈る' : 'エピソードを贈る'} />
+    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-exchange-context"><Avatar id={c.peerId} size={44} /><span style={{ flex: 1, minWidth: 0 }}><b className="give-to">{p.name}へ</b><span className="cap muted" style={{ display: 'block', overflowWrap: 'anywhere' }}>{kind === 'vibe' ? '第一印象は1人に1回だけ' : '見た場面を何度でも'}{ctx ? `・${ctx}` : ''}</span></span><button className="link" style={{ minHeight: 44 }} aria-label="出会いのメモを編集" onClick={() => setMemo({ ...c.context })}>メモ</button></div>
+    <div style={{ display: 'grid', gap: 10, flex: 'none' }} data-od-id="give-instructions"><p className="give-step"><i>1</i>{kind === 'vibe' ? '感じたこと・その理由' : '見た場面'}<em>8〜{max}文字</em></p>
+      <label className="field" data-od-id="give-reason"><textarea className="textarea" style={{ minHeight: 110 }} maxLength={max} value={text} aria-label={kind === 'vibe' ? '感じたこととその理由' : '見た場面'} onChange={e => { setText(e.target.value); setAi(null); }} placeholder={kind === 'vibe' ? '例：初対面でも話しかけてくれて、すぐ打ち解けられた' : '例：登壇後の質問に、図を描いて答えてくれた'} /><small className="cap on-muted" style={{ display: 'block', textAlign: 'right' }}>{text.length}/{max}</small></label></div>
+    <div style={{ display: 'grid', gap: 10, flex: 'none' }}><p className="give-step"><i>2</i>どの強み？<em>1枚選ぶ</em></p>
+      <button className="btn btn-plain" style={{ minHeight: 44, fontSize: 14 }} disabled={t.length < 8} onClick={() => { const k = summarize(t).card; setAi(k); setCard(k); }} data-od-id="give-suggest"><Icon n="spark" s={16} />書いた文章からAIが選ぶ</button>
+      <div style={{ display: 'grid', gap: 10 }} role="radiogroup" aria-label="強み" data-od-id="give-options">
+        {peerSelf.length > 0 && <><p className="cap on-muted">本人が選んだ強み</p><div className="choices">{SELF_OPTIONS.filter(k => peerSelf.includes(k)).map(choice)}</div><p className="cap on-muted">ほかの強み</p></>}
+        <div className="choices">{SELF_OPTIONS.filter(k => !peerSelf.includes(k)).map(choice)}</div>
+      </div></div>
     <div className="fill" />
-    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-selection-preview" role="status"><Env style={{ width: 34, height: 25, flex: 'none' }} /><span style={{ flex: 1, minWidth: 0 }}><span className="cap muted" style={{ display: 'block' }}>{p.name}に贈る印象</span><b className="small" style={{ display: 'block', overflowWrap: 'anywhere' }}>{mode === 'pick' ? (sel ? `「${sel}」` : 'まだ選んでいません') : (sum ? `「${sum.label}」` : text.trim() ? '自由に書いた印象' : 'まだ書いていません')}</b>{text.trim() && <span className="cap muted give-preview-text">{text.trim()}</span>}</span></div>
-    <button className="btn btn-go btn-block" disabled={!ready || c.status !== 'accepted'} onClick={send} data-od-id="give-send">この印象を贈る</button>
-    <button className="link" onClick={later}>あとで</button>
+    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-selection-preview" role="status">{card && <i className="give-art small"><Illust k={card} h={CARDS[card].h} /></i>}<span style={{ flex: 1, minWidth: 0 }}><span className="cap muted" style={{ display: 'block' }}>{p.name}に贈る証言</span><b className="small" style={{ display: 'block' }}>{card ? CARDS[card].name : '強みをまだ選んでいません'}</b><span className="cap muted give-preview-text">{t || 'まだ書いていません'}</span></span></div>
+    <button className="btn btn-go btn-block" disabled={!ready || c.status !== 'accepted'} onClick={send} data-od-id="give-send">封筒で贈る</button>
+    {kind === 'vibe' && <button className="link" onClick={later}>あとで</button>}
+    {memo && <Sheet title="出会いのメモ" onClose={() => setMemo(null)}><p className="small muted">どこで、何をきっかけに交換したか。</p>
+      <label className="field"><span>場所・イベント名（必須）</span><input className="input" maxLength={60} value={memo.place || ''} onChange={e => setMemo({ ...memo, place: e.target.value })} /></label>
+      <label className="field" style={{ marginTop: 12 }}><span>交換のきっかけ（必須）</span><input className="input" maxLength={100} value={memo.trigger || ''} onChange={e => setMemo({ ...memo, trigger: e.target.value })} /></label>
+      <button className="btn btn-go btn-block" style={{ marginTop: 16 }} disabled={!memo.place?.trim() || !memo.trigger?.trim()} onClick={() => { update(x => { x.connections.find(y => y.id === cid).context = { place: memo.place.trim(), trigger: memo.trigger.trim() }; }); setMemo(null); toast('メモを保存しました'); }}>保存する</button></Sheet>}
   </main>;
 }
 function Memo() {
-  const { s, update, nav, toast } = useApp();
-  const members = s.connections.filter(c => c.status === 'accepted' && !s.blocked.includes(c.peerId)).map(c => c.peerId);
-  const [step, setStep] = useState(0);
-  const [to, setTo] = useState(null);
-  const [card, setCard] = useState(null);
-  const [story, setStory] = useState('');
-  const [sent, setSent] = useState(false);
-  if (sent) return <main className="view"><Header back title="" /><div className="fill" style={{ justifyContent: 'center', gap: 14 }}><div className="note flash"><p className="cap muted">{PEOPLE[to].name}へ・{CARDS[card].name}</p><p className="quote">「{story}」</p></div><p className="h2 center">封筒で贈りました</p><p className="cap on-muted center">{PEOPLE[to].name}のデッキに、証言として届きます。</p></div><button className="btn btn-plain btn-block" onClick={() => nav.popTo('exchange')}>交換へ戻る</button></main>;
-  const ok = [!!to, !!card, story.trim().length >= 8][step];
-  const send = () => { update(x => { x.sentProofs.push({ id: 'sp-' + Date.now(), toId: to, card, story: story.trim(), createdAt: now() }); }); setSent(true); toast(`${PEOPLE[to].name}に封筒を贈りました`); };
-  return <main className="view form" data-od-id="s05-memo">
-    <Header back onBack={() => step ? setStep(step - 1) : nav.pop()} title="" right={<span className="chip"><b>{step + 1}</b>/ 3</span>} />
-    {step === 0 && <><h1 className="h1">誰に贈る？</h1>{members.length === 0 && <p className="small on-muted">まだ交換した人がいません。交換すると、ここから場面のメモを贈れます。</p>}<div className="stack" role="radiogroup" aria-label="相手">{members.map(m => <button key={m} role="radio" aria-checked={to === m} className="person" onClick={() => setTo(m)}><Avatar id={m} size={36} /><span style={{ flex: 1 }}><b style={{ display: 'block' }}>{PEOPLE[m].name}</b><span className="cap muted">{PEOPLE[m].rel}</span></span></button>)}</div></>}
-    {step === 1 && <><h1 className="h1">{PEOPLE[to].name}の、どの強み？</h1><div className="choices" role="radiogroup" aria-label="強み">{SELF_OPTIONS.map(k => <button key={k} role="radio" aria-checked={card === k} aria-pressed={card === k} className="choice" onClick={() => setCard(k)}><i><Illust k={k} h={CARDS[k].h} /></i>{CARDS[k].name}</button>)}</div></>}
-    {step === 2 && <><h1 className="h1">その強みを見た場面は？</h1><p className="cap on-muted">性格の採点ではなく、見た行動をひとつ</p><label className="field"><span className="sr">場面</span><textarea className="textarea" value={story} maxLength={80} onChange={e => setStory(e.target.value)} placeholder="例：登壇後の質問に、図を描いて答えてくれた" /></label><p className="cap on-muted" style={{ textAlign: 'right' }}>{story.length}/80</p></>}
-    <div className="fill" />
-    <button className="btn btn-go btn-block" disabled={!ok} onClick={() => step < 2 ? setStep(step + 1) : send()} data-od-id="memo-next">{step < 2 ? '次へ' : '封筒で贈る'}</button>
+  const { s, nav } = useApp();
+  const list = s.connections.filter(c => c.status === 'accepted' && !s.blocked.includes(c.peerId));
+  return <main className="view scroll" data-od-id="s05-memo">
+    <Header back title="証言を贈る" />
+    <h1 className="h2">誰に贈る？</h1>
+    {list.length === 0 ? <p className="small on-muted">まだ交換した人がいません。交換すると、ここから証言を贈れます。</p> : <div className="list" data-od-id="memo-recipients">{list.map(c => <button key={c.id} className="list-row" onClick={() => nav.replace('give', { cid: c.id })}><Avatar id={c.peerId} size={36} /><span style={{ flex: 1, minWidth: 0 }}><b className="small" style={{ display: 'block' }}>{PEOPLE[c.peerId].name}</b><span className="cap muted">{c.vibe ? 'エピソードを贈れます' : '第一印象をまだ贈っていません'}</span></span><Icon n="chev" s={18} /></button>)}</div>}
   </main>;
 }
 
@@ -790,7 +781,7 @@ function PieceDetail({ kind, id }) {
   const setVis = v => { const prev = p.visibility; mut(q => { q.visibility = v; }); toast(v === 'hidden' ? '非表示にしました' : v === 'public' ? '個別公開にしました' : '本人だけに戻しました', () => mut(q => { q.visibility = prev; })); setSheet(null); };
   return <main className="view scroll" data-od-id="s08-piece">
     <Header back title="証言" />
-    <div className="note"><p className="cap muted">{g.name}より・{kind === 'vibe' ? '会話の印象' : '見た場面'}</p>{kind === 'vibe' ? (p.text ? <><p className="quote">「{p.text}」</p><p className="sum"><span>要約</span>{p.label}</p></> : <p className="quote-big">「{p.label}」</p>) : <><p className="h2">{p.title}</p><p className="quote">「{p.story}」</p></>}</div>
+    <div className="note"><p className="cap muted">{g.name}より・{kind === 'vibe' ? '第一印象' : 'エピソード'}</p>{kind === 'vibe' ? (p.text ? <><p className="quote">「{p.text}」</p><p className="sum"><span>要約</span>{p.label}</p></> : <p className="quote-big">「{p.label}」</p>) : <><p className="h2">{p.title}</p><p className="quote">「{p.story}」</p></>}</div>
     <div className="list">
       <div className="list-row small"><b style={{ width: 70 }}>カード</b>{CARDS[p.card].name}</div>
       {p.opened && <div className="list-row small"><b style={{ width: 70 }}>予想</b>{p.guess === 'skip' ? 'なし' : `${CARDS[p.guess].name}（${p.guess === p.card ? '的中' : '外れ'}）`}</div>}
@@ -878,7 +869,7 @@ function Settings() {
   return <main className="view scroll" data-od-id="s09-settings">
     <Header back title="公開範囲・安全" />
     <p className="small on-muted">届いた証言は、はじめは本人だけに表示されます。</p>
-    <div className="list"><Toggle k="allowVibe" label="印象を受け取る" /><Toggle k="allowProof" label="場面のメモを受け取る" /><Toggle k="onlyConnected" label="交換した人からだけ受け取る" /></div>
+    <div className="list"><Toggle k="allowVibe" label="第一印象を受け取る" /><Toggle k="allowProof" label="エピソードを受け取る" /><Toggle k="onlyConnected" label="交換した人からだけ受け取る" /></div>
     <button className="btn btn-go btn-block" disabled={!dirty} onClick={() => setAsk('save')}>設定を保存</button>
     <p className="h3">ブロック中</p>
     {s.blocked.length === 0 ? <p className="small on-muted">いません</p> : <div className="list">{s.blocked.map(b => <div key={b} className="list-row"><Avatar id={b} size={30} /><b className="small" style={{ flex: 1 }}>{PEOPLE[b].name}</b><button className="link" onClick={() => setAsk(b)}>解除</button></div>)}</div>}

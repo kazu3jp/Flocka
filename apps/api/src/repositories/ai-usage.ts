@@ -1,5 +1,17 @@
+import { CARD_SUGGESTION_DAILY_CALLS_PER_ACCOUNT } from "@flocka/domain";
+
 /** Per-account calls per UTC day. */
 export const PR_AI_DAILY_CALLS_PER_ACCOUNT = 5;
+
+/** What a call is for; each purpose has its own per-account count. */
+export type AiPurpose = "pr" | "card";
+const PURPOSE: Record<AiPurpose, { column: string; limit: number }> = {
+  pr: { column: "calls", limit: PR_AI_DAILY_CALLS_PER_ACCOUNT },
+  card: {
+    column: "card_calls",
+    limit: CARD_SUGGESTION_DAILY_CALLS_PER_ACCOUNT,
+  },
+};
 /** Soft budget below Cloudflare's 10,000 free Neurons per day for the whole account. */
 export const PR_AI_DAILY_NEURON_BUDGET = 9000;
 const USAGE_RETENTION_DAYS = 7;
@@ -8,6 +20,7 @@ export type AiReservation = {
   day: string;
   accountId: string;
   neurons: number;
+  purpose: AiPurpose;
 };
 export type AiReserveResult =
   | { ok: true; reservation: AiReservation }
@@ -30,8 +43,10 @@ export class AiUsageRepository {
     accountId: string,
     at: Date,
     neurons: number,
+    purpose: AiPurpose = "pr",
   ): Promise<AiReserveResult> {
     const day = usageDay(at);
+    const { column, limit } = PURPOSE[purpose];
     const [, , budget] = await this.db.batch([
       this.db
         .prepare("INSERT OR IGNORE INTO ai_usage_days(day) VALUES(?)")
@@ -46,36 +61,27 @@ export class AiUsageRepository {
         .prepare(
           `UPDATE ai_usage_days SET neurons = neurons + ?3, calls = calls + 1
           WHERE day = ?1 AND neurons + ?3 <= ?4
-          AND EXISTS(SELECT 1 FROM ai_usage_accounts WHERE day = ?1 AND account_id = ?2 AND calls < ?5)`,
+          AND EXISTS(SELECT 1 FROM ai_usage_accounts WHERE day = ?1 AND account_id = ?2 AND ${column} < ?5)`,
         )
-        .bind(
-          day,
-          accountId,
-          neurons,
-          PR_AI_DAILY_NEURON_BUDGET,
-          PR_AI_DAILY_CALLS_PER_ACCOUNT,
-        ),
+        .bind(day, accountId, neurons, PR_AI_DAILY_NEURON_BUDGET, limit),
       this.db
         .prepare(
-          "UPDATE ai_usage_accounts SET calls = calls + 1 WHERE day = ?1 AND account_id = ?2 AND changes() > 0",
+          `UPDATE ai_usage_accounts SET ${column} = ${column} + 1 WHERE day = ?1 AND account_id = ?2 AND changes() > 0`,
         )
         .bind(day, accountId),
     ]);
     if (budget.meta.changes === 1)
-      return { ok: true, reservation: { day, accountId, neurons } };
+      return { ok: true, reservation: { day, accountId, neurons, purpose } };
     const mine = await this.db
       .prepare(
-        "SELECT calls FROM ai_usage_accounts WHERE day = ? AND account_id = ?",
+        `SELECT ${column} AS calls FROM ai_usage_accounts WHERE day = ? AND account_id = ?`,
       )
       .bind(day, accountId)
       .first<{ calls: number }>();
     if (!mine) return { ok: false, reason: "account-unavailable" };
     return {
       ok: false,
-      reason:
-        mine.calls >= PR_AI_DAILY_CALLS_PER_ACCOUNT
-          ? "account-limit"
-          : "budget",
+      reason: mine.calls >= limit ? "account-limit" : "budget",
     };
   }
 
@@ -94,10 +100,11 @@ export class AiUsageRepository {
    * when the call may still have been billed (a timeout).
    */
   async release(reservation: AiReservation, keepNeurons: boolean) {
+    const { column } = PURPOSE[reservation.purpose];
     await this.db.batch([
       this.db
         .prepare(
-          "UPDATE ai_usage_accounts SET calls = MAX(0, calls - 1) WHERE day = ? AND account_id = ?",
+          `UPDATE ai_usage_accounts SET ${column} = MAX(0, ${column} - 1) WHERE day = ? AND account_id = ?`,
         )
         .bind(reservation.day, reservation.accountId),
       this.db

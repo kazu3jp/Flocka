@@ -23,7 +23,7 @@ test("accepted exchange displays the real peer and public testimony", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "印象を贈る", exact: true }),
+    page.getByRole("button", { name: "第一印象を贈る", exact: true }),
   ).toBeVisible();
   await capture(page, "exchange-peer");
 });

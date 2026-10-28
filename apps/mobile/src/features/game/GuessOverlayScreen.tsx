@@ -238,7 +238,7 @@ function GuessContent({ id }: { id: string }) {
             <Panel>
               <T size={12} color={C.muted}>
                 {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
-                {p.kind === "vibe" ? "会話の印象" : "見た場面"}
+                {p.kind === "vibe" ? "第一印象" : "エピソード"}
               </T>
               <T display size={20} color={C.ink}>
                 「{wordsOf(p)}」

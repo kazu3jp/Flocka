@@ -6,7 +6,7 @@ import {
   signInFixture,
 } from "./helpers";
 
-test("impression forms and delivered content follow the original design", async ({
+test("the testimony form follows the original design and sends the first impression", async ({
   page,
   context,
 }, testInfo) => {
@@ -18,98 +18,58 @@ test("impression forms and delivered content follow the original design", async 
   await page.goto(`/give?cid=${fixture.exchanges![1]}`);
   const reference = await context.newPage();
   await reference.goto("/reference/?embed=give");
-  await expect(page.getByText("ソラに贈る印象", { exact: true })).toBeVisible();
-  await capture(page, "give-pick");
-  await referenceComparison(page, reference, "give-pick", testInfo);
+  await expect(page.getByText("ソラに贈る証言", { exact: true })).toBeVisible();
+  await capture(page, "give-empty");
+  await referenceComparison(page, reference, "give-empty", testInfo);
   await compareLayout(
     [
-      {
-        name: "instructions",
-        actual: page.getByTestId("give-instructions"),
-        reference: reference.locator('[data-od-id="give-instructions"]'),
-      },
       {
         name: "exchange context",
         actual: page.getByTestId("give-exchange-context"),
         reference: reference.locator('[data-od-id="give-exchange-context"]'),
       },
       {
-        name: "vibe options",
-        actual: page.getByTestId("give-options"),
-        reference: reference.locator(".vgrid"),
+        name: "first step",
+        actual: page.getByTestId("give-instructions"),
+        reference: reference.locator('[data-od-id="give-instructions"]'),
       },
-      {
-        name: "reason",
-        actual: page.getByRole("textbox"),
-        reference: reference.locator("textarea"),
-      },
-    ],
-    testInfo,
-  );
-  await compareLayout(
-    [
       {
         name: "reason field",
         actual: page.getByTestId("give-reason"),
         reference: reference.locator('[data-od-id="give-reason"]'),
       },
+      {
+        name: "strength choices",
+        actual: page.getByTestId("give-options"),
+        reference: reference.locator('[data-od-id="give-options"]'),
+      },
     ],
     testInfo,
   );
-  await page.getByRole("radio", { name: "話しやすい", exact: true }).click();
-  await reference
-    .getByRole("radio", { name: "話しやすい", exact: true })
-    .click();
-  await expect(
-    page.getByRole("radio", { name: "話しやすい", exact: true }),
-  ).toBeChecked();
+  const send = page.getByRole("button", { name: "封筒で贈る", exact: true });
   const reason = "初対面でも話しかけてくれて、一緒に発表の準備ができた";
   await page.getByRole("textbox").fill(reason);
   await reference.locator("textarea").fill(reason);
-  await capture(page, "give-selected");
-  await referenceComparison(page, reference, "give-selected", testInfo);
-  await page.getByRole("tab", { name: "自由に書く", exact: true }).click();
-  await reference
-    .getByRole("button", { name: "自由に書く", exact: true })
-    .click();
-  await compareLayout(
-    [
-      {
-        name: "free reason",
-        actual: page.getByTestId("give-reason"),
-        reference: reference.locator(".field"),
-        // The source removes "出会いのメモを編集" once something is typed,
-        // pulling the options up. Native keeps it (section 10 of the screen spec).
-        skip: ["y"],
-      },
-      {
-        name: "summary button",
-        actual: page.getByRole("button", { name: "要約する", exact: true }),
-        reference: reference.getByRole("button", {
-          name: "要約する",
-          exact: true,
-        }),
-        skip: ["y"],
-      },
-    ],
-    testInfo,
-  );
-  await capture(page, "give-free");
-  await referenceComparison(page, reference, "give-free", testInfo);
-  await page.getByRole("button", { name: "要約する", exact: true }).click();
-  await reference
-    .getByRole("button", { name: "要約する", exact: true })
-    .click();
-  await capture(page, "give-summary");
-  await referenceComparison(page, reference, "give-summary", testInfo);
+  // An AI answer that names no card is reported; no card is picked for the person.
   await page
-    .getByRole("button", { name: "この印象を贈る", exact: true })
-    .click();
-  await reference
-    .getByRole("button", { name: "この印象を贈る", exact: true })
+    .getByRole("button", { name: "書いた文章からAIが選ぶ", exact: true })
     .click();
   await expect(
-    page.getByText("ソラに印象を贈りました", { exact: true }).first(),
+    page.getByText(/AIがカードを決められませんでした/),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { checked: true })).toHaveCount(0);
+  await expect(send).toBeDisabled();
+  // The recipient's own picks come first.
+  await page.getByRole("radio", { name: "実装力", exact: true }).click();
+  await reference.getByRole("radio", { name: "実装力" }).click();
+  await capture(page, "give-selected");
+  await referenceComparison(page, reference, "give-selected", testInfo);
+  await send.click();
+  await reference
+    .getByRole("button", { name: "封筒で贈る", exact: true })
+    .click();
+  await expect(
+    page.getByText("ソラに証言を贈りました", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("最新データを取得中…", { exact: true }),
@@ -118,6 +78,45 @@ test("impression forms and delivered content follow the original design", async 
   await reference.locator(".toast-msg").click();
   await capture(page, "give-done");
   await referenceComparison(page, reference, "give-done", testInfo);
+  const stored = await (await context.request.get("/v1/sync")).json();
+  const vibe = stored.sent.find(
+    (piece: { kind: string }) => piece.kind === "vibe",
+  );
+  expect(vibe.card).toBe("impl");
+  expect(vibe.text).toBe(reason);
+  // The first impression is sent once; the form now offers an episode.
   await page.reload();
-  await expect(page.getByText(`「${reason}」`, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("エピソードを贈る", { exact: true }),
+  ).toBeVisible();
+});
+
+test("the exchange memo is edited in place, without leaving the form", async ({
+  page,
+  context,
+}, testInfo) => {
+  const fixture = await signInFixture(
+    context,
+    "collected",
+    `give-memo-${testInfo.project.name}`,
+  );
+  const url = `/give?cid=${fixture.exchanges![1]}`;
+  await page.goto(url);
+  await page.getByRole("textbox").fill("書きかけの証言をそのまま残す");
+  await page
+    .getByRole("button", { name: "出会いのメモを編集", exact: true })
+    .click();
+  const sheet = page.getByTestId("sheet");
+  await sheet
+    .getByRole("textbox", { name: "場所・イベント名（必須）" })
+    .fill("学内ハッカソン");
+  await sheet.getByRole("button", { name: "保存する", exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`${url.replace("?", "\\?")}$`));
+  await expect(page.getByTestId("give-exchange-context")).toContainText(
+    "学内ハッカソン",
+  );
+  await expect(
+    page.getByTestId("give-reason").getByRole("textbox"),
+  ).toHaveValue("書きかけの証言をそのまま残す");
 });
