@@ -1,6 +1,6 @@
 import { ScreenFeedback, ToastBanner } from "../components/feedback";
 import { EnterOnMount } from "../components/motion";
-import { LoadingBoard } from "../components/loading";
+import { LaunchCover } from "../components/loading";
 import { TabBar } from "../features/navigation/TabBar";
 import { useAuth, SessionStatus } from "../features/auth/provider";
 import { SignOutAction } from "../features/auth/SignOutAction";
@@ -144,7 +144,7 @@ export default function Screen() {
       </Board>
     );
   // Keep the requested URL while the account snapshot is loading.
-  if (!ready) return <LoadingBoard label="デッキを読み込み中…" />;
+  if (!ready) return <LaunchCover label="デッキを読み込み中" />;
   if (!SCREENS.includes(screen as ScreenId))
     return (
       <Board>

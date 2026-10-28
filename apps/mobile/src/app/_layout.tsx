@@ -7,16 +7,12 @@ import { useFonts } from "expo-font";
 import { DelaGothicOne_400Regular } from "@expo-google-fonts/dela-gothic-one/400Regular";
 import { ZenKakuGothicNew_500Medium } from "@expo-google-fonts/zen-kaku-gothic-new/500Medium";
 import { ZenKakuGothicNew_700Bold } from "@expo-google-fonts/zen-kaku-gothic-new/700Bold";
-import {
-  ActivityIndicator,
-  Platform,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Platform, View, useWindowDimensions } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "../store";
 import { C, LAYOUT, T } from "../components/ui";
 import { AppFrame } from "../components/app-frame";
+import { LaunchCover } from "../components/loading";
 
 const WEB_FONTS = {
   DelaGothicOne_400Regular,
@@ -44,16 +40,7 @@ export default function RootLayout() {
       </View>
     );
   if (!loaded)
-    return (
-      <View
-        style={{ flex: 1, backgroundColor: C.blue, justifyContent: "center" }}
-      >
-        <ActivityIndicator
-          color={C.yellow}
-          accessibilityLabel="フォントを読み込み中"
-        />
-      </View>
-    );
+    return <LaunchCover label="フォントを読み込み中" fontsLoaded={false} />;
   return (
     <SafeAreaProvider>
       <View

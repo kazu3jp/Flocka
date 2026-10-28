@@ -289,13 +289,17 @@ export function NearbyScreen() {
               }}
             />
           ) : null}
-          <Btn
-            plain
-            small
-            label="探索をやり直す"
-            disabled={busy}
-            onPress={() => void renew()}
-          />
+          {/* Searching runs and renews its code by itself; only a failure that
+              settings cannot fix needs a fresh start. */}
+          {inviteError || (radioError && !radioError.settings) ? (
+            <Btn
+              plain
+              small
+              label="探索をやり直す"
+              disabled={busy}
+              onPress={() => void renew()}
+            />
+          ) : null}
         </View>
       )}
       {peerList.map(({ player, code }, index) => (

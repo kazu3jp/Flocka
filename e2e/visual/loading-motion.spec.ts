@@ -18,7 +18,7 @@ async function holdSnapshot(page: import("@playwright/test").Page) {
   return release;
 }
 
-test("the loading screen shows a turning spinner while the deck loads", async ({
+test("the launch cover shows a turning spinner while the deck loads", async ({
   page,
   context,
 }, testInfo) => {
@@ -26,7 +26,12 @@ test("the loading screen shows a turning spinner while the deck loads", async ({
   await signInFixture(context, "collected", `loading-${testInfo.project.name}`);
   const release = await holdSnapshot(page);
   await page.goto("/deck");
-  await expect(page.getByText("デッキを読み込み中…")).toBeVisible();
+  // One cover hides the steps: its words name the brand, not the step.
+  const cover = page.getByTestId("launch-cover");
+  await expect(cover).toBeVisible();
+  await expect(cover).toHaveAccessibleName("デッキを読み込み中");
+  await expect(cover.getByText("Flocka", { exact: true })).toBeVisible();
+  await expect(page.getByText("デッキを読み込み中")).toHaveCount(0);
   await expect(page.getByTestId("spinner")).toBeVisible();
   const first = await spinnerTransform(page);
   await expect
@@ -49,6 +54,10 @@ test("reduced motion keeps the loading spinner still", async ({
   );
   const release = await holdSnapshot(page);
   await page.goto("/deck");
+  // The session check shows its own cover first; compare the deck load's spinner.
+  await expect(page.getByTestId("launch-cover")).toHaveAccessibleName(
+    "デッキを読み込み中",
+  );
   await expect(page.getByTestId("spinner")).toBeVisible();
   const first = await spinnerTransform(page);
   await page.waitForTimeout(500);
