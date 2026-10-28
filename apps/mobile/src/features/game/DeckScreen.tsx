@@ -296,7 +296,7 @@ export function Deck() {
         </View>
         <View {...giveTarget}>
           <LinkButton
-            label="印象を贈る"
+            label="証言を贈る"
             onPress={() =>
               nav.goTab(
                 "exchange",
@@ -322,7 +322,7 @@ export function Deck() {
               challenge
                 ? "予想チャレンジ！"
                 : unsent.length
-                  ? "交換した人に印象を贈ろう"
+                  ? "交換した人に第一印象を贈ろう"
                   : "まずは交換しよう"
             }
             onPress={goQuest}
@@ -368,14 +368,14 @@ export function Deck() {
                   {challenge
                     ? "予想チャレンジ！"
                     : unsent.length
-                      ? "交換した人に印象を贈ろう"
+                      ? "交換した人に第一印象を贈ろう"
                       : "まずは交換しよう"}
                 </T>
                 <BannerCaption>
                   {challenge
                     ? `封筒${d.unopened.length}通・どのカードか当てよう`
                     : unsent.length
-                      ? `まだ印象を贈っていない人が${unsent.length}人います`
+                      ? `まだ第一印象を贈っていない人が${unsent.length}人います`
                       : "会った人と、カードを交換"}
                 </BannerCaption>
               </View>

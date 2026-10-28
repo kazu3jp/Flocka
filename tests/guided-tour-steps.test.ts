@@ -74,7 +74,7 @@ test("steps are unique, fully written and each point at a known target on a tab 
 
 test("the steps cover the features in the spec", () => {
   const text = TOUR_STEPS.map((step) => step.title + step.lead).join("");
-  for (const word of ["封筒", "メモ", "交換", "自己PR", "公開範囲", "SNS"])
+  for (const word of ["封筒", "証言", "交換", "自己PR", "公開範囲", "SNS"])
     assert.ok(text.includes(word), word);
 });
 

@@ -4,13 +4,13 @@ import type { RequestRecord } from "@flocka/domain";
 export const RECEIVING_SWITCHES = [
   {
     key: "allowVibe",
-    label: "印象を受け取る",
-    hint: "「印象」の証言を受け取ります。",
+    label: "第一印象を受け取る",
+    hint: "交換した相手からの、1人1回の第一印象を受け取ります。",
   },
   {
     key: "allowProof",
-    label: "場面のメモを受け取る",
-    hint: "「場面のメモ」の証言を受け取ります。",
+    label: "エピソードを受け取る",
+    hint: "見た場面を書いた証言を、何度でも受け取ります。",
   },
   {
     key: "onlyConnected",

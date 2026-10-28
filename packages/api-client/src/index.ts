@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   apiErrorSchema,
   prAiDraftSchema,
+  cardSuggestionSchema,
   syncSchema,
   preferencesRecordSchema,
   settingsSchema,
@@ -259,6 +260,16 @@ export class FlockaApiClient {
       data,
       revision,
     });
+  }
+  /** Asks the server which strength card the giver's text speaks to. */
+  suggestTestimonyCard(text: string) {
+    return this.json(
+      "/v1/testimonies/card-suggestion",
+      cardSuggestionSchema,
+      "POST",
+      { text },
+      PR_AI_TIMEOUT_MS,
+    );
   }
   /** Asks the server to write a draft from the caller's own testimonies for `card`. */
   generatePRDraftWithAI(card: string) {

@@ -90,10 +90,6 @@ export function Connections() {
         .sort((a, b) => exchangedTime(b).localeCompare(exchangedTime(a))),
     [active, filter],
   );
-  const sentById = useMemo(
-    () => new Map(s.sentVibes.map((piece) => [piece.id, piece])),
-    [s.sentVibes],
-  );
   return (
     <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="つながった人" onBack={nav.pop} />
@@ -124,7 +120,7 @@ export function Connections() {
         <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
           {filter === "pending"
             ? "承認待ちの交換はありません。"
-            : "印象をまだ贈っていない人はいません。"}
+            : "第一印象をまだ贈っていない人はいません。"}
         </T>
       ) : (
         <View
@@ -140,19 +136,14 @@ export function Connections() {
         >
           {connections.map((connection, index) => {
             const name = peers[connection.peerId]?.profile.name ?? "相手";
-            const sent = connection.vibe
-              ? sentById.get(connection.vibe)
-              : undefined;
             const pending = connection.status === "pending";
             const description = pending
               ? connection.myApproved
                 ? "相手の承認を待っています"
                 : "交換の確認が必要です"
-              : sent?.label
-                ? `「${sent.label}」を贈った`
-                : connection.vibe
-                  ? "印象を贈りました"
-                  : connection.context.place || "交換済み";
+              : connection.vibe
+                ? "第一印象を贈りました・エピソードも贈れます"
+                : connection.context.place || "交換済み";
             return (
               <StaggerItem
                 key={connection.id}
@@ -199,9 +190,7 @@ export function Connections() {
                 <LinkButton
                   color={C.ink}
                   disabled={removal.busy}
-                  label={
-                    pending ? "確認" : connection.vibe ? "詳細" : "印象を贈る"
-                  }
+                  label={pending ? "確認" : "証言を贈る"}
                   onPress={() =>
                     nav.push(pending ? "confirm" : "give", {
                       cid: connection.id,
@@ -227,13 +216,6 @@ export function Connections() {
             );
           })}
         </View>
-      )}
-      {active.some((connection) => connection.status === "accepted") && (
-        <Btn
-          plain
-          label="見た場面をメモで贈る"
-          onPress={() => nav.push("memo")}
-        />
       )}
       {removal.selectedId ? (
         <Sheet title="交換を解除しますか？" onClose={removal.close}>

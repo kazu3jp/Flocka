@@ -14,7 +14,7 @@ const TARGETS: Record<string, (page: Page) => Locator> = {
   "deck-cards": (page) => page.getByTestId("deck-first-row"),
   "deck-quest": (page) => page.getByTestId("deck-challenge"),
   "deck-give": (page) =>
-    page.getByTestId("deck-header").getByRole("button", { name: "印象を贈る" }),
+    page.getByTestId("deck-header").getByRole("button", { name: "証言を贈る" }),
   "player-card": (page) => page.getByTestId("player-identity"),
   "exchange-actions": (page) => page.getByTestId("exchange-actions"),
   "pr-heading": (page) => page.getByTestId("pr-heading"),

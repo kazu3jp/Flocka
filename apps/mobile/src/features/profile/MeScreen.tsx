@@ -120,7 +120,7 @@ function TestimoniesBanner() {
           {unopened
             ? `未開封の封筒が${unopened}通。開けて予想しよう`
             : total
-              ? "仲間からの印象と場面のメモ"
+              ? "仲間から届いた第一印象とエピソード"
               : "交換した仲間から届くと、ここに並びます"}
         </T>
       </View>

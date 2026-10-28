@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import { prAiRequestSchema } from "@flocka/domain";
+import { cardSuggestionRequestSchema, prAiRequestSchema } from "@flocka/domain";
 import { readJson, type ApiContext } from "../http";
+import { suggestCard } from "../services/card-suggestion";
 import { generatePRAiDraft } from "../services/pr-ai-generation";
 import { aiRunnerFor } from "../services/workers-ai";
 
@@ -13,6 +14,18 @@ prAiRoutes.post("/me/pr-draft/ai", async (c) => {
       env: c.env,
       accountId: c.get("accountId"),
       card,
+      run: aiRunnerFor(c.env),
+    }),
+  );
+});
+// Only the giver's own draft text is sent; nothing is stored.
+prAiRoutes.post("/testimonies/card-suggestion", async (c) => {
+  const { text } = await readJson(c, cardSuggestionRequestSchema, 2048);
+  return c.json(
+    await suggestCard({
+      env: c.env,
+      accountId: c.get("accountId"),
+      text,
       run: aiRunnerFor(c.env),
     }),
   );

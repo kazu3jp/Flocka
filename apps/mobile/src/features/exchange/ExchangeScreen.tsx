@@ -101,7 +101,7 @@ export function Exchange() {
       ) && (
         <Btn
           plain
-          label="交換した人に印象を贈る"
+          label="交換した人に第一印象を贈る"
           onPress={() => nav.push("connections")}
         />
       )}

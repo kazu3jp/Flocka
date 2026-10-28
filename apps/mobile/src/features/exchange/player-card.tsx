@@ -126,11 +126,7 @@ export function Player({
             <Avatar name={s.profile.name} avatar={s.profile.avatar} size={64} />
           )
         }
-        name={
-          peerId
-            ? (peer?.profile.name ?? "相手")
-            : s.profile.name
-        }
+        name={peerId ? (peer?.profile.name ?? "相手") : s.profile.name}
         role={peerId ? (peer?.profile.role ?? "") : s.profile.role}
         cards={cards}
         interests={interests}
@@ -162,7 +158,7 @@ export function Player({
             published.items.map((piece) => (
               <View key={piece.id} style={S.gap}>
                 <T size={12}>
-                  {piece.kind === "proof" ? "場面のメモ" : "印象"}
+                  {piece.kind === "proof" ? "エピソード" : "第一印象"}
                 </T>
                 <T selectable>{piece.story || piece.text || piece.label}</T>
               </View>

@@ -83,7 +83,7 @@ export function PieceDetail({ id }: { id: string }) {
       <Panel style={S.gap}>
         <T color={C.muted} size={13}>
           {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
-          {p.kind === "proof" ? "見た場面" : "会話の印象"}
+          {p.kind === "proof" ? "エピソード" : "第一印象"}
         </T>
         <T display color={C.ink} size={20}>
           「{wordsOf(p)}」

@@ -15,3 +15,5 @@ export * from "./ai-neurons";
 export * from "./pr-ai-prompt";
 export * from "./pr-ai-output";
 export * from "./pr-ai-response";
+
+export * from "./card-suggestion";
