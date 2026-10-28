@@ -100,7 +100,7 @@ button { cursor: pointer; background: none; border: 0; -webkit-tap-highlight-col
 .panel .link:hover, .sheet .link:hover { background: var(--paper-2); }
 
 /* ---------- challenge banner ---------- */
-.quest { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; background: var(--yellow); color: var(--ink); border: var(--ol); border-radius: 16px; box-shadow: var(--sh); transition: transform .1s, box-shadow .1s; animation: nudge 2.4s ease-in-out 1s 2; }
+.quest { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; background: var(--yellow); color: var(--ink); border: var(--ol); border-radius: 16px; box-shadow: var(--sh); transition: transform .1s, box-shadow .1s; animation: nudge 2.4s ease-in-out 1s infinite; }
 .quest:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
 .quest-env { position: relative; width: 42px; height: 32px; flex: none; }
 .quest-env svg { position: absolute; width: 34px; height: 24.75px; }

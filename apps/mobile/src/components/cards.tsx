@@ -191,6 +191,10 @@ export const CardPattern = memo(function CardPattern({
 const CARD_NUMBER_LABEL_WIDTH = 44;
 // The No. label's top inset; it keeps the same room below it.
 const CARD_NUMBER_LABEL_INSET = 4;
+/** Share of its full size the illustration may give up to keep the No. label. */
+const CARD_ILLUSTRATION_GIVE = 0.3;
+/** A strength name wraps to at most two lines. */
+const CARD_NAME_MAX_LINES = 2;
 
 /**
  * Pass `height` when the caller already sizes the card, so the name and
@@ -203,6 +207,8 @@ export const StrengthCard = memo(function StrengthCard({
   large = false,
   height,
   onArtHeight,
+  nameLines = CARD_NAME_MAX_LINES,
+  onNameLines,
 }: {
   card: Card;
   onPress?: () => void;
@@ -211,6 +217,13 @@ export const StrengthCard = memo(function StrengthCard({
   height?: number;
   /** Reports the illustration area's laid-out height, so a grid can tell when text has squeezed it. */
   onArtHeight?: (height: number) => void;
+  /**
+   * Lines the name keeps room for. Cards side by side pass the same count,
+   * so their illustrations line up; it defaults to the most a name may use.
+   */
+  nameLines?: number;
+  /** Reports how many lines this card's name needs at its width. */
+  onNameLines?: (lines: number) => void;
 }) {
   const color = card.confirmed
     ? C.yellow
@@ -244,22 +257,29 @@ export const StrengthCard = memo(function StrengthCard({
   const [artSize, setArtSize] = useState({ width: 100, height: 100 });
   // The illustration keeps the source's size (74% x 84% of the art, centered);
   // the No. label shows only where it fits beside it instead of covering it.
-  const illustrationSize = Math.min(
+  // A tall art box would push the label out, so the illustration gives up a
+  // little of its size to keep it, but never more than CARD_ILLUSTRATION_GIVE.
+  const fullIllustrationSize = Math.min(
     artSize.width * 0.74,
     artSize.height * 0.84,
     150,
   );
+  const besideNumberSize = artSize.width - 2 * CARD_NUMBER_LABEL_WIDTH;
+  const showNumber =
+    besideNumberSize >= fullIllustrationSize * (1 - CARD_ILLUSTRATION_GIVE);
+  const illustrationSize = showNumber
+    ? Math.min(fullIllustrationSize, besideNumberSize)
+    : fullIllustrationSize;
   // The label's height follows the font scale, so it is measured; it keeps its
   // last height while hidden, as only the art changes whether it fits.
   const [numberHeight, setNumberHeight] = useState(0);
-  const showNumber =
-    (artSize.width - illustrationSize) / 2 >= CARD_NUMBER_LABEL_WIDTH;
   const numberFits =
     artSize.height >= numberHeight + 2 * CARD_NUMBER_LABEL_INSET;
   const showFlavor = large || cardHeight >= 225;
   const nameSize = large
     ? 18
     : Math.max(13, Math.min(18, (cardHeight - 5) * 0.09));
+  const nameLineHeight = nameSize * 1.3;
   const inner = (
     <>
       {selfOnly && (
@@ -438,6 +458,7 @@ export const StrengthCard = memo(function StrengthCard({
           confirmed={card.confirmed}
           selfOnly={selfOnly}
           artHeight={artSize.height}
+          size={illustrationSize}
         />
         {card.confirmed && <CardShine {...artSize} />}
         {frame === "tape" &&
@@ -485,21 +506,40 @@ export const StrengthCard = memo(function StrengthCard({
           );
         })}
       </View>
-      <T
-        display
-        color={C.ink}
-        size={nameSize}
-        numberOfLines={2}
+      <View
         style={{
           paddingHorizontal: 8,
           paddingTop: 5,
-          lineHeight: nameSize * 1.3,
-          minHeight: 5 + nameSize * 1.3 * 2,
+          minHeight: 5 + nameLineHeight * nameLines,
           backgroundColor: frame === "stars" ? C.paper : undefined,
         }}
       >
-        {card.name}
-      </T>
+        <T
+          display
+          color={C.ink}
+          size={nameSize}
+          numberOfLines={CARD_NAME_MAX_LINES}
+          onLayout={
+            onNameLines
+              ? (event) =>
+                  onNameLines(
+                    Math.min(
+                      CARD_NAME_MAX_LINES,
+                      Math.max(
+                        1,
+                        Math.round(
+                          event.nativeEvent.layout.height / nameLineHeight,
+                        ),
+                      ),
+                    ),
+                  )
+              : undefined
+          }
+          style={{ lineHeight: nameLineHeight }}
+        >
+          {card.name}
+        </T>
+      </View>
       {showFlavor && (
         <T
           color={C.muted}
