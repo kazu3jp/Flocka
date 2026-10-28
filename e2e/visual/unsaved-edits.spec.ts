@@ -7,7 +7,7 @@ test("leaving the profile editor with unsaved edits asks before discarding them"
 }, testInfo) => {
   await signInFixture(context, "collected", `unsaved-${testInfo.project.name}`);
   await page.goto("/selfEdit");
-  const name = page.getByRole("textbox", { name: "ニックネーム", exact: true });
+  const name = page.getByRole("textbox", { name: /^ニックネーム/ });
   await name.fill("新しい名前");
   // Back asks first; keeping the edits leaves the field as typed.
   await page.getByRole("button", { name: "戻る", exact: true }).click();
@@ -31,11 +31,11 @@ test("a saved profile whose refresh fails says the save is done", async ({
   await signInFixture(context, "collected", `saved-${testInfo.project.name}`);
   await page.goto("/selfEdit");
   await page
-    .getByRole("textbox", { name: "ひとこと", exact: true })
+    .getByRole("textbox", { name: /^ひとこと/ })
     .fill("チームの段取り役");
   // Only reading back fails; the save itself reaches the real API.
   await page.route("**/v1/sync*", (route) => route.abort("failed"));
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "保存する", exact: true }).click();
   await expect(
     page.getByText(
       "プロフィールの保存は完了しました。最新データの取得に失敗しました。",

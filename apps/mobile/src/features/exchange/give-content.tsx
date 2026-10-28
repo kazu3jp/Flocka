@@ -18,12 +18,7 @@ export function GiveReason({
   const label = mode === "pick" ? "なぜそう感じましたか？" : "印象と、その理由";
   return (
     <View testID="give-reason">
-      <T
-        size={13}
-        style={{ fontFamily: F.bold, lineHeight: 21.45, marginBottom: 6 }}
-      >
-        {label}
-      </T>
+      {/* The numbered step above names the field; this label is for screen readers. */}
       <TextInput
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -34,8 +29,8 @@ export function GiveReason({
         onChangeText={onChange}
         placeholder={
           mode === "pick"
-            ? "例：発表の準備中、困っている人に声をかけてくれたから"
-            : "例：LTの質問が的確で、初対面なのにすごく話しやすかった"
+            ? "例：困っている人に声をかけてくれた"
+            : "例：LTの質問が的確で、すごく話しやすかった"
         }
         placeholderTextColor={C.muted}
         style={[
@@ -54,8 +49,12 @@ export function GiveReason({
         ]}
       />
       {mode === "pick" && (
-        <T size={12.5} color={C.pale} style={{ lineHeight: 24.75 }}>
-          短いひとことでも大丈夫です（必須・140文字まで）
+        <T
+          size={12.5}
+          color={C.pale}
+          style={{ lineHeight: 19.375, textAlign: "right" }}
+        >
+          {text.length}/140
         </T>
       )}
     </View>

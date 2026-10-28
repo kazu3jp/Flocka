@@ -16,20 +16,38 @@ export function useRevealedItems() {
 }
 
 /**
+ * How a screen arrives: pushed onto a stack (slides in from the right),
+ * revealed by going back (slides in from the left, the way the screen above
+ * left), or otherwise, as on a tab switch (rises a few points).
+ */
+export type ScreenEnter = "push" | "back" | "rise";
+
+const ENTER_SLIDE: Record<ScreenEnter, number> = {
+  push: PUSH_SLIDE,
+  back: -PUSH_SLIDE,
+  rise: 0,
+};
+
+/**
  * Wraps a screen kept mounted by the screen stacks. Each time the screen
- * becomes the visible one it fades in and rises a few points; screens hidden
- * inside an Activity do not animate.
+ * becomes the visible one it fades in and moves as `enter` says; screens
+ * hidden inside an Activity do not animate.
  */
 export function ScreenEntrance({
   style,
-  push = false,
+  enter = "rise",
   ...props
-}: ViewProps & {
-  /** A screen pushed onto a stack slides in from the right instead of rising. */
-  push?: boolean;
-}) {
+}: ViewProps & { enter?: ScreenEnter }) {
   const visible = useScreenFocused();
   const [revealed] = useState(() => new Set<string>());
+  // The way in is fixed when the screen becomes visible, so a later render
+  // with another value cannot turn the motion around halfway.
+  const [shown, setShown] = useState(visible),
+    [arrival, setArrival] = useState(enter);
+  if (visible !== shown) {
+    setShown(visible);
+    if (visible) setArrival(enter);
+  }
   const { progress, settled } = useEnterMotion({
     active: visible,
     duration: MOTION_MS.enter,
@@ -44,11 +62,11 @@ export function ScreenEntrance({
           !settled && {
             opacity: progress,
             transform: [
-              push
+              arrival !== "rise"
                 ? {
                     translateX: progress.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [PUSH_SLIDE, 0],
+                      outputRange: [ENTER_SLIDE[arrival], 0],
                     }),
                   }
                 : {

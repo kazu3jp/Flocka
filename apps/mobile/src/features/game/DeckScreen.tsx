@@ -34,8 +34,7 @@ import { useApp } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 import { TOUR_TARGETS } from "../guided-tour/tour-steps";
 import { useTourTarget } from "../guided-tour/use-tour-target";
-
-const DECK_SLOTS = 6;
+import { deckSlots } from "./deck-slots";
 
 /** The last grid slot opens the full collection once the deck outgrows the grid. */
 function MoreCardsTile({
@@ -119,15 +118,11 @@ export function Deck() {
     questTarget = useTourTarget(TOUR_TARGETS.deckQuest),
     giveTarget = useTourTarget(TOUR_TARGETS.deckGive),
     meTarget = useTourTarget(TOUR_TARGETS.deckMe);
-  const overflow = d.deck.length > DECK_SLOTS;
   // With more cards than slots, the last slot links to the full collection.
-  const shown = overflow ? d.deck.slice(0, DECK_SLOTS - 1) : d.deck;
-  const hidden = d.deck.length - shown.length;
-  const slots: ((typeof d.deck)[number] | "more" | null)[] = [
-    ...shown,
-    ...(overflow ? ["more" as const] : []),
-    ...Array(Math.max(0, DECK_SLOTS - d.deck.length)).fill(null),
-  ];
+  const { slots, hidden } = deckSlots(d.deck);
+  const shown = slots.filter(
+    (slot): slot is (typeof d.deck)[number] => slot !== null && slot !== "more",
+  );
   // People the user chose to write to later are not recommended again here.
   const unsent = s.connections.filter(
     (c) =>

@@ -77,9 +77,12 @@ export function CardPicker({
 export function InterestsPicker({
   selected,
   onChange,
+  showLabel = true,
 }: {
   selected: string[];
   onChange: (v: string[]) => void;
+  /** Off where a section title already names the choices. */
+  showLabel?: boolean;
 }) {
   const [more, setMore] = useState(false),
     quick = [
@@ -113,7 +116,7 @@ export function InterestsPicker({
     ));
   return (
     <View style={S.gap}>
-      <T size={13}>関心 · 複数選べます</T>
+      {showLabel && <T size={13}>関心 · 複数選べます</T>}
       <View style={S.wrap}>{choices(quick)}</View>
       <LinkButton label="ほかの関心を選ぶ" onPress={() => setMore(true)} />
       {more && (

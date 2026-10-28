@@ -97,7 +97,7 @@ test("signup: the email message and the password hint keep the form still", asyn
   await expectSameBoxes(before, siblings, "after the form is filled");
 });
 
-test("settings save: loading and a failed request change no size or position", async ({
+test("settings switch: a failed save flips it back without moving the switches", async ({
   page,
   context,
 }, testInfo) => {
@@ -107,25 +107,26 @@ test("settings save: loading and a failed request change no size or position", a
     `stability-${testInfo.project.name}`,
   );
   await page.goto("/settings");
-  await page.getByRole("switch", { name: "印象を受け取る" }).click();
+  const vibe = page.getByRole("switch", { name: "印象を受け取る" });
+  // The error appears under the list; the switches above it stay put.
   const targets = {
-    save: page.getByRole("button", { name: "設定を保存", exact: true }),
-    blocked: page.getByText("ブロックと報告", { exact: true }),
-    sync: page.getByRole("button", { name: "サーバーと同期" }),
+    vibe,
+    onlyConnected: page.getByRole("switch", { name: "交換した人からだけ" }),
   };
+  await expect(vibe).toBeChecked();
   const before = await measureAll(targets);
-  const route = "**/v1/me/settings";
-  await page.route(route, async (intercepted) => {
+  await page.route("**/v1/me/settings", async (intercepted) => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     await intercepted.abort("failed");
   });
-  await targets.save.click();
-  await page.getByRole("button", { name: "保存する", exact: true }).click();
-  // While the request runs the button shows its spinner in place.
-  await expect(targets.save).toHaveAttribute("aria-busy", "true");
-  await expectSameBoxes(before, targets, "while saving", "sync");
+  // The switch saves as it is flipped; nothing asks to save first.
+  await vibe.click();
+  await expect(vibe).not.toBeChecked();
+  await expectSameBoxes(before, targets, "while saving", "vibe");
   await expect(page.getByRole("alert")).toBeVisible();
-  await expectSameBoxes(before, targets, "with the error shown", "sync");
+  // The failure is not taken for success: the switch shows the saved value.
+  await expect(vibe).toBeChecked();
+  await expectSameBoxes(before, targets, "with the error shown", "vibe");
 });
 
 test("give: choosing an option moves no other option", async ({

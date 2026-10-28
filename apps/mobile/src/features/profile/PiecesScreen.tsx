@@ -1,20 +1,25 @@
 import { useState } from "react";
 import { View } from "react-native";
-
 import {
+  Avatar,
   Board,
-  BoardList,
   C,
   Envelope,
   Header,
   Icon,
   LinkButton,
-  Panel,
-  S,
+  List,
+  ListRow,
+  Section,
   T,
 } from "../../components/ui";
-import { allPieces, wordsOf, type State } from "@flocka/domain";
-import { SquishPressable, StaggerItem } from "../../components/motion";
+import {
+  CARDS,
+  allPieces,
+  wordsOf,
+  type Piece,
+  type State,
+} from "@flocka/domain";
 import { useApp } from "../../store";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
 
@@ -25,96 +30,98 @@ function hiddenPieces(s: State) {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+const VISIBILITY: Record<Piece["visibility"], [string, string]> = {
+  public: ["globe", "個別公開中"],
+  hidden: ["eyeoff", "非表示"],
+  private: ["lock", "本人だけ"],
+};
+
+/** The source's .vis: who sees this testimony, as an icon and a word. */
+function VisibilityMark({ visibility }: { visibility: Piece["visibility"] }) {
+  const [icon, label] = VISIBILITY[visibility];
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <Icon name={icon} size={13} color={C.muted} />
+      <T size={12} color={C.muted} style={{ fontWeight: "700" }}>
+        {label}
+      </T>
+    </View>
+  );
+}
+
+/**
+ * The source's s06-pieces as one list per state: envelopes still to open
+ * first (opening one starts the guess), then the opened testimonies with who
+ * sent them, for which card and who sees them, then the hidden ones.
+ */
 export function Pieces() {
   const { s, d, nav, setOpening, peers } = useApp();
   const pull = usePullRefresh();
   const [showHidden, setShowHidden] = useState(false);
-  const hidden = hiddenPieces(s);
-  const hiddenSection = hidden.length ? (
-    <View testID="pieces-hidden" style={{ gap: 12 }}>
-      <LinkButton
-        label={`非表示の証言（${hidden.length}件）を${showHidden ? "閉じる" : "見る"}`}
-        onPress={() => setShowHidden((shown) => !shown)}
-      />
-      {showHidden &&
-        hidden.map((p) => {
-          const name = peers[p.fromId]?.profile.name ?? "相手";
-          return (
-            <SquishPressable
-              key={p.id}
-              pressScale={0.98}
-              accessibilityRole="button"
-              accessibilityLabel={`${name}より・非表示・${p.opened ? wordsOf(p) : "未開封"}`}
-              accessibilityHint="公開範囲を変更できます"
-              onPress={() => nav.push("piece", { id: p.id })}
-            >
-              <Panel style={S.row}>
-                <Icon name="eyeoff" color={C.ink} />
-                <View style={S.fill}>
-                  <T color={C.ink}>{name}より · 非表示</T>
-                  <T color={C.muted} size={13}>
-                    {p.opened ? wordsOf(p) : "未開封"}
-                  </T>
-                </View>
-                <Icon name="chev" color={C.ink} />
-              </Panel>
-            </SquishPressable>
-          );
-        })}
-    </View>
-  ) : null;
+  const nameOf = (p: Piece) =>
+    peers[p.fromId]?.profile.name || "名前を取得できない相手";
+  const newest = [...d.pieces].reverse();
+  const unopened = newest.filter((p) => !p.opened),
+    opened = newest.filter((p) => p.opened),
+    hidden = hiddenPieces(s);
+  const openedRow = (p: Piece) => (
+    <ListRow
+      key={p.id}
+      leading={
+        <Avatar
+          name={peers[p.fromId]?.profile.name ?? ""}
+          avatar={peers[p.fromId]?.profile.avatar}
+          size={32}
+        />
+      }
+      title={p.opened ? wordsOf(p) : "未開封の封筒"}
+      caption={`${nameOf(p)}・${p.opened ? (CARDS[p.card]?.name ?? "") : "予想チャレンジ"}`}
+      accessibilityLabel={`${nameOf(p)}より・${p.opened ? wordsOf(p) : "未開封"}`}
+      trailing={<VisibilityMark visibility={p.visibility} />}
+      onPress={() => nav.push("piece", { id: p.id })}
+    />
+  );
   return (
-    <Board>
+    <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
       <Header title="届いた証言" onBack={nav.pop} />
-      <BoardList
-        testID="pieces-list"
-        data={[...d.pieces].reverse()}
-        keyExtractor={(p) => p.id}
-        refreshing={pull.refreshing}
-        onRefresh={pull.onRefresh}
-        ListEmptyComponent={
-          <Panel>
-            <T color={C.ink}>
-              まだ届いていません。交換した仲間から印象やメモが届くと、ここに並びます。
-            </T>
-          </Panel>
-        }
-        ListFooterComponent={hiddenSection}
-        renderItem={({ item: p, index }) => {
-          const name = peers[p.fromId]?.profile.name ?? "相手";
-          const summary = p.opened
-            ? wordsOf(p)
-            : "どのカードの証言か予想しよう";
-          return (
-            <StaggerItem itemKey={`piece:${p.id}`} index={index}>
-              <SquishPressable
-                pressScale={0.98}
-                accessibilityRole="button"
-                accessibilityLabel={`${name}より・${p.opened ? "開封済み" : "未開封"}・${summary}`}
-                accessibilityHint={
-                  p.opened ? "証言の詳細を開きます" : "封筒を開けて予想します"
-                }
-                onPress={() =>
-                  p.opened ? nav.push("piece", { id: p.id }) : setOpening(p.id)
-                }
-              >
-                <Panel style={S.row}>
-                  {p.opened ? <Icon name="doc" color={C.ink} /> : <Envelope />}
-                  <View style={S.fill}>
-                    <T color={C.ink}>
-                      {name}より · {p.opened ? "開封済み" : "未開封"}
-                    </T>
-                    <T color={C.muted} size={13}>
-                      {summary}
-                    </T>
-                  </View>
-                  <Icon name="chev" color={C.ink} />
-                </Panel>
-              </SquishPressable>
-            </StaggerItem>
-          );
-        }}
-      />
+      {d.pieces.length === 0 && (
+        <T size={14} color={C.pale} style={{ lineHeight: 22.4 }}>
+          まだ届いていません。交換した仲間から印象やメモが届くと、ここに並びます。
+        </T>
+      )}
+      {unopened.length > 0 && (
+        <Section
+          title={`未開封の封筒（${unopened.length}）`}
+          lead="どのカードの証言か予想してから開けます。"
+        >
+          <List testID="pieces-unopened">
+            {unopened.map((p) => (
+              <ListRow
+                key={p.id}
+                leading={<Envelope size={28} />}
+                title="未開封の封筒"
+                caption={`${nameOf(p)}より`}
+                accessibilityLabel={`${nameOf(p)}より・未開封`}
+                onPress={() => setOpening(p.id)}
+              />
+            ))}
+          </List>
+        </Section>
+      )}
+      {opened.length > 0 && (
+        <Section title={`開封済み（${opened.length}）`}>
+          <List testID="pieces-list">{opened.map(openedRow)}</List>
+        </Section>
+      )}
+      {hidden.length > 0 && (
+        <View testID="pieces-hidden" style={{ gap: 10 }}>
+          <LinkButton
+            label={`非表示の証言（${hidden.length}件）を${showHidden ? "閉じる" : "見る"}`}
+            onPress={() => setShowHidden((shown) => !shown)}
+          />
+          {showHidden && <List>{hidden.map(openedRow)}</List>}
+        </View>
+      )}
     </Board>
   );
 }

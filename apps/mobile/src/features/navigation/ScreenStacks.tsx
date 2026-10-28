@@ -1,9 +1,9 @@
-import React, { Activity } from "react";
+import React, { Activity, useState } from "react";
 import { View } from "react-native";
 import type { Entry, NavState, Tab } from "@flocka/domain";
 import { S } from "../../components/ui";
 import { ScreenVisible } from "../../components/screen-focus";
-import { ScreenEntrance } from "../../components/motion";
+import { ScreenEntrance, type ScreenEnter } from "../../components/motion";
 import {
   AvatarEdit,
   Me,
@@ -12,6 +12,7 @@ import {
   Pieces,
   SelfEdit,
   Settings,
+  SnsLinks,
 } from "../profile";
 import { Moderation } from "../admin";
 import { CardDetail, Deck, Deco, PR } from "../game";
@@ -57,6 +58,8 @@ export function screenFor({ id, params }: Entry) {
       return <PieceDetail id={entryId} />;
     case "settings":
       return <Settings />;
+    case "sns":
+      return <SnsLinks />;
     case "moderation":
       return <Moderation />;
     case "exchange":
@@ -90,6 +93,18 @@ const entryKey = (tab: Tab, index: number, { id, params }: Entry) =>
  * until they are shown again, and defers their re-renders.
  */
 export function ScreenStacks({ nav }: { nav: NavState }) {
+  // Going back is the current tab's stack getting shorter.
+  const [previous, setPrevious] = useState(nav),
+    [enter, setEnter] = useState<ScreenEnter>("rise");
+  if (previous !== nav) {
+    setPrevious(nav);
+    setEnter(
+      previous.tab === nav.tab &&
+        previous.stacks[nav.tab].length > nav.stacks[nav.tab].length
+        ? "back"
+        : "push",
+    );
+  }
   return TABS.flatMap((tab) =>
     nav.stacks[tab].map((entry, index) => {
       const visible = tab === nav.tab && index === nav.stacks[tab].length - 1;
@@ -103,7 +118,10 @@ export function ScreenStacks({ nav }: { nav: NavState }) {
               style={S.fill}
               testID={visible ? undefined : HIDDEN_SCREEN_TEST_ID}
             >
-              <ScreenEntrance testID="screen-entrance" push={index > 0}>
+              <ScreenEntrance
+                testID="screen-entrance"
+                enter={enter === "back" ? "back" : index > 0 ? "push" : "rise"}
+              >
                 {screenFor(entry)}
               </ScreenEntrance>
             </View>

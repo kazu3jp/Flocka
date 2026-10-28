@@ -90,3 +90,29 @@ test("a pushed screen slides in from the right and settles", async ({
   await expect(screen).toHaveCSS("opacity", "1");
   await expect(screen).toHaveCSS("transform", "none");
 });
+
+test("going back slides the earlier screen in from the left", async ({
+  page,
+  context,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.clock.install({ time: new Date("2026-10-18T00:00:00Z") });
+  await signInFixture(context, "collected", `back-${testInfo.project.name}`);
+  await page.goto("/deck");
+  await ready(page);
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(now + 1000));
+  await page.getByRole("tab", { name: "交換", exact: true }).click();
+  await page.clock.runFor(400);
+  await page.getByRole("button", { name: "つながった人" }).click();
+  await page.clock.runFor(400);
+  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  // The revealed screen moves left to right, the way the one above left.
+  const screen = page.getByTestId("screen-entrance");
+  const startX = await screen.evaluate(
+    (element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41,
+  );
+  expect(startX).toBeLessThan(-10);
+  await page.clock.runFor(400);
+  await expect(screen).toHaveCSS("transform", "none");
+});

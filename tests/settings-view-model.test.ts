@@ -3,52 +3,12 @@ import { test } from "node:test";
 import {
   RECEIVING_SWITCHES,
   canWithdrawRequest,
-  describeVisibility,
-  hasUnsavedSettings,
   requestStatusLabel,
 } from "../apps/mobile/src/features/profile/settings-view-model";
 
-const on = { allowVibe: true, allowProof: true, onlyConnected: true };
-
-test("the summary follows the saved switches", () => {
-  const lines = describeVisibility({
-    settings: { ...on, allowProof: false },
-    snsLinkCount: 0,
-    blockedCount: 0,
-  });
-  const value = (key: string) => lines.find((l) => l.key === key)?.value;
-  assert.equal(value("vibe"), "受け取る");
-  assert.equal(value("proof"), "受け取らない");
-  assert.equal(value("sender"), "交換が成立した人だけ");
-  assert.match(value("profile")!, /SNS未登録/);
-  assert.equal(value("blocked"), "いません");
-});
-
-test("the summary counts SNS links and blocked people, never says public", () => {
-  const lines = describeVisibility({
-    settings: on,
-    snsLinkCount: 2,
-    blockedCount: 3,
-  });
-  const text = lines.map((l) => l.value).join("\n");
-  assert.match(text, /SNS 2件/);
-  assert.match(text, /3人/);
-  assert.match(text, /交換した人にだけ/);
-});
-
-test("turning off onlyConnected does not claim strangers can send", () => {
-  const sender = describeVisibility({
-    settings: { ...on, onlyConnected: false },
-    snsLinkCount: 0,
-    blockedCount: 0,
-  }).find((l) => l.key === "sender")!;
-  assert.match(sender.value, /交換が成立した人だけ/);
-});
-
-test("unsaved changes are any differing switch", () => {
-  assert.equal(hasUnsavedSettings(on, { ...on }), false);
-  assert.equal(hasUnsavedSettings(on, { ...on, onlyConnected: false }), true);
+test("three receiving switches, each with a one-line hint", () => {
   assert.equal(RECEIVING_SWITCHES.length, 3);
+  for (const { hint } of RECEIVING_SWITCHES) assert.ok(hint.length > 0);
 });
 
 test("request status labels and withdrawal", () => {

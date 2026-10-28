@@ -240,12 +240,12 @@ test("a step whose element is not on screen is skipped, not waited on", async ({
   await expectSpotlightOn(page, 0);
 });
 
-test("settings replays the tour without changing the seen flag and returns to settings", async ({
+test("the my page replays the tour without changing the seen flag and returns to it", async ({
   page,
   context,
 }, testInfo) => {
   await signInFixture(context, "empty", `tour-replay-${testInfo.project.name}`);
-  await page.goto("/settings");
+  await page.goto("/me");
   const t = tour(page);
   await expect(t.dialog).toHaveCount(0);
   await page
@@ -256,7 +256,7 @@ test("settings replays the tour without changing the seen flag and returns to se
   await expectSpotlightOn(page, 1);
   await t.skip.click();
   await expect(t.dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/me$/);
   expect(
     await page.evaluate(() => localStorage.getItem("flocka-expo-tutorial-v1")),
   ).toBe("1");

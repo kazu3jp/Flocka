@@ -1,226 +1,219 @@
-import { AccountPanel } from "../auth/AccountPanel";
-import { NotificationPanel } from "../notifications/NotificationPanel";
-import { LegalDocument } from "../auth/LegalDocument";
-import type { LegalTitle } from "@flocka/domain";
-import { useTour } from "../guided-tour/tour-context";
-import { useAction } from "../sync/use-action";
 import { useState } from "react";
+import { Switch } from "react-native";
 import {
+  Avatar,
   Board,
-  Btn,
+  C,
   Header,
   InlineError,
-  Panel,
-  Sheet,
+  LinkButton,
+  List,
+  ListRow,
+  Section,
 } from "../../components/ui";
 import { useConfirmation } from "../../components/pickers";
-import { useApp, useAppStatus } from "../../store";
-import { useUnsavedChangesGuard } from "../navigation/leave-guard";
-import { useSettingsActions } from "./use-settings-actions";
+import { useApp } from "../../store";
+import { SavedButNotRefreshedError } from "../sync/refresh-after-write";
+import { useAction } from "../sync/use-action";
 import { usePullRefresh } from "../refresh/use-pull-refresh";
-import { BlockedPeopleList, type BlockedPerson } from "./BlockedPeopleList";
-import { RequestHistoryList, type HistoryEntry } from "./RequestHistoryList";
-import { SettingToggleRow } from "./SettingToggleRow";
-import { SettingsSection } from "./SettingsSection";
-import { VisibilitySummary } from "./VisibilitySummary";
+import { useSettingsActions } from "./use-settings-actions";
 import {
   RECEIVING_SWITCHES,
-  describeVisibility,
-  hasUnsavedSettings,
+  canWithdrawRequest,
+  requestStatusLabel,
 } from "./settings-view-model";
 
 type SettingsAction =
-  "sync" | "save" | `unblock:${string}` | `withdraw:${string}`;
+  `toggle:${string}` | `unblock:${string}` | `withdraw:${string}`;
 
+/**
+ * The source's s09-settings, with each part a titled list: what may reach
+ * you, whom you blocked, and what you reported. A switch saves as it is
+ * flipped and flips back if the save fails, so there is no unsaved state.
+ */
 export function Settings() {
-  const { s, refresh, nav, toast, peers, isAdmin } = useApp(),
+  const { s, nav, toast, peers, isAdmin } = useApp(),
     actions = useSettingsActions(),
-    { syncing } = useAppStatus(),
-    tour = useTour(),
-    [legal, setLegal] = useState<LegalTitle | null>(null),
-    // Unsaved edits only; otherwise the switches follow the latest server settings.
-    [draft, setDraft] = useState<typeof s.settings | null>(null),
     { busy, error, run } = useAction(),
     { ask, dialog } = useConfirmation(),
     pull = usePullRefresh(),
-    // Which action is running, so only its button shows progress.
+    // The switch being saved shows its new position until the save settles.
+    [pending, setPending] = useState<typeof s.settings | null>(null),
     [active, setActive] = useState<SettingsAction | null>(null);
-  const settings = draft ?? s.settings;
-  const changed = hasUnsavedSettings(s.settings, settings);
-  const guard = useUnsavedChangesGuard({
-    unsaved: changed && !busy,
-    title: "設定の変更を破棄する？",
-    text: "保存していない受け取り設定の変更は失われます。",
-    pop: nav.pop,
-  });
+  const settings = pending ?? s.settings;
   const runAction = (action: SettingsAction, task: () => Promise<void>) => {
     setActive(action);
     void run(task).finally(() => setActive(null));
   };
-  const blocked: BlockedPerson[] = s.blocked.map((id) => ({
-    id,
-    // Never show a raw account id when the profile is unavailable.
-    name: peers[id]?.profile.name || "名前を取得できない相手",
-  }));
-  const history: HistoryEntry[] = [
+  const toggle = (key: keyof typeof s.settings, value: boolean) => {
+    const next = { ...settings, [key]: value };
+    setPending(next);
+    runAction(`toggle:${key}`, async () => {
+      try {
+        await actions.saveSettings(next);
+        toast("設定を保存しました");
+      } catch (failure) {
+        // Saved, but not read back: the switch keeps its new position.
+        if (!(failure instanceof SavedButNotRefreshedError)) setPending(null);
+        throw failure;
+      }
+      setPending(null);
+    });
+  };
+  const history = [
     ...s.reports.map((r) => ({ ...r, kind: "reports" as const })),
     ...s.deletions.map((r) => ({ ...r, kind: "deletions" as const })),
   ];
-  const activeWithId = (prefix: "unblock" | "withdraw") =>
-    active?.startsWith(`${prefix}:`) ? active.slice(prefix.length + 1) : null;
   return (
     <Board scroll refreshing={pull.refreshing} onRefresh={pull.onRefresh}>
-      <Header title="公開範囲・安全" onBack={guard.back} />
-
-      <SettingsSection
-        title="いまの公開範囲"
-        lead="保存済みの設定で、誰に何が見えるかのまとめです。"
+      <Header title="公開範囲・安全" onBack={nav.pop} />
+      <Section title="証言の公開範囲">
+        <List testID="settings-visibility">
+          <ListRow
+            icon="lock"
+            title="届いた証言は、はじめは本人だけ"
+            caption="公開するかは、証言ごとに一覧から選べます"
+            onPress={() => nav.push("pieces")}
+          />
+          <ListRow
+            icon="users"
+            title="プロフィールとSNSは、交換した人にだけ"
+            caption="一般には公開されません"
+          />
+        </List>
+      </Section>
+      <Section
+        title="受け取る証言"
+        lead="切り替えるとすぐ保存され、今後届く封筒に適用します。"
+        testID="settings-receiving"
       >
-        <VisibilitySummary
-          lines={describeVisibility({
-            settings: s.settings,
-            snsLinkCount: s.profile.snsLinks.length,
-            blockedCount: s.blocked.length,
-          })}
-        />
-      </SettingsSection>
-
-      <SettingsSection
-        title="受け取り設定"
-        lead="変更は今後届く封筒に適用します。保存するまで反映されません。"
-      >
-        <Panel style={{ paddingVertical: 4 }}>
-          {RECEIVING_SWITCHES.map(({ key, label, hint }, index) => (
-            <SettingToggleRow
+        <List>
+          {RECEIVING_SWITCHES.map(({ key, label, hint }) => (
+            <ListRow
               key={key}
-              label={label}
-              hint={hint}
-              value={settings[key]}
-              first={index === 0}
-              onChange={(v) => setDraft({ ...settings, [key]: v })}
+              title={label}
+              caption={hint}
+              trailing={
+                <Switch
+                  accessibilityLabel={label}
+                  accessibilityHint={hint}
+                  value={settings[key]}
+                  disabled={busy}
+                  onValueChange={(value) => toggle(key, value)}
+                  trackColor={{ true: C.blue, false: C.grey }}
+                />
+              }
             />
           ))}
-        </Panel>
-        <Btn
-          label="設定を保存"
-          loading={active === "save"}
-          disabled={busy || !changed}
-          onPress={() =>
-            ask(
-              "受け取り設定を変更する？",
-              "変更は今後届く封筒に適用します。",
-              () =>
-                runAction("save", async () => {
-                  await actions.saveSettings(settings);
-                  setDraft(null);
-                  toast("設定を保存しました");
-                }),
-              "保存する",
-            )
-          }
-        />
-        <InlineError text={error} reserveLines={2} />
-      </SettingsSection>
-
-      <SettingsSection
-        title="ブロックと報告"
+        </List>
+        <InlineError text={error} />
+      </Section>
+      <Section
+        title="ブロック中"
         lead="ブロックした人の証言は、デッキ・自己PR・交換一覧から外れます。"
       >
-        <BlockedPeopleList
-          people={blocked}
-          busy={busy}
-          activeId={activeWithId("unblock")}
-          onUnblock={(person) =>
-            ask(
-              "ブロックを解除する？",
-              `${person.name}の証言が、デッキ・自己PR・交換一覧に戻ります。`,
-              () =>
-                runAction(`unblock:${person.id}`, async () => {
-                  await actions.unblock(person.id);
-                  toast("ブロックを解除しました");
-                }),
-              "解除する",
-            )
-          }
-        />
-        <RequestHistoryList
-          entries={history}
-          busy={busy}
-          activeId={activeWithId("withdraw")}
-          onWithdraw={(entry) =>
-            ask(
-              entry.kind === "reports"
-                ? "通報を取り下げる？"
-                : "削除依頼を取り下げる？",
-              "運営への依頼を取り消します。",
-              () =>
-                runAction(`withdraw:${entry.id}`, async () => {
-                  await actions.withdraw(entry.id);
-                  toast("取り下げました");
-                }),
-              "取り下げる",
-            )
-          }
-        />
-        {isAdmin && (
-          <Btn
-            plain
-            label="通報の対応（運営）"
+        {s.blocked.length === 0 ? (
+          <List>
+            <ListRow icon="ban" title="ブロック中の人はいません" />
+          </List>
+        ) : (
+          <List testID="settings-blocked">
+            {s.blocked.map((id) => {
+              // Never show a raw account id when the profile is unavailable.
+              const name = peers[id]?.profile.name || "名前を取得できない相手";
+              return (
+                <ListRow
+                  key={id}
+                  leading={
+                    <Avatar
+                      name={peers[id]?.profile.name ?? ""}
+                      avatar={peers[id]?.profile.avatar}
+                      size={30}
+                    />
+                  }
+                  title={name}
+                  trailing={
+                    <LinkButton
+                      color={C.ink}
+                      label={active === `unblock:${id}` ? "解除中…" : "解除"}
+                      accessibilityLabel={`${name}のブロックを解除`}
+                      disabled={busy}
+                      onPress={() =>
+                        ask(
+                          "ブロックを解除する？",
+                          `${name}の証言が、デッキ・自己PR・交換一覧に戻ります。`,
+                          () =>
+                            runAction(`unblock:${id}`, async () => {
+                              await actions.unblock(id);
+                              toast("ブロックを解除しました");
+                            }),
+                          "解除する",
+                        )
+                      }
+                    />
+                  }
+                />
+              );
+            })}
+          </List>
+        )}
+      </Section>
+      <Section title="通報・削除依頼">
+        {history.length === 0 ? (
+          <List>
+            <ListRow icon="flag" title="通報・削除依頼の履歴はありません" />
+          </List>
+        ) : (
+          <List testID="settings-requests">
+            {history.map((entry) => (
+              <ListRow
+                key={entry.id ?? entry.kind + entry.at}
+                title={`${entry.kind === "reports" ? "通報" : "削除依頼"}${entry.reason ? `：${entry.reason}` : ""}`}
+                caption={[requestStatusLabel(entry), entry.resolution]
+                  .filter(Boolean)
+                  .join("・")}
+                trailing={
+                  canWithdrawRequest(entry) ? (
+                    <LinkButton
+                      color={C.ink}
+                      label={
+                        active === `withdraw:${entry.id}`
+                          ? "取り下げ中…"
+                          : "取り下げる"
+                      }
+                      disabled={busy}
+                      onPress={() =>
+                        ask(
+                          entry.kind === "reports"
+                            ? "通報を取り下げる？"
+                            : "削除依頼を取り下げる？",
+                          "運営への依頼を取り消します。",
+                          () =>
+                            runAction(`withdraw:${entry.id}`, async () => {
+                              await actions.withdraw(entry.id);
+                              toast("取り下げました");
+                            }),
+                          "取り下げる",
+                        )
+                      }
+                    />
+                  ) : null
+                }
+              />
+            ))}
+          </List>
+        )}
+      </Section>
+      {isAdmin && (
+        <List>
+          <ListRow
+            icon="flag"
+            title="通報の対応（運営）"
             onPress={() => nav.push("moderation")}
           />
-        )}
-      </SettingsSection>
-
-      <SettingsSection title="通知">
-        <NotificationPanel />
-      </SettingsSection>
-
-      <SettingsSection
-        title="データ"
-        lead="他の端末での変更や、運営の対応結果を読み込み直します。"
-      >
-        <Btn
-          plain
-          small
-          label={syncing ? "同期中…" : "サーバーと同期"}
-          loading={active === "sync"}
-          disabled={syncing || busy}
-          onPress={() =>
-            runAction("sync", async () => {
-              await refresh();
-              toast("サーバーと同期しました");
-            })
-          }
-        />
-      </SettingsSection>
-
-      <SettingsSection title="使い方・規約">
-        <Btn plain small label="使い方をもう一度見る" onPress={tour.start} />
-        <Btn
-          plain
-          small
-          label="利用規約"
-          onPress={() => setLegal("利用規約")}
-        />
-        <Btn
-          plain
-          small
-          label="プライバシーポリシー"
-          onPress={() => setLegal("プライバシーポリシー")}
-        />
-      </SettingsSection>
-
-      <SettingsSection title="アカウント">
-        <AccountPanel />
-      </SettingsSection>
-
-      {legal && (
-        <Sheet title={legal} onClose={() => setLegal(null)}>
-          <LegalDocument title={legal} />
-        </Sheet>
+        </List>
       )}
       {dialog}
-      {guard.dialog}
     </Board>
   );
 }

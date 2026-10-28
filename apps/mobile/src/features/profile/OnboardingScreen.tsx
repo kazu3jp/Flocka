@@ -84,7 +84,7 @@ export function Onboarding() {
     [step, setStep] = useState(0),
     [profile, setProfile] = useState(s.profile),
     [sel, setSel] = useState(s.self),
-    [snsInvalid, setSnsInvalid] = useState(false),
+    [snsPending, setSnsPending] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
     setUpAccount = useAccountSetup();
@@ -105,7 +105,7 @@ export function Onboarding() {
       : step === 3
         ? sel.length >= 2
         : step === 4
-          ? !snsInvalid
+          ? !snsPending
           : true;
   const finish = async () => {
     if (busy) return;
@@ -251,9 +251,14 @@ export function Onboarding() {
           <SnsLinksEditor
             links={profile.snsLinks}
             onChange={(snsLinks) => setProfile({ ...profile, snsLinks })}
-            onInvalidChange={setSnsInvalid}
-            showTitle={false}
+            onPendingChange={setSnsPending}
+            showNote={false}
           />
+        )}
+        {step === 4 && snsPending && (
+          <T size={13} color={C.yellow} accessibilityLiveRegion="polite">
+            入力したSNSは「追加する」で登録するか、消してから次へ進んでください。
+          </T>
         )}
         {step === 5 && (
           <>

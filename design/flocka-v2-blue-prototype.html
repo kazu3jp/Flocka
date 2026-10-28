@@ -730,13 +730,16 @@ function Give({ cid }) {
     </div>
     <button className="btn btn-plain btn-block" onClick={() => nav.popTo('exchange')}>交換へ戻る</button>
   </main>;
+  const ctx = [c.context?.place, c.context?.trigger].filter(Boolean).join(' ／ ');
   return <main className="view form" data-od-id="s04-give">
-    <Header back title="印象を贈る" right={<span className="row" style={{ gap: 8 }}><Avatar id={c.peerId} size={32} /><b>{p.name}</b></span>} />
-    <div style={{ flex: 'none' }} data-od-id="give-instructions"><h1 className="h2">相手のいいなと思ったところは？</h1><p className="small on-muted" style={{ marginTop: 6 }}>{mode === 'pick' ? '言葉を1つ選び、そう感じた理由を添えて贈ってください。' : 'どんな場面で、なぜそう感じたかを8文字以上で書いてください。要約は任意です。'}</p></div>
-    <div className="panel" style={{ padding: '10px 14px', flex: 'none' }} data-od-id="give-exchange-context"><p className="cap muted">交換のきっかけ</p><p className="small" style={{ overflowWrap: 'anywhere' }}>{[c.context?.place, c.context?.trigger].filter(Boolean).join(' ／ ') || 'まだ記入されていません'}</p>{!sel && !text && <button className="link" style={{ minHeight: 44 }} onClick={() => nav.push('confirm', { cid })}>出会いのメモを編集</button>}</div>
+    <Header back title="印象を贈る" />
+    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-exchange-context"><Avatar id={c.peerId} size={44} /><span style={{ flex: 1, minWidth: 0 }}><b className="give-to">{p.name}へ</b><span className="cap muted" style={{ display: 'block', overflowWrap: 'anywhere' }}>{ctx || '出会いのメモは未記入'}</span></span><button className="link" style={{ minHeight: 44 }} aria-label="出会いのメモを編集" onClick={() => nav.push('confirm', { cid })}>メモ</button></div>
     <div className="seg" role="group" aria-label="贈り方"><button aria-pressed={mode === 'pick'} onClick={() => setMode('pick')}>言葉を選ぶ</button><button aria-pressed={mode === 'free'} onClick={() => setMode('free')} data-od-id="give-free">自由に書く</button></div>
-    {mode === 'pick' ? <div className="vgrid" style={{ flex: 'none' }} role="radiogroup" aria-label="印象">{VIBES.map(v => <button key={v} role="radio" aria-checked={sel === v} className="vopt" onClick={() => setSel(v)} data-od-id={`give-${v}`}>{v}</button>)}</div> : <>
-      <label className="field"><span>印象と、その理由</span><textarea className="textarea" value={text} maxLength={140} onChange={e => { setText(e.target.value); setSum(null); }} placeholder="例：LTの質問が的確で、初対面なのにすごく話しやすかった" /></label>
+    {mode === 'pick' && <div style={{ display: 'grid', gap: 10, flex: 'none' }} data-od-id="give-instructions"><p className="give-step"><i>1</i>いいなと思ったところ<em>1つ選ぶ</em></p>
+      <div className="vgrid" role="radiogroup" aria-label="印象">{VIBES.map(v => <button key={v} role="radio" aria-checked={sel === v} className="vopt" onClick={() => setSel(v)} data-od-id={`give-${v}`}><i><Illust k={VIBE_CARD[v]} h={CARDS[VIBE_CARD[v]].h} /></i>{v}</button>)}</div></div>}
+    <div style={{ display: 'grid', gap: 10, flex: 'none' }}><p className="give-step"><i>{mode === 'pick' ? 2 : 1}</i>{mode === 'pick' ? 'そう感じた理由' : '印象と、その理由'}<em>{mode === 'pick' ? 'ひとことでOK' : '8文字以上'}</em></p>
+      <label className="field" data-od-id="give-reason"><textarea className="textarea" style={{ minHeight: mode === 'pick' ? 100 : 130 }} maxLength={140} value={text} aria-label={mode === 'pick' ? 'なぜそう感じましたか？' : '印象と、その理由'} onChange={e => { setText(e.target.value); setSum(null); }} placeholder={mode === 'pick' ? '例：困っている人に声をかけてくれた' : '例：LTの質問が的確で、すごく話しやすかった'} />{mode === 'pick' && <small className="cap on-muted" style={{ display: 'block', textAlign: 'right' }}>{text.length}/140</small>}</label></div>
+    {mode === 'free' && <>
       <div className="row between"><span className="cap on-muted">{text.length}/140</span>
         <button className="btn btn-plain" style={{ minHeight: 44, fontSize: 14, padding: '0 14px' }} disabled={text.trim().length < 8 || busy} onClick={runSum} data-od-id="give-summarize"><Icon n="spark" s={16} />{busy ? '要約中…' : sum ? 'もう一度要約' : '要約する'}</button></div>
       {sum && <div className="panel fade-in" style={{ padding: 12 }}>
@@ -746,10 +749,9 @@ function Give({ cid }) {
         <p className="cap muted" style={{ marginTop: 8 }}>キーワードをもとに短い印象にまとめます。原文と要約を一緒に表示します。</p>
       </div>}
     </>}
-    {mode === 'pick' && <label className="field" style={{ flex: 'none' }} data-od-id="give-reason"><span>なぜそう感じましたか？</span><textarea className="textarea" style={{ minHeight: 100 }} maxLength={140} value={text} onChange={e => { setText(e.target.value); setSum(null); }} placeholder="例：発表の準備中、困っている人に声をかけてくれたから" /><small className="cap on-muted">短いひとことでも大丈夫です（必須・140文字まで）</small></label>}
     <div className="fill" />
-    <div className="panel" style={{ padding: '10px 14px', flex: 'none' }} data-od-id="give-selection-preview" role="status"><p className="cap muted">{p.name}に贈る印象</p><p className="small" style={{ overflowWrap: 'anywhere', marginTop: 4 }}>{mode === 'pick' ? (sel ? `「${sel}」` : '上から言葉を1つ選んでください') : (text.trim() || '相手に感じた印象を書いてください')}</p></div>
-    <p className="cap on-muted center">贈った印象は、相手のデッキに証言として届きます。</p><button className="btn btn-go btn-block" disabled={!ready || c.status !== 'accepted'} onClick={send} data-od-id="give-send">この印象を贈る</button>
+    <div className="panel row" style={{ padding: '10px 14px', gap: 12, flex: 'none' }} data-od-id="give-selection-preview" role="status"><Env style={{ width: 34, height: 25, flex: 'none' }} /><span style={{ flex: 1, minWidth: 0 }}><span className="cap muted" style={{ display: 'block' }}>{p.name}に贈る印象</span><b className="small" style={{ display: 'block', overflowWrap: 'anywhere' }}>{mode === 'pick' ? (sel ? `「${sel}」` : 'まだ選んでいません') : (sum ? `「${sum.label}」` : text.trim() ? '自由に書いた印象' : 'まだ書いていません')}</b>{text.trim() && <span className="cap muted give-preview-text">{text.trim()}</span>}</span></div>
+    <button className="btn btn-go btn-block" disabled={!ready || c.status !== 'accepted'} onClick={send} data-od-id="give-send">この印象を贈る</button>
     <button className="link" onClick={later}>あとで</button>
   </main>;
 }

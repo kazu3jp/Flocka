@@ -1,5 +1,8 @@
 import { UserFacingError } from "./user-facing-error";
 
+/** The write is on the server; only reading the result back failed. */
+export class SavedButNotRefreshedError extends UserFacingError {}
+
 /**
  * Reads back the latest data after a write the server already accepted. When
  * only that read fails, the error says the write is done, so the person does
@@ -12,6 +15,8 @@ export async function refreshAfterWrite(
   try {
     await refresh();
   } catch {
-    throw new UserFacingError(`${done}。最新データの取得に失敗しました。`);
+    throw new SavedButNotRefreshedError(
+      `${done}。最新データの取得に失敗しました。`,
+    );
   }
 }

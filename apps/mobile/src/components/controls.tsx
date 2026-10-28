@@ -160,18 +160,21 @@ export function LinkButton({
   onPress,
   color,
   disabled = false,
+  accessibilityLabel,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
   disabled?: boolean;
+  /** When the visible word needs its subject, such as whose block 解除 lifts. */
+  accessibilityLabel?: string;
 }) {
   const inheritedColor = useContext(ForegroundColor);
   return (
     <SquishPressable
       pressScale={0.94}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       disabled={disabled}
       aria-disabled={disabled}

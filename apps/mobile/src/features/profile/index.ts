@@ -5,3 +5,4 @@ export { SelfEdit } from "./SelfEditScreen";
 export { Pieces } from "./PiecesScreen";
 export { PieceDetail } from "./PieceDetailScreen";
 export { Settings } from "./SettingsScreen";
+export { SnsLinks } from "./SnsLinksScreen";
