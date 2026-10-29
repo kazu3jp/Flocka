@@ -1,131 +1,122 @@
 # Flocka
 
-OpenDesignの「強みカードを集めて、自己PRにする」を、Expo / React Nativeへ移植したnpm workspacesモノレポです。
+<div align="center">
+  <img src="./assets/readme/hero.png" alt="Flocka - 自分の強み、自分だけで探さない。" width="100%">
 
-| ディレクトリ          | 役割                                                                                   |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `apps/mobile`         | Expo SDK 57 / React Native / Expo Router。認証・プロフィール・カード画面を機能別に分割 |
-| `apps/api`            | Hono / Cloudflare Workers / Better Auth / Resend。D1と非公開R2                         |
-| `packages/domain`     | カードの集計・予想・自己PR、型、Zodによる入出力検証                                    |
-| `packages/api-client` | モバイルとテストで共用する型付きHTTPクライアント                                       |
-| `design`              | 更新済みの参照HTML・CSS・ブランドSVG                                                   |
-| `tests`               | 元HTMLとのロジック比較と、Workers/D1/R2の実行テスト                                    |
+  <br>
+  <br>
 
-## 起動
+  <strong>仲間の言葉で、知らなかった自分の強みに出会うアプリ。</strong>
 
-Node.js 22.13以降が必要です。使用バージョンは `.nvmrc` の22.22.3です。
+  <br>
+  <br>
 
-```sh
-cd '/Users/kazu3jp/Desktop/技育展/project/Flocka'
-nvm use
-npm ci
-npm run setup:local
-```
+  <img src="https://img.shields.io/badge/Expo-57.0.30-000020?style=flat-square&logo=expo&logoColor=white" alt="Expo 57.0.30">
+  <img src="https://img.shields.io/badge/React_Native-0.86.3-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React Native 0.86.3">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflareworkers&logoColor=white" alt="Cloudflare Workers">
+  <img src="https://img.shields.io/badge/Bluetooth_LE-0082FC?style=flat-square&logo=bluetooth&logoColor=white" alt="Bluetooth LE">
+</div>
 
-`setup:local` は `.dev.vars` と `.env.local` を作成し、認証シークレットを生成します。既存ファイルは上書きせず、秘密情報を表示しません。`apps/api/.dev.vars` の `RESEND_API_KEY` を設定してください。送信元は `Flocka <no-reply@flocka.zofax.net>` です。Resendでこのドメインを検証する必要があります。詳しくは [認証設定](docs/authentication.md) を参照してください。
+## Flockaとは
 
-`.dev.vars` の `ALLOWED_ORIGINS` は Expo Web（8081番）からの呼び出しを許可します。実機から使う場合は LAN アドレスのオリジンを追加してください。既存の `.dev.vars` は上書きされないため、未設定なら `.dev.vars.example` から追記してください。`EXPO_ACCESS_TOKEN` と `ADMIN_USER_IDS` は任意です。
+Flockaは、自分では気づけなかった強みを、実際に一緒に過ごした仲間の言葉から見つけるアプリです。
 
-ターミナル1でAPIとローカルD1/R2を起動:
+自己分析やAIだけで自己PRを作ると、材料になるのは自分で思いついた強みだけになりがちです。Flockaでは、仲間が実際に見た行動と、そのときの状況を「証言」として集めます。自分の思い込みではなく、周りの人が見つけた具体的なエピソードを、強みと自己PRの根拠にします。
 
-```sh
-npm run db:migrate
-npm run dev:api
-```
+<p align="center">
+  <img src="./assets/readme/product-overview.png" alt="Flockaのプロダクト概要" width="100%">
+</p>
 
-ターミナル2でWebプレビュー:
+## 体験の流れ
 
-```sh
-npm run dev:web
-```
+### 01 — 自分で思う強みを選ぶ
 
-Webは `http://localhost:8081`、APIの稼働確認は `http://localhost:8787/health` です。WebとAPIのホストをともに `localhost` に合わせてください。`npm run dev:mobile` はExpoのQRを表示し、`npm run ios` / `npm run android` はネイティブの開発ビルドを作成して起動します。ストア公開用の署名済みビルドとは区別してください。
+登録の最後に、まず自分が強みだと思うカードを選びます。
 
-初回はウェルカム、アカウント作成、メール確認、6ステップのプロフィール登録へ進みます。メール未確認ではログインできません。ウェルカムのサンプルカードは機能の説明用です。登録後の交換・証言・プロフィールはサーバーの実データを使用します。
+<p align="center">
+  <img src="./assets/readme/step-01-choose-strengths.png" alt="自分で思う強みを選ぶ画面" width="100%">
+</p>
 
-設定・自己PRの下書き・装飾などは操作のたびに自動でサーバーへ保存され。保存状態の表示は出しません。失敗した保存は5・10・20・30秒間隔で自動再試行し、アプリへ戻ったときや画面上部のエラー表示のタップでもすぐ再送します。未保存の変更は端末にも残り、次回の起動で他端末の更新と照合してから送ります。手動のバックアップ操作はアプリから廃止しました。サーバー側のバックアップAPI（`/v1/me/backup`）は、配布済みのアプリと既存データのために残しており、現在のアプリは呼びません。「自分」→「公開範囲・安全」画面からログアウト・アカウント削除を開始できます。端末データはユーザーID別の保存領域です。API未設定や通信失敗を認証成功として扱いません。
+### 02 — 会った人とカードを交換する
 
-実機では `EXPO_PUBLIC_API_URL` と `BETTER_AUTH_URL` を開発PCのLANアドレスに、Androidエミュレーターでは `http://10.0.2.2:8787` に設定します。Webのホスト・ポートを変える場合は `ALLOWED_ORIGINS` も設定し、Expo/Workersを再起動してください。Googleとメールの再設定リンクには安定した `flocka://` を持つ開発ビルドを使います。
+Bluetoothで近くの人を見つけるか、QRコードを使ってその場で交換します。
 
-引き継ぎ時点で `flocka-app-api` と本番D1/R2の設定が追加されていました。2026年10月14日に `https://api.flocka.zofax.net/health` のHTTP 200を確認しています。2026年10月28日に本番D1へ0013までのマイグレーションを適用し、未適用が無いことを確認しました。Workerの本番デプロイ状況は未確認です。
+<p align="center">
+  <img src="./assets/readme/step-02-exchange.png" alt="会った人とカードを交換する画面" width="100%">
+</p>
 
-新しいアプリを配布する前に、対応するAPIを本番へ先にデプロイする必要があります。0013の適用前のD1はTime Travelのブックマーク `00000f7d-00000000-00005111-eb34e1bf7c44af1b3d05a48b48f55db8` から復元できます（保持期間内に限る）。
+### 03 — 出会いのメモを残す
 
-## 検証
+どこで、なぜ出会ったのかを記録し、あとから届く言葉に文脈を残します。
 
-未完了の要件と検証範囲は [完成条件の照合](docs/release-readiness.md)、実行結果は [検証記録](docs/validation.md) にまとめています。
+<p align="center">
+  <img src="./assets/readme/step-03-encounter-memo.png" alt="出会いのメモを残す画面" width="100%">
+</p>
 
-画面の回帰テストは `npm run test:vrt`、比較レポートの表示は `npm run test:vrt:report` です。初回は `npx playwright install chromium` を実行してください。対象画面と基準画像の更新方法は [画面テスト](docs/visual-testing.md) を参照してください。基準画像は macOS 用だけです。OpenSSL が必要で、Windows では Git for Windows 付属のものを使えます。macOS 以外での実行方法も同じ文書にあります。
+### 04 — 印象を理由つきで贈る
 
-```sh
-npm run validate
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:web
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- web
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:native
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- native
-npm run build:api
-```
+相手の強みを表す言葉を選び、実際に見た行動やエピソードを添えます。
 
-`validate` はテストも含む型検査、Lint、元HTMLとの比較、認証、交換・公開証言のページ分割、通報の競合、通知の再試行・配信結果確認、アカウント削除、HTTPクライアントの不正応答・受信タイムアウト、検査用クライアントのIP生成を含む38テストを実行します。統合テストは独立した一時データベースとバケットを使用します。`build:api` は `wrangler deploy --dry-run` で、本番へデプロイしません。Expoの書き出し結果は `apps/mobile/dist` です。書き出しの成功は実機操作・画面比較の確認とは区別しています。
+<p align="center">
+  <img src="./assets/readme/step-04-give-impression.png" alt="印象を理由つきで贈る画面" width="100%">
+</p>
 
-Android実機をUSBで接続する手順は [実機デバッグ](docs/android-device-debugging.md) を参照してください。
+### 05 — 予想してから言葉を開ける
 
-### Android APK
+届いた言葉は封筒で届きます。どの強みを見つけてもらえたか予想してから開く、ゲームのような体験です。
 
-```sh
-npm run apk:android
-npm run apk:android -- -PreactNativeArchitectures=arm64-v8a   # 実機向けだけにして短縮
-```
+<p align="center">
+  <img src="./assets/readme/step-05-open-message.png" alt="予想してから届いた言葉を開ける画面" width="100%">
+</p>
 
-JavaScriptを同梱したRelease APKを `dist/flocka-<version>-release.apk` に書き出します。Metroなしで単体で起動します。
+### 06 — 知らなかった強みを発見する
 
-- **API URL:** `eas.json` の本番URLを埋め込みます。環境変数 `EXPO_PUBLIC_API_URL` で上書きできますが、HTTPS以外やローカルのアドレスは拒否します。
-- **ネイティブ設定:** `apps/mobile/android/` がないときだけ `expo prebuild` で生成します。prebuildは既存のフォルダーを消して作り直すことがあるためです。`app.json` やプラグインを変えたときは、`npx expo prebuild --platform android` を手動で実行してください。
-- **Gradleへの引数:** `--` の後の引数はGradleに渡します。
-- **必要な環境:** `ANDROID_HOME` とJDK 17以上が必要です。
-- **署名:** debug keystoreで署名します。手元や身内への配布用で、ストアには出せません。
+別々の2人以上が同じ強みを挙げると「確認済み」になり、自分だけでは選ばなかった強みが新発見として残ります。
 
-### iOS IPA（AltStore向け）
+<p align="center">
+  <img src="./assets/readme/step-06-discover-strength.png" alt="知らなかった強みを発見する画面" width="100%">
+</p>
 
-```sh
-npm run ipa:ios
-```
+### 07 — 仲間の言葉から自己PRを作る
 
-MacでJavaScriptを同梱したRelease IPAを `dist/flocka-<version>-release-unsigned.ipa` に書き出します。Metroなしで単体で起動します。
+証言に含まれる具体的な言葉を根拠に、自己PRの下書きを組み立てます。
 
-- **必要な環境:** macOS、Xcode、CocoaPods が必要です。WindowsやLinuxでは止まります。xtoolはSwiftPMのプロジェクトしかビルドできないため、このアプリには使えません。
-- **署名:** 署名しません。AltStoreがインストール時にApple IDで署名します。無料のApple IDでは7日ごとに再署名が要り、プッシュ通知の権限が外れて通知が届かない場合があります。
-- **API URL:** APKと同じく `eas.json` の本番URLを埋め込み、`EXPO_PUBLIC_API_URL` で上書きできます。Googleログインはブラウザ方式のため、クライアントIDは不要です。
-- **ネイティブ設定:** `apps/mobile/ios/` がないときだけ `expo prebuild` で生成し、`Pods/` がないときは `pod install` を実行します。`app.json` やプラグインを変えたときは `npx expo prebuild --platform ios` を手動で実行してください。
-- **xcodebuildへの引数:** 後ろに付けた引数はxcodebuildに渡します。古い値の混入を防ぐため、アーカイブは毎回作り直します。
+<p align="center">
+  <img src="./assets/readme/step-07-create-pr.png" alt="仲間の言葉から自己PRを作る画面" width="100%">
+</p>
 
-## 実装と接続設定
+## AIに、作り話はさせない
 
-Expoの全画面が実サーバーと接続しています。交換コードのQR・手入力、近くのプレイヤー検出（BLE、`apps/mobile/modules/flocka-nearby`）、双方承認の交換、印象・場面の送受信、公開範囲・ブロック・通報、端末設定の同期、プッシュ通知の端末登録、運営向けの通報対応画面（`ADMIN_USER_IDS` に含まれるアカウントのみ）を実装しています。BLEと通知は開発ビルド（`npm run ios` / `npm run android`）の実機が必要で、Expo Goやシミュレーターでは動きません。
+FlockaのAIは、強みや経験をゼロから考える役ではありません。材料は、本人へ実際に届いた仲間の証言だけです。
 
-Workersにはプロフィール、期限付き交換コード、双方承認の交換、証言の送受信・開封・公開設定、ブロック、通報・削除依頼の保存と運営による対応、通知outboxとExpo Pushへの配信、5分ごとのCron（通知配信・期限切れデータと未参照写真の削除）を実装し、HTTP経由で検証しています。
+- サーバーが、本人に届いた証言と確認済みの強みをD1から読み込む
+- Workers AIが、各文に根拠となる証言番号と原文引用を付けた自己PRをJSONで返す
+- ZodでJSONの形式を検証し、全体で別々の証言を2件以上使っているかを確認する
+- サーバーが各文の引用・数字・内容語を、指定された証言の原文と照合する
+- Clefが各文について、指定された証言で内容全体を裏づけられる確率を判定する
+- 根拠を示せない文が1つでもあるAI出力は、自己PRとして返さない
 
-Better Authでメール・パスワード認証、6桁のメール確認、再設定リンク、ログアウトを実装しています。Googleは資格情報を設定した場合のみ有効です。Appleログインは廃止しました（過去の連携データの削除処理のみ維持）。セッションは30日有効で、ネイティブではExpoプラグインとSecureStore、WebではHttpOnly Cookieを使います。パスワード再設定は既存セッションを失効させます。既存の匿名トークンは0003マイグレーションで失効し、古い端末データを別アカウントへ自動で引き継ぎません。
+文章を整えても、誰が・いつ・どこで見た強みなのかという根拠は消しません。
 
-アカウント削除は「自分」画面とWebの `/delete-account` から開始します。メールで本人確認した後に削除を確定し、D1・R2のデータ、全セッション、通知登録とApple/Google連携を削除します。途中の失敗は「処理中」として再試行し、成功扱いにしません。Web画面の公開と本番への反映は未実施です。手順・対象データ・検証範囲は [アカウント削除](docs/account-deletion.md) を参照してください。
+## 近くの人と、その場で交換
 
-装飾の「完了」はサーバーへの保存を待ちます。通信失敗時は画面に残り、再試行できます。模様・色・フレーム・シールは元デザインの素材を使用し、設定とバックアップの両方で有効な種類・枚数・配置を検証します。
+<p align="center">
+  <img src="./assets/readme/nearby-exchange.png" alt="Bluetooth LEとQRコードによる近距離交換" width="100%">
+</p>
 
-サーバーの証言と端末内バックアップは別テーブルで管理し、バックアップを書き換えて証言を作ることはできません。規約・プライバシーポリシーは `packages/domain/src/legal.ts` で版管理し、登録画面と設定画面から読めます。運営者名と窓口を反映しています。正式な文書を別途提示いただいていないため、掲載した本文の運営者による内容確認は必要です。
+近距離交換はBluetooth LEのネイティブモジュールで実装しています。Bluetoothが途中でオフになった場合は再設定を案内し、アプリへ戻ると自動で探索を再開します。Bluetoothを使えない場面では、10分間・1人だけが使えるQR交換コードを利用できます。
 
-デザインの出典・移植方針は [DESIGN.md](DESIGN.md)、APIと保存方針は [docs/architecture.md](docs/architecture.md)、検証結果と未確認事項は [docs/validation.md](docs/validation.md) を参照してください。
+## 技術構成
 
-通知は「公開範囲・安全」の設定から端末ごとに有効化・停止できます。ログアウト時は端末登録を解除します。Expoへの受付済みチケットとAPNs/FCMへの配信結果は別に保存し、エラーを成功として扱いません。通知を開くと、現在のアカウントで再同期して対応する画面を開きます。
-
-Expo/EASは開発者がビルド・通知の資格情報を管理するサービスです。Flocka利用者のログインとは別です。開発者向けの設定手順は [通知設定](docs/notifications.md) を参照してください。
-
-配布ビルドの設定は `apps/mobile/eas.json` で管理します。既存のExpoプロジェクトは `@kazu3jppurin/flocka` です。各プロファイルはNode 22.22.3と公開API URL `https://api.flocka.zofax.net` を共通設定から継承します。ローカル開発は引き続き `.env.local` の接続先を使用します。ResendやOAuthなどの秘密情報はモバイルの公開環境変数へ入れません。本番Workerの更新・マイグレーション・通知資格情報の準備は [検証記録](docs/validation.md) の未確認項目を参照してください。
-
-配布用の書き出しはキャッシュを消して実行し、生成直後にAPI接続先を検証します。
-
-```sh
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:web
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- web
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run export:native
-EXPO_PUBLIC_API_URL=https://api.flocka.zofax.net npm run verify:export -- native
-```
+| カテゴリ | 技術 |
+| --- | --- |
+| モバイル | ![Expo](https://img.shields.io/badge/Expo-57-000020?style=flat-square&logo=expo&logoColor=white) ![React Native](https://img.shields.io/badge/React_Native-0.86-20232A?style=flat-square&logo=react&logoColor=61DAFB) ![React](https://img.shields.io/badge/React-19.2-20232A?style=flat-square&logo=react&logoColor=61DAFB) ![Expo Router](https://img.shields.io/badge/Expo_Router-000020?style=flat-square&logo=expo&logoColor=white) |
+| UI | ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) ![Reanimated](https://img.shields.io/badge/Reanimated-4.5-6C5CE7?style=flat-square) ![SVG](https://img.shields.io/badge/React_Native_SVG-FFB13B?style=flat-square&logo=svg&logoColor=black) |
+| 端末機能 | ![Camera](https://img.shields.io/badge/Expo_Camera-000020?style=flat-square&logo=expo&logoColor=white) ![SecureStore](https://img.shields.io/badge/Expo_SecureStore-000020?style=flat-square&logo=expo&logoColor=white) ![AsyncStorage](https://img.shields.io/badge/AsyncStorage-6B7280?style=flat-square) |
+| 通知 | ![Expo Notifications](https://img.shields.io/badge/Expo_Notifications-000020?style=flat-square&logo=expo&logoColor=white) ![Expo Push](https://img.shields.io/badge/Expo_Push_Service-000020?style=flat-square&logo=expo&logoColor=white) ![Firebase Cloud Messaging](https://img.shields.io/badge/Firebase_Cloud_Messaging-FFCA28?style=flat-square&logo=firebase&logoColor=black) ![Apple Push Notification Service](https://img.shields.io/badge/Apple_APNs-000000?style=flat-square&logo=apple&logoColor=white) |
+| 認証・メール | ![Better Auth](https://img.shields.io/badge/Better_Auth-111111?style=flat-square) ![Google](https://img.shields.io/badge/Google_Sign--In-4285F4?style=flat-square&logo=google&logoColor=white) ![Resend](https://img.shields.io/badge/Resend-000000?style=flat-square&logo=resend&logoColor=white) |
+| 交換 | ![BLE](https://img.shields.io/badge/Bluetooth_LE-0082FC?style=flat-square&logo=bluetooth&logoColor=white) ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white) ![Swift](https://img.shields.io/badge/Swift-F05138?style=flat-square&logo=swift&logoColor=white) ![QR](https://img.shields.io/badge/QR_Code-000000?style=flat-square) |
+| API・データ | ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflareworkers&logoColor=white) ![Hono](https://img.shields.io/badge/Hono-E36002?style=flat-square&logo=hono&logoColor=white) ![D1](https://img.shields.io/badge/Cloudflare_D1-F38020?style=flat-square&logo=cloudflare&logoColor=white) ![R2](https://img.shields.io/badge/Cloudflare_R2-F38020?style=flat-square&logo=cloudflare&logoColor=white) ![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=flat-square&logo=drizzle&logoColor=000000) |
+| AI | ![Workers AI](https://img.shields.io/badge/Workers_AI-F38020?style=flat-square&logo=cloudflare&logoColor=white) ![Gemma 4 26B](https://img.shields.io/badge/Gemma_4_26B-4285F4?style=flat-square&logo=google&logoColor=white) ![Clef](https://img.shields.io/badge/Clef-Grounding-7C3AED?style=flat-square&logo=cloudflare&logoColor=white) ![Zod](https://img.shields.io/badge/Zod-3E67B1?style=flat-square&logo=zod&logoColor=white) |
+| ビルド | ![Node.js](https://img.shields.io/badge/Node.js-22.22.3-339933?style=flat-square&logo=nodedotjs&logoColor=white) ![npm Workspaces](https://img.shields.io/badge/npm_Workspaces-CB3837?style=flat-square&logo=npm&logoColor=white) ![Wrangler](https://img.shields.io/badge/Wrangler-4.150-F38020?style=flat-square&logo=cloudflare&logoColor=white) |

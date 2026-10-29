@@ -1,15 +1,21 @@
-import { PR_AI_MAX_CHARACTERS } from "./pr-ai-prompt";
+import { z } from "zod";
+import { CARDS } from "./catalog";
+import { PR_AI_MAX_CHARACTERS, type PRAiTestimony } from "./pr-ai-prompt";
 
 export type PRAiOutputRejection =
   | "empty"
-  | "too-long"
-  | "not-japanese"
-  | "forbidden-format"
-  | "no-quote"
+  | "invalid-structure"
+  | "unknown-source"
+  | "unknown-strength"
   | "fabricated-quote"
-  | "fabricated-number";
+  | "fabricated-number"
+  | "unsupported-term"
+  | "forbidden-format"
+  | "too-long";
+export type PRAiGroundedClaim = { sentence: string; evidence: string[] };
 export type PRAiOutputVerdict =
-  { ok: true; text: string } | { ok: false; reason: PRAiOutputRejection };
+  | { ok: true; text: string; claims: PRAiGroundedClaim[] }
+  | { ok: false; reason: PRAiOutputRejection };
 
 /** Reasoning blocks, closed or left open by a truncated answer. */
 export function stripReasoning(raw: string): string {
@@ -20,8 +26,16 @@ export function stripReasoning(raw: string): string {
     .trim();
 }
 
-const japanese = /[぀-ヿ㐀-鿿]/gu;
-const letters = /[\p{L}]/gu;
+const claimSchema = z
+  .object({
+    sentence: z.string().min(1).max(PR_AI_MAX_CHARACTERS),
+    sourceIndexes: z.array(z.number().int()).min(1).max(3),
+    quotes: z.array(z.string().min(3).max(160)).min(1).max(3),
+  })
+  .strict();
+const outputSchema = z
+  .object({ claims: z.array(claimSchema).min(2).max(4) })
+  .strict();
 const forbiddenFormats = [
   /https?:\/\/|www\./i,
   /```|`/,
@@ -30,38 +44,86 @@ const forbiddenFormats = [
   /\*\*|__|\[[^\]]*\]\([^)]*\)/,
 ];
 const digits = /[0-9０-９]+/g;
+const contentTerms = /[\p{Script=Han}\p{Script=Katakana}A-Za-z]{2,}/gu;
+const neutralTerms = new Set(["自己PR", "仲間", "言葉", "強み", "証言"]);
 const normalizeDigits = (value: string) =>
   value.replace(/[０-９]/g, (digit) =>
     String.fromCharCode(digit.charCodeAt(0) - 0xfee0),
   );
 
 /**
- * Accepts the model output only when it is plain Japanese prose whose quotations
- * and numbers all come from the testimonies the server itself loaded.
+ * Every sentence must identify its D1 evidence and carry an exact quote. The
+ * server also refuses numbers and content words absent from that evidence.
  */
 export function validatePRAiOutput(
   raw: string,
-  sources: string[],
+  testimonies: PRAiTestimony[],
+  cardKey: string,
 ): PRAiOutputVerdict {
-  const text = stripReasoning(raw);
-  if (!text) return { ok: false, reason: "empty" };
+  const content = stripReasoning(raw);
+  if (!content) return { ok: false, reason: "empty" };
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(content);
+  } catch {
+    return { ok: false, reason: "invalid-structure" };
+  }
+  const parsed = outputSchema.safeParse(decoded);
+  if (!parsed.success) return { ok: false, reason: "invalid-structure" };
+  if (!Object.hasOwn(CARDS, cardKey))
+    return { ok: false, reason: "unknown-strength" };
+  const usedSources = new Set<number>();
+  const groundedClaims: PRAiGroundedClaim[] = [];
+  for (const claim of parsed.data.claims) {
+    if (
+      new Set(claim.sourceIndexes).size !== claim.sourceIndexes.length ||
+      new Set(claim.quotes).size !== claim.quotes.length
+    )
+      return { ok: false, reason: "invalid-structure" };
+    const sources = claim.sourceIndexes.map((index) => testimonies[index - 1]);
+    if (sources.some((source) => !source))
+      return { ok: false, reason: "unknown-source" };
+    claim.sourceIndexes.forEach((index) => usedSources.add(index));
+    if (
+      claim.quotes.some(
+        (quote) =>
+          !claim.sentence.includes(`「${quote}」`) ||
+          !sources.some((source) => source.text.includes(quote)),
+      ) ||
+      sources.some(
+        (source) => !claim.quotes.some((quote) => source.text.includes(quote)),
+      )
+    )
+      return { ok: false, reason: "fabricated-quote" };
+    if (forbiddenFormats.some((pattern) => pattern.test(claim.sentence)))
+      return { ok: false, reason: "forbidden-format" };
+    const evidence = normalizeDigits(
+      `${CARDS[cardKey].name}\n${sources.map((source) => source.text).join("\n")}`,
+    );
+    const numbers = normalizeDigits(claim.sentence).match(digits) ?? [];
+    if (numbers.some((number) => !evidence.includes(number)))
+      return { ok: false, reason: "fabricated-number" };
+    const outsideQuotes = claim.quotes.reduce(
+      (sentence, quote) => sentence.replaceAll(`「${quote}」`, ""),
+      claim.sentence,
+    );
+    const terms = outsideQuotes.match(contentTerms) ?? [];
+    if (
+      terms.some((term) => !neutralTerms.has(term) && !evidence.includes(term))
+    )
+      return { ok: false, reason: "unsupported-term" };
+    groundedClaims.push({
+      sentence: claim.sentence.trim(),
+      evidence: sources.map((source) => source.text),
+    });
+  }
+  if (usedSources.size < 2) return { ok: false, reason: "invalid-structure" };
+  const text = parsed.data.claims
+    .map(({ sentence }) => sentence.trim())
+    .join("\n\n");
   if (Array.from(text).length > PR_AI_MAX_CHARACTERS)
     return { ok: false, reason: "too-long" };
-  if (forbiddenFormats.some((pattern) => pattern.test(text)))
-    return { ok: false, reason: "forbidden-format" };
-  const letterCount = text.match(letters)?.length ?? 0;
-  if (!letterCount || (text.match(japanese)?.length ?? 0) / letterCount < 0.6)
-    return { ok: false, reason: "not-japanese" };
-  const quotes = [...text.matchAll(/「([^「」]+)」/g)].map((match) => match[1]);
-  if (!quotes.some((quote) => Array.from(quote).length >= 3))
-    return { ok: false, reason: "no-quote" };
-  if (quotes.some((quote) => !sources.some((source) => source.includes(quote))))
-    return { ok: false, reason: "fabricated-quote" };
-  const known = normalizeDigits(sources.join("\n"));
-  const numbers = normalizeDigits(text).match(digits) ?? [];
-  if (numbers.some((number) => !known.includes(number)))
-    return { ok: false, reason: "fabricated-number" };
-  return { ok: true, text };
+  return { ok: true, text, claims: groundedClaims };
 }
 
 export const PR_AI_REJECTION_MESSAGE =

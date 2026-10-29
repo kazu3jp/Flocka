@@ -7,6 +7,7 @@ export const NEURON_RATES: Record<string, NeuronRate> = {
   "@cf/qwen/qwen3-30b-a3b-fp8": { input: 4625, output: 30475 },
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { input: 26668, output: 204805 },
   "@cf/zai-org/glm-4.7-flash": { input: 5500, output: 36400 },
+  "@cf/cloudflare/clef": { input: 21818, output: 0 },
 };
 /** A model missing from the table is priced like the most expensive one. */
 export const UNKNOWN_MODEL_RATE: NeuronRate =

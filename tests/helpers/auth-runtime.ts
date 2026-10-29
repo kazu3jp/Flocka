@@ -45,20 +45,40 @@ export default class extends WorkerEntrypoint {
 const quotesIn = (inputs: unknown) => {
   const { messages } = inputs as { messages: { content: string }[] };
   return [
-    ...messages[1].content.matchAll(/<quote n="\d+">(.*?)<\/quote>/gs),
+    ...messages[1].content.matchAll(
+      /<testimony index="\d+">(.*?)<\/testimony>/gs,
+    ),
   ].map((match) => match[1]);
 };
-/** A valid OpenAI-style answer that quotes the first testimony verbatim. */
+/** A valid OpenAI-style answer with sentence-level evidence metadata. */
 export const goodAiResult = (inputs: unknown, completionTokens = 300) => ({
   choices: [
     {
       message: {
         role: "assistant",
-        content: `私の強みは、仲間から評価してもらえたところです。仲間から「${quotesIn(inputs)[0]}」という言葉をもらいました。これからも大切にします。`,
+        content: JSON.stringify({
+          claims: quotesIn(inputs)
+            .slice(0, 2)
+            .map((quote, index) => ({
+              sentence:
+                index === 0
+                  ? `仲間から「${quote}」と言われました。`
+                  : `また、「${quote}」という言葉ももらいました。`,
+              sourceIndexes: [index + 1],
+              quotes: [quote],
+            })),
+        }),
       },
     },
   ],
   usage: { prompt_tokens: 1200, completion_tokens: completionTokens },
+});
+const goodGroundingResult = (inputs: unknown) => ({
+  answers: Object.fromEntries(
+    Object.keys(
+      (inputs as { questions: Record<string, unknown> }).questions,
+    ).map((key) => [key, 0.99]),
+  ),
 });
 export const TEST_GOOGLE_CLIENT_ID =
   "test-web-client.apps.googleusercontent.com";
@@ -146,6 +166,9 @@ export async function createAuthRuntime(
     calls: [] as { model: string; inputs: unknown }[],
     script: ((inputs: unknown): FakeAiScript => ({
       result: goodAiResult(inputs),
+    })) as (inputs: unknown) => FakeAiScript,
+    groundingScript: ((inputs: unknown): FakeAiScript => ({
+      result: goodGroundingResult(inputs),
     })) as (inputs: unknown) => FakeAiScript,
   };
   const options = {
@@ -353,7 +376,11 @@ export async function createAuthRuntime(
                 };
                 ai.calls.push(call);
                 return new TestResponse(
-                  JSON.stringify(ai.script(call.inputs)),
+                  JSON.stringify(
+                    call.model === "@cf/cloudflare/clef"
+                      ? ai.groundingScript(call.inputs)
+                      : ai.script(call.inputs),
+                  ),
                   {
                     headers: { "Content-Type": "application/json" },
                   },
