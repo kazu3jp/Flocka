@@ -3,6 +3,8 @@ import { View, Pressable } from "react-native";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { CachedSvgXml } from "./cached-svg-xml";
+import { BODY_FONT_MAX_MULTIPLIER, appliedFontScale } from "./responsive-scale";
+import { useFontScale } from "./use-font-scale";
 import vectors from "../vectors.json";
 import {
   AV_COLORS,
@@ -15,6 +17,36 @@ import {
 } from "@flocka/domain";
 import { Avatar, Btn, C, Choice, F, LinkButton, S, Sheet, SP, T } from "./ui";
 
+// The source's paged .strength-filters: one row, 12.5px labels, 4px side padding.
+const GROUP_TAB_FONT_SIZE = 12.5;
+const GROUP_TAB_PADDING_X = 4;
+const GROUP_TAB_BORDER = 2;
+const GROUP_TAB_OVERHEAD = 2 * (GROUP_TAB_PADDING_X + GROUP_TAB_BORDER);
+
+/**
+ * Each tab grows with its label's length plus one character for its padding,
+ * so all names keep one line. The labels are full-width characters, one em
+ * each; a row narrower than the source's shrinks the text to the widest that
+ * fits every tab.
+ */
+function groupTabFontSize(
+  rowWidth: number,
+  labels: string[],
+  fontScale: number,
+) {
+  if (rowWidth <= 0) return GROUP_TAB_FONT_SIZE;
+  const shares = labels.reduce((sum, label) => sum + label.length + 1, 0);
+  const tabsWidth = rowWidth - SP.xs * (labels.length - 1);
+  const fit = Math.min(
+    ...labels.map(
+      (label) =>
+        ((tabsWidth * (label.length + 1)) / shares - GROUP_TAB_OVERHEAD) /
+        label.length,
+    ),
+  );
+  return Math.min(GROUP_TAB_FONT_SIZE, Math.floor((fit / fontScale) * 2) / 2);
+}
+
 export function CardPicker({
   selected,
   onChange,
@@ -23,22 +55,43 @@ export function CardPicker({
   onChange: (v: string[]) => void;
 }) {
   const [group, setGroup] = useState(0);
+  const [rowWidth, setRowWidth] = useState(0);
+  const fontSize = groupTabFontSize(
+    rowWidth,
+    STRENGTH_GROUPS.map(([, label]) => label),
+    appliedFontScale(useFontScale(), BODY_FONT_MAX_MULTIPLIER),
+  );
   return (
     <View style={S.gap}>
       <T size={13}>{selected.length}/3枚選択 · 2〜3枚選ぼう</T>
       <View
         accessibilityRole="tablist"
+        onLayout={({ nativeEvent: { layout } }) => setRowWidth(layout.width)}
         style={[S.row, { gap: SP.xs, alignItems: "stretch" }]}
       >
         {STRENGTH_GROUPS.map(([, label], i) => (
-          <View key={label} style={S.fill}>
+          <View
+            key={label}
+            style={{ flexGrow: label.length + 1, flexBasis: 0, minWidth: 0 }}
+          >
             <Choice
               accessibilityRole="tab"
               label={label}
               selected={group === i}
-              style={S.fill}
+              style={{ flex: 1, paddingHorizontal: GROUP_TAB_PADDING_X }}
               onPress={() => setGroup(i)}
-            />
+            >
+              <T
+                size={fontSize}
+                color={C.ink}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                style={{ textAlign: "center", fontFamily: F.bold }}
+              >
+                {label}
+              </T>
+            </Choice>
           </View>
         ))}
       </View>
