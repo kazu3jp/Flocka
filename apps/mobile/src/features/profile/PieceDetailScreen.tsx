@@ -18,6 +18,7 @@ import {
 import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
 import { useTestimonyActions } from "./use-testimony-actions";
+import { VISIBILITY_CHOICES } from "./settings-view-model";
 
 /** Describes the opening guess without calling a skipped guess a miss. */
 function guessResult(p: Piece) {
@@ -71,7 +72,7 @@ export function PieceDetail({ id }: { id: string }) {
     if (visibility === "public")
       ask(
         "個別公開する？",
-        "交換した相手が、この証言をプロフィールから閲覧できるようになります。",
+        "交換した相手が、この証言の言葉をあなたのプロフィールから閲覧できるようになります。送った人の名前は表示されません。いつでも戻せます。",
         apply,
         "個別公開する",
       );
@@ -111,24 +112,25 @@ export function PieceDetail({ id }: { id: string }) {
       <T display size={18}>
         公開範囲
       </T>
-      {(
-        [
-          ["private", "本人だけ"],
-          ["public", "個別公開"],
-          ["hidden", "非表示"],
-        ] as const
-      ).map(([v, label]) => (
-        <Btn
-          key={v}
-          disabled={busy}
-          small
-          plain={p.visibility !== v}
-          icon={p.visibility === v ? "check" : undefined}
-          iconSize={16}
-          selected={p.visibility === v}
-          label={label}
-          onPress={() => changeVisibility(v)}
-        />
+      <T size={13}>
+        誰に見えるか、どこに使われるかを選べます。いつでも変更できます。
+      </T>
+      {VISIBILITY_CHOICES.map(([v, label, description]) => (
+        <View key={v} style={{ gap: 4 }}>
+          <Btn
+            disabled={busy}
+            small
+            plain={p.visibility !== v}
+            icon={p.visibility === v ? "check" : undefined}
+            iconSize={16}
+            selected={p.visibility === v}
+            label={label}
+            onPress={() => changeVisibility(v)}
+          />
+          <T size={12} color={C.pale} style={{ paddingHorizontal: 4 }}>
+            {description}
+          </T>
+        </View>
       ))}
       <T display size={18}>
         {report ? "通報済み" : "通報理由"}

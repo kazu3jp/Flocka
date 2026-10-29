@@ -72,8 +72,18 @@ export function Settings() {
           <ListRow
             icon="lock"
             title="届いた証言は、はじめは本人だけ"
-            caption="公開するかは、証言ごとに一覧から選べます"
+            caption="証言ごとに「本人だけ」「個別公開」「非表示」を選べます"
             onPress={() => nav.push("pieces")}
+          />
+          <ListRow
+            icon="globe"
+            title="個別公開した証言は、交換した人だけが見られる"
+            caption="送った人の名前は表示されません"
+          />
+          <ListRow
+            icon="eyeoff"
+            title="非表示にした証言は、誰にも見えない"
+            caption="デッキと自己PRにも使われません"
           />
           <ListRow
             icon="users"
