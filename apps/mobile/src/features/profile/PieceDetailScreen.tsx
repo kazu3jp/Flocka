@@ -1,14 +1,15 @@
 import { useScreenFocusEffect } from "../../components/screen-focus";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction } from "../sync/use-action";
 import { View } from "react-native";
 import { useConfirmation } from "../../components/pickers";
 import {
   Board,
-  Btn,
   C,
+  Choice,
   Header,
-  LinkButton,
+  List,
+  ListRow,
   Panel,
   S,
   StrengthCard,
@@ -19,6 +20,7 @@ import { CARDS, allPieces, wordsOf, type Piece } from "@flocka/domain";
 import { useApp } from "../../store";
 import { useTestimonyActions } from "./use-testimony-actions";
 import { VISIBILITY_CHOICES } from "./settings-view-model";
+import { ReportSheet } from "./ReportSheet";
 
 /** Describes the opening guess without calling a skipped guess a miss. */
 function guessResult(p: Piece) {
@@ -32,7 +34,8 @@ export function PieceDetail({ id }: { id: string }) {
   const { s, nav, d, peers, setOpening } = useApp(),
     actions = useTestimonyActions(),
     { busy, error, run } = useAction(),
-    { ask, dialog } = useConfirmation();
+    { ask, dialog } = useConfirmation(),
+    [reporting, setReporting] = useState(false);
   const p = allPieces(s).find((p) => p.id === id);
   // Only an open report replaces the reasons; a resolved one can be reported again.
   const reports = s.reports.filter((r) => r.pieceId === id && !r.withdrawn);
@@ -71,13 +74,18 @@ export function PieceDetail({ id }: { id: string }) {
     };
     if (visibility === "public")
       ask(
-        "個別公開する？",
+        "公開する？",
         "交換した相手が、この証言の言葉をあなたのプロフィールから閲覧できるようになります。送った人の名前は表示されません。いつでも戻せます。",
         apply,
-        "個別公開する",
+        "公開する",
       );
     else apply();
   };
+  const reportCaption = report
+    ? `「${report.reason || "通報"}」で確認待ち。取り下げは「公開範囲・安全」から`
+    : resolved
+      ? `以前の「${resolved.reason || "通報"}」は${resolved.status === "rejected" ? "対応なしと判断されました" : "対応済みです"}`
+      : undefined;
   return (
     <Board scroll>
       <Header title="証言" onBack={nav.pop} />
@@ -109,103 +117,84 @@ export function PieceDetail({ id }: { id: string }) {
         {s.connections.find((c) => c.id === p.exchangeId)?.context.place ||
           "記録なし"}
       </T>
-      <T display size={18}>
-        公開範囲
-      </T>
-      <T size={13}>
-        誰に見えるか、どこに使われるかを選べます。いつでも変更できます。
-      </T>
-      {VISIBILITY_CHOICES.map(([v, label, description]) => (
-        <View key={v} style={{ gap: 4 }}>
-          <Btn
-            disabled={busy}
-            small
-            plain={p.visibility !== v}
-            icon={p.visibility === v ? "check" : undefined}
-            iconSize={16}
-            selected={p.visibility === v}
-            label={label}
-            onPress={() => changeVisibility(v)}
-          />
-          <T size={12} color={C.pale} style={{ paddingHorizontal: 4 }}>
-            {description}
-          </T>
-        </View>
-      ))}
-      <T display size={18}>
-        {report ? "通報済み" : "通報理由"}
-      </T>
-      {resolved && (
-        <T size={13}>
-          以前の「{resolved.reason || "通報"}」は運営が確認し、
-          {resolved.status === "rejected"
-            ? "対応しないと判断しました。"
-            : "対応済みです。"}
-          ほかに問題があれば、もう一度通報できます。
+      <View style={{ gap: 8 }}>
+        <T display size={18}>
+          公開範囲
         </T>
-      )}
-      {report ? (
-        <T size={13}>
-          「{report.reason || "通報"}
-          」として運営に送信しました。確認をお待ちください。取り下げは「公開範囲・安全」からできます。
-        </T>
-      ) : (
-        <View style={S.wrap}>
-          {["不適切な内容", "嫌がらせ", "個人情報", "その他"].map((reason) => (
-            <LinkButton
-              key={reason}
-              label={reason}
+        {/* The source's .seg: three choices in one row, and one line on the chosen one. */}
+        <View
+          testID="piece-visibility"
+          accessibilityLabel="公開範囲"
+          style={{ flexDirection: "row", gap: 6 }}
+        >
+          {VISIBILITY_CHOICES.map(([v, label]) => (
+            <Choice
+              key={v}
+              label={label}
+              selected={p.visibility === v}
               disabled={busy}
-              onPress={() =>
-                ask(
-                  "通報する？",
-                  `「${reason}」として運営に送信します。`,
-                  () => {
-                    void run(() => actions.report(id, reason));
-                  },
-                  "通報する",
-                )
-              }
+              style={S.fill}
+              onPress={() => p.visibility !== v && changeVisibility(v)}
             />
           ))}
         </View>
+        <T size={12.5} color={C.pale} style={{ lineHeight: 19.375 }}>
+          {VISIBILITY_CHOICES.find(([v]) => v === p.visibility)?.[2]}
+        </T>
+      </View>
+      <List testID="piece-actions">
+        <ListRow
+          icon="flag"
+          title={report ? "通報済み" : "通報する"}
+          caption={reportCaption}
+          disabled={busy}
+          onPress={() => (report ? nav.push("settings") : setReporting(true))}
+        />
+        <ListRow
+          icon="ban"
+          title="この人をブロック"
+          disabled={busy}
+          onPress={() =>
+            ask(
+              "ブロックする？",
+              "この人の証言をデッキ・自己PRから外し、交換一覧にも表示しません。",
+              () => {
+                void run(async () => {
+                  const blockingVisit = visit.current;
+                  await actions.block(p.fromId);
+                  if (blockingVisit && visit.current === blockingVisit)
+                    nav.pop();
+                });
+              },
+              "ブロックする",
+            )
+          }
+        />
+        <ListRow
+          icon="trash"
+          title="削除を依頼する"
+          disabled={busy}
+          onPress={() =>
+            ask(
+              "削除を依頼する？",
+              "この証言の削除依頼を運営に送信します。",
+              () => {
+                void run(() => actions.requestDeletion(id));
+              },
+              "依頼する",
+            )
+          }
+        />
+      </List>
+      {reporting && (
+        <ReportSheet
+          onClose={() => setReporting(false)}
+          onSend={(reason) => {
+            setReporting(false);
+            void run(() => actions.report(id, reason));
+          }}
+        />
       )}
-      <Btn
-        plain
-        label="この人をブロック"
-        icon="ban"
-        disabled={busy}
-        onPress={() =>
-          ask(
-            "ブロックする？",
-            "この人の証言をデッキ・自己PRから外し、交換一覧にも表示しません。",
-            () => {
-              void run(async () => {
-                const blockingVisit = visit.current;
-                await actions.block(p.fromId);
-                if (blockingVisit && visit.current === blockingVisit) nav.pop();
-              });
-            },
-            "ブロックする",
-          )
-        }
-      />
-      <Btn
-        plain
-        label="削除依頼"
-        icon="trash"
-        disabled={busy}
-        onPress={() =>
-          ask(
-            "削除を依頼する？",
-            "この証言の削除依頼を運営に送信します。",
-            () => {
-              void run(() => actions.requestDeletion(id));
-            },
-            "依頼する",
-          )
-        }
-      />
       <InlineError text={error} />
       {dialog}
     </Board>

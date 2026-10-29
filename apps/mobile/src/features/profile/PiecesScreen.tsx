@@ -31,9 +31,9 @@ function hiddenPieces(s: State) {
 }
 
 const VISIBILITY: Record<Piece["visibility"], [string, string]> = {
-  public: ["globe", "個別公開中"],
-  hidden: ["eyeoff", "非表示"],
-  private: ["lock", "本人だけ"],
+  public: ["globe", "公開中"],
+  hidden: ["eyeoff", "外した証言"],
+  private: ["lock", "非公開"],
 };
 
 /** The source's .vis: who sees this testimony, as an icon and a word. */
@@ -116,7 +116,7 @@ export function Pieces() {
       {hidden.length > 0 && (
         <View testID="pieces-hidden" style={{ gap: 10 }}>
           <LinkButton
-            label={`非表示の証言（${hidden.length}件）を${showHidden ? "閉じる" : "見る"}`}
+            label={`外した証言（${hidden.length}件）を${showHidden ? "閉じる" : "見る"}`}
             onPress={() => setShowHidden((shown) => !shown)}
           />
           {showHidden && <List>{hidden.map(openedRow)}</List>}

@@ -12,7 +12,9 @@ test("deletion undo retries failures and only repeats synchronization after an a
   );
   await page.goto(`/piece?id=${fixture.pieceId}`);
   const requestDeletion = async () => {
-    await page.getByRole("button", { name: "削除依頼", exact: true }).click();
+    await page
+      .getByRole("button", { name: "削除を依頼する", exact: true })
+      .click();
     const synchronized = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/v1/sync" && response.ok(),
@@ -20,7 +22,7 @@ test("deletion undo retries failures and only repeats synchronization after an a
     await page.getByRole("button", { name: "依頼する", exact: true }).click();
     await synchronized;
     await expect(
-      page.getByRole("button", { name: "削除依頼", exact: true }),
+      page.getByRole("button", { name: "削除を依頼する", exact: true }),
     ).toBeEnabled();
     await expect(page.getByRole("status")).toContainText(
       "削除依頼を受け付けました",
