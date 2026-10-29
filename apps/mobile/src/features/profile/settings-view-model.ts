@@ -1,4 +1,27 @@
-import type { RequestRecord } from "@flocka/domain";
+import type { Piece, RequestRecord } from "@flocka/domain";
+
+/** What each visibility of a received testimony means, as shown wherever it is chosen. */
+export const VISIBILITY_CHOICES: readonly [
+  Piece["visibility"],
+  string,
+  string,
+][] = [
+  [
+    "private",
+    "本人だけ",
+    "あなただけが見られます。デッキと自己PRには使われます。",
+  ],
+  [
+    "public",
+    "個別公開",
+    "交換した相手が、あなたのプロフィールから見られます。送った人の名前は出ません。",
+  ],
+  [
+    "hidden",
+    "非表示",
+    "誰にも見えず、デッキと自己PRにも使われません。「届いた証言」から戻せます。",
+  ],
+];
 
 /** The three receiving switches. `hint` says in one line what the switch changes. */
 export const RECEIVING_SWITCHES = [
