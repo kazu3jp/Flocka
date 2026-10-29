@@ -78,7 +78,7 @@ test("a direct unopened testimony URL keeps its contents behind the guess challe
     page.getByText(`「${piece.text}」`, { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "本人だけ", exact: true }),
+    page.getByRole("button", { name: "非公開", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "あとで開ける", exact: true }).click();
   await expect(page.getByText("予想チャレンジ", { exact: true })).toHaveCount(
@@ -120,7 +120,7 @@ test("a direct unopened testimony URL keeps its contents behind the guess challe
     .click();
   await page.goto(url);
   await expect(
-    page.getByRole("button", { name: "本人だけ", exact: true }),
+    page.getByRole("button", { name: "非公開", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText(`「${piece.text}」`, { exact: true }),

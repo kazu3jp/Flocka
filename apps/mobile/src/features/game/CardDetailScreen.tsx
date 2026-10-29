@@ -38,7 +38,7 @@ export function CardDetail({ cardKey }: { cardKey: string }) {
         ? "あと1人の証言で確認済みになります。"
         : card.self
           ? "あなたが選んだ強みです。仲間の証言が届くのを待とう。"
-          : "表示中の証言はありません。非表示にした証言は「届いた証言」から戻せます。";
+          : "表示中の証言はありません。外した証言は「届いた証言」から戻せます。";
   // Once answered, the reaction stays changeable even if the card is no longer
   // a discovery, so "違うかも" can always be undone.
   const showResponse = card.discovered || response !== undefined;

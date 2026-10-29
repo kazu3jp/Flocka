@@ -12,12 +12,10 @@ test("visibility undo restores its revision and reads newer changes without repl
   );
   await page.goto(`/piece?id=${fixture.pieceId}`);
   const publish = async () => {
-    await page.getByRole("button", { name: "個別公開", exact: true }).click();
-    await page
-      .getByRole("button", { name: "個別公開する", exact: true })
-      .click();
+    await page.getByRole("button", { name: "公開", exact: true }).click();
+    await page.getByRole("button", { name: "公開する", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "個別公開", exact: true }),
+      page.getByRole("button", { name: "公開", exact: true }),
     ).toBeEnabled();
     await expect(page.getByRole("status")).toContainText(
       "公開範囲を変更しました",

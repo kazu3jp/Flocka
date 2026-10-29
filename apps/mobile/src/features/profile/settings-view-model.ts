@@ -8,19 +8,15 @@ export const VISIBILITY_CHOICES: readonly [
 ][] = [
   [
     "private",
-    "本人だけ",
+    "非公開",
     "あなただけが見られます。デッキと自己PRには使われます。",
   ],
   [
     "public",
-    "個別公開",
-    "交換した相手が、あなたのプロフィールから見られます。送った人の名前は出ません。",
+    "公開",
+    "交換した相手がプロフィールで見られます。送り主の名前は出ません。",
   ],
-  [
-    "hidden",
-    "非表示",
-    "誰にも見えず、デッキと自己PRにも使われません。「届いた証言」から戻せます。",
-  ],
+  ["hidden", "外す", "デッキと自己PRから外します。誰にも見えません。"],
 ];
 
 /** The three receiving switches. `hint` says in one line what the switch changes. */
