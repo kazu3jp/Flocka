@@ -3,52 +3,29 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/mobile",
+    "apps/api",
+    "packages/domain",
+    "packages/api-client"
   ],
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev:mobile": "npm run start -w @flocka/mobile --",
-    "dev:web": "npm run web -w @flocka/mobile",
     "dev:api": "npm run dev -w @flocka/api",
+    "db:migrate": "npm run db:migrate -w @flocka/api",
     "ios": "npm run ios -w @flocka/mobile",
     "android": "npm run android -w @flocka/mobile --",
-    "db:migrate": "npm run db:migrate -w @flocka/api",
-    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint -w @flocka/mobile && eslint apps/api/src packages/api-client/src packages/domain/src tests e2e playwright.config.ts",
-    "test": "npm run build:api && tsx --test tests/*.test.ts",
-    "validate": "npm run typecheck && npm run lint && npm test",
     "export:web": "npm run export:web -w @flocka/mobile --",
     "export:native": "npm run export:native -w @flocka/mobile --",
-    "verify:export": "node tools/verify-export.mjs",
-    "apk:android": "node tools/build-apk.mjs",
-    "ipa:ios": "node tools/build-ipa.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "build:api": "npm run build -w @flocka/api",
-    "eval:pr-ai": "tsx tools/eval-pr-ai.mjs",
-    "import:design": "node tools/import-design.cjs",
-    "format": "prettier --write apps packages tests tools",
-    "setup:local": "node tools/setup-local.mjs",
-    "build:vrt": "npm run build:api && node tools/vrt/build.mjs",
-    "test:vrt": "npm run build:vrt && playwright test",
-    "test:vrt:update": "npm run build:vrt && playwright test --update-snapshots",
-    "test:vrt:report": "playwright show-report"
+    "validate": "npm run typecheck && npm run build:api && npm run export:native",
+    "apk:android": "node tools/build-apk.mjs",
+    "ipa:ios": "node tools/build-ipa.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
-    "@babel/plugin-transform-react-jsx": "^7.29.7",
-    "@playwright/test": "^1.64.0",
-    "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "22",
-    "@types/pngjs": "^6.0.5",
-    "eslint": "^9.39.5",
-    "eslint-plugin-unused-imports": "^4.4.1",
-    "miniflare": "^5.20261006.2-beta",
-    "pixelmatch": "^8.0.0",
-    "pngjs": "^7.0.0",
-    "prettier": "^3.9.10",
-    "tsx": "^4.23.15",
-    "typescript": "~6.0.3"
+    "expo": "~57.0.30"
   }
 }

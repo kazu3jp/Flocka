@@ -1,9 +1,15 @@
 import {
   buildPRAiMessages,
+  buildPRAiGroundingRequest,
   buildPRAiRequest,
+  CARDS,
   DEFAULT_PR_AI_MODEL,
   estimateNeurons,
+  estimateTokensFromChars,
+  parsePRAiGroundingDecision,
   parseWorkersAiResult,
+  PR_AI_GROUNDING_MODEL,
+  PR_AI_MAX_CHARACTERS,
   PR_AI_MAX_COMPLETION_TOKENS,
   PR_AI_REJECTION_MESSAGE,
   promptCharacters,
@@ -65,14 +71,22 @@ export async function generatePRAiDraft(input: {
     );
   const messages = buildPRAiMessages(card, loaded.testimonies);
   const usage = new AiUsageRepository(env.DB);
+  const generationReservation = reserveNeurons(
+    model,
+    promptCharacters(messages),
+    PR_AI_MAX_COMPLETION_TOKENS,
+  );
+  // Reserve the verifier before either billable call. Its state repeats the
+  // evidence and adds at most one draft plus short decision questions.
+  const groundingReservation = reserveNeurons(
+    PR_AI_GROUNDING_MODEL,
+    promptCharacters(messages) + PR_AI_MAX_CHARACTERS + 1500,
+    0,
+  );
   const reserved = await usage.reserve(
     accountId,
     now,
-    reserveNeurons(
-      model,
-      promptCharacters(messages),
-      PR_AI_MAX_COMPLETION_TOKENS,
-    ),
+    generationReservation + groundingReservation,
   );
   if (!reserved.ok) {
     if (reserved.reason === "account-limit")
@@ -123,27 +137,93 @@ export async function generatePRAiDraft(input: {
   // reservation (an upper bound) stays as the cost.
   const actual =
     parsed.neurons ??
-    (parsed.usage ? estimateNeurons(model, parsed.usage) : reservation.neurons);
-  await usage.settle(reservation, actual);
+    (parsed.usage ? estimateNeurons(model, parsed.usage) : generationReservation);
   const verdict = validatePRAiOutput(
     parsed.text,
-    loaded.testimonies.map((testimony) => testimony.text),
+    loaded.testimonies,
+    card,
   );
+  if (!verdict.ok) {
+    await usage.settle(reservation, actual);
+    console.log(
+      JSON.stringify({
+        event: "pr_ai.completed",
+        model,
+        day: usageDay(now),
+        neurons: Math.round(actual * 100) / 100,
+        usageKnown: parsed.usage !== null,
+        reportedNeurons: parsed.neurons !== null,
+        finishReason: parsed.finishReason,
+        reasoning: parsed.reasoningFields,
+        accepted: false,
+        rejection: verdict.reason,
+      }),
+    );
+    throw new ApiError(502, "AI_OUTPUT_REJECTED", PR_AI_REJECTION_MESSAGE);
+  }
+  const groundingRequest = buildPRAiGroundingRequest(
+    CARDS[card].name,
+    verdict.claims,
+  );
+  const groundingNeurons = estimateNeurons(PR_AI_GROUNDING_MODEL, {
+    promptTokens: estimateTokensFromChars(
+      JSON.stringify(groundingRequest).length,
+    ),
+    completionTokens: 0,
+  });
+  let groundingResult: unknown;
+  try {
+    groundingResult = await runWithDeadline(
+      run,
+      PR_AI_GROUNDING_MODEL,
+      groundingRequest,
+      aiDeadlineMs(env),
+    );
+  } catch (error) {
+    if (error instanceof AiAllocationExhaustedError) {
+      await usage.exhaustBudget(reservation.day);
+      throw budgetExhausted();
+    }
+    await usage.settle(
+      reservation,
+      actual + (error instanceof AiTimeoutError ? groundingNeurons : 0),
+    );
+    console.error(
+      JSON.stringify({
+        event: "pr_ai.grounding_failed",
+        model: PR_AI_GROUNDING_MODEL,
+        reason: error instanceof AiTimeoutError ? "timeout" : "error",
+      }),
+    );
+    throw new ApiError(
+      502,
+      "AI_UNAVAILABLE",
+      "AIの根拠を確認できませんでした。少し待ってからもう一度お試しください",
+    );
+  }
+  const grounding = parsePRAiGroundingDecision(
+    groundingResult,
+    verdict.claims.length,
+  );
+  const totalNeurons = actual + groundingNeurons;
+  await usage.settle(reservation, totalNeurons);
   console.log(
     JSON.stringify({
       event: "pr_ai.completed",
       model,
+      groundingModel: PR_AI_GROUNDING_MODEL,
       day: usageDay(now),
-      neurons: Math.round(actual * 100) / 100,
+      neurons: Math.round(totalNeurons * 100) / 100,
       usageKnown: parsed.usage !== null,
       reportedNeurons: parsed.neurons !== null,
       finishReason: parsed.finishReason,
       reasoning: parsed.reasoningFields,
-      accepted: verdict.ok,
-      ...(verdict.ok ? {} : { rejection: verdict.reason }),
+      groundingProbabilities: grounding.probabilities,
+      accepted: grounding.ok,
+      ...(grounding.ok ? {} : { rejection: "grounding" }),
     }),
   );
-  if (!verdict.ok)
+  if (!grounding.ok)
     throw new ApiError(502, "AI_OUTPUT_REJECTED", PR_AI_REJECTION_MESSAGE);
   return {
     text: verdict.text,

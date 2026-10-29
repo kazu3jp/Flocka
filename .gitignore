@@ -3,6 +3,10 @@
 # dependencies
 node_modules/
 
+# AI
+.claude/
+.vscode/
+
 # Expo
 .expo/
 dist/

@@ -1,4 +1,0 @@
-# Preserve the exact, checksum-verified reference runtimes.
-tools/vrt/vendor/
-tools/vrt/.generated/
-e2e/visual/baselines/
