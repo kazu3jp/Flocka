@@ -18,7 +18,7 @@ test("an accepted peer's self-declared SNS links open validated https URLs", asy
   await page.goto(`/confirm?cid=${fixture.exchanges![2]}`);
   await expect(page.getByTestId("player-name")).toHaveText("カエデ");
   const links = page.getByTestId("sns-links");
-  await expect(links).toContainText("自己申告・未確認");
+  await expect(links).not.toContainText("自己申告");
   const x = page.getByRole("button", { name: "X @kaede_plan", exact: true });
   await expect(x).toBeVisible();
   await expect(
@@ -106,5 +106,4 @@ test("pasting a profile URL adds that service, and a bare name asks which servic
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByTestId("sns-links")).toContainText("自己申告・未確認");
 });

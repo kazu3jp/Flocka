@@ -12,8 +12,6 @@ import { openSnsLink } from "./open-sns-link";
 
 /**
  * The SNS links on a player card, laid out like the interests row above it.
- * Always labelled as self-declared: Flocka does not verify that the handle
- * belongs to the person on the card.
  */
 export function SnsLinkList({ links }: { links: SnsLink[] }) {
   const { toast } = useApp();
@@ -22,7 +20,7 @@ export function SnsLinkList({ links }: { links: SnsLink[] }) {
   return (
     <View
       testID="sns-links"
-      accessibilityLabel="SNS（自己申告・未確認）"
+      accessibilityLabel="SNS"
       style={{
         flexDirection: "row",
         flexWrap: "wrap",
@@ -88,9 +86,6 @@ export function SnsLinkList({ links }: { links: SnsLink[] }) {
           </Pressable>
         );
       })}
-      <T size={11} color={C.muted}>
-        自己申告・未確認
-      </T>
     </View>
   );
 }
