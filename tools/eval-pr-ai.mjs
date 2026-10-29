@@ -108,7 +108,11 @@ function report(model, fixture, call, messages) {
     return;
   }
   const parsed = parseWorkersAiResult(call.result);
-  const verdict = validatePRAiOutput(parsed.text, fixture.texts);
+  const verdict = validatePRAiOutput(
+    parsed.text,
+    fixture.texts.map((text, index) => ({ id: String(index), text })),
+    fixture.card,
+  );
   const usage = parsed.usage;
   const neurons =
     parsed.neurons ??

@@ -76,12 +76,13 @@ test("AI draft: evidence comes from D1, output is validated, and it saves as a d
       (sent as { chat_template_kwargs?: unknown }).chat_template_kwargs,
       { enable_thinking: false },
     );
-    assert.match(sent.messages[1].content, /<quote n="1">/);
+    assert.match(sent.messages[1].content, /<testimony index="1">/);
     for (const words of GIVER_WORDS)
       assert.ok(sent.messages[1].content.includes(words));
-    // Usage is settled to the reported tokens: 1200 in + 300 out on gemma.
+    assert.equal(f.ai.calls[1].model, "@cf/cloudflare/clef");
+    // Usage includes reported Gemma tokens and the estimated Clef input.
     const used = await usage(f, owner.player.id);
-    assert.ok(Math.abs(used.day!.neurons - 19.09) < 0.01);
+    assert.ok(used.day!.neurons > 19.09);
     assert.equal(used.account!.calls, 1);
     // The returned evidence is accepted by the preference source check.
     const snapshot = await owner.api.getSnapshot();
@@ -179,9 +180,7 @@ test("AI draft never returns text for rejected, failed or timed-out calls", asyn
     });
     const beforeReported = (await usage(f)).day!.neurons;
     await owner.api.generatePRDraftWithAI("bridge");
-    assert.ok(
-      Math.abs((await usage(f)).day!.neurons - beforeReported - 5.5) < 0.001,
-    );
+    assert.ok((await usage(f)).day!.neurons - beforeReported > 5.5);
 
     // Reasoning used every token: no content, so no draft, but the cost is settled.
     f.ai.script = () => ({
@@ -288,7 +287,7 @@ test("per-account daily limit applies and a new UTC day starts fresh", async () 
         /1日5回/.test(error.message) &&
         /日本時間の朝9時/.test(error.message),
     );
-    assert.equal(f.ai.calls.length, 5);
+    assert.equal(f.ai.calls.length, 10);
     await f.db.prepare("UPDATE ai_usage_accounts SET day = '2000-01-01'").run();
     await owner.api.generatePRDraftWithAI("bridge");
   } finally {
@@ -300,10 +299,10 @@ test("global budget is reserved atomically and concurrent calls cannot overshoot
   const f = await createAuthRuntime();
   try {
     const { owner } = await confirmedOwner(f);
-    // Leave room for exactly one reservation (about 25 Neurons each).
+    // Leave room for exactly one generation + Clef reservation.
     await f.db
       .prepare(
-        "INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, 8970, 0)",
+        "INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, 8900, 0)",
       )
       .bind(today())
       .run();
@@ -322,7 +321,7 @@ test("global budget is reserved atomically and concurrent calls cannot overshoot
           result.reason instanceof ApiClientError &&
             result.reason.code === "AI_BUDGET_EXHAUSTED",
         );
-    assert.equal(f.ai.calls.length, 1);
+    assert.equal(f.ai.calls.length, 2);
     const used = await usage(f, owner.player.id);
     assert.ok(used.day!.neurons <= 9000);
     assert.equal(used.account!.calls, 1, "refused calls take no account slot");
@@ -353,7 +352,7 @@ test("testimony text written by others is quoted as data and cannot steer the re
     const prompt = (f.ai.calls[0].inputs as { messages: { content: string }[] })
       .messages;
     assert.ok(!prompt[0].content.includes(injection));
-    assert.ok(prompt[1].content.includes(`>${injection}</quote>`));
+    assert.ok(prompt[1].content.includes(`>${injection}</testimony>`));
   } finally {
     await f.runtime.dispose();
   }
