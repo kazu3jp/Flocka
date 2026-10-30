@@ -155,7 +155,7 @@ export function NearbyScreen() {
       notify: (code, id) => bluetooth.notifyExchangeStarted(code, id),
       notificationFailed: () =>
         exchangeActions.current.toast(
-          "交換は保存済みですがBluetooth通知は未確認です。相手に反映されない場合は、双方のアプリを最新版へ更新してください",
+          "交換は保存済みです。Bluetooth通知は未確認ですが、相手の定期確認で反映される場合もあります。反映されなければ双方のアプリを最新版へ更新してください",
         ),
       get: (id) => api.getExchange(id),
       peerId: async (code) => {
