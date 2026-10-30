@@ -161,18 +161,20 @@ test("catalog lookups ignore inherited object keys", () => {
   assert.equal(derive(s).cards.toString, undefined);
   assert.equal(buildPR(s, "constructor"), null);
 });
-test("PR without other self-chosen strengths makes no claim about awareness", () => {
+test("PR states only what the app knows: the givers' words and the owner's own choice", () => {
   const s = sampleState();
-  s.self = [];
+  s.self = ["focus"];
   const text = buildPR(s)!.text;
-  assert.equal(text.includes("自分でも意識していた"), false);
+  // Nothing about shared activities, inner conviction or realisations.
+  for (const claim of ["一緒に活動", "確信", "気づき", "考えていました"])
+    assert.equal(text.includes(claim), false, claim);
+  assert.ok(text.includes("\n複数の仲間から、同じ点を挙げてもらいました。\n"));
+  s.self = ["bridge"];
   assert.ok(
-    text.includes(
-      `\n複数の仲間から同じ点を挙げてもらったことで、${CARDS.bridge.name}という一面に気づきました。`,
+    buildPR(s)!.text.includes(
+      "\n自分でも強みとして選んでいた点を、複数の仲間からも挙げてもらいました。\n",
     ),
   );
-  s.self = ["bridge"];
-  assert.ok(buildPR(s)!.text.includes("自分でも意識していた強みですが"));
 });
 test("PR uses actual quotations, omits sender names, and prefers scenes", () => {
   const s = sampleState();
@@ -290,11 +292,34 @@ test("native deck ranking and PR match the original HTML business logic", () => 
   // Intentional deviation from the prototype at the user's request: a skipped
   // guess is not a missed guess, so it never marks a card as a new discovery.
   // Everything else in the reference logic runs unchanged.
+  // Intentional deviation at the user's request: the draft claims nothing the
+  // testimonies do not show (a shared activity, a realisation, a conviction).
+  const prototypeActivity = "一緒に活動した仲間から";
+  const prototypeReflection = source.slice(
+    source.indexOf("  if (!c.self && selfNames) segs.push("),
+    source.indexOf("  segs.push({ br: 1 }, { t: 'この強みを活かして、' }"),
+  );
+  assert.ok(source.includes(prototypeActivity));
+  // Intentional deviation at the user's request: no catalog card name in the
+  // draft (it reads as a game label), so no opening sentence naming it.
+  const prototypeOpening =
+    "const segs = [{ t: '私の強みは' }, { m: `「${c.name}」` }, { t: 'です。' }, { br: 1 }];";
+  const prototypeClosing = "{ t: 'この強みを活かして、' }";
+  assert.ok(source.includes(prototypeOpening));
+  assert.ok(source.includes(prototypeClosing));
+  assert.match(prototypeReflection, /確信に変わりました/);
   const block = source
     .slice(source.indexOf("function fresh()"), source.indexOf("const now ="))
     .replace(
       prototypeMissed,
       "const missed = p => p.guess !== 'skip' && p.guess !== p.card;",
+    )
+    .replace(prototypeActivity, "仲間から")
+    .replace(prototypeOpening, "const segs = [];")
+    .replace(prototypeClosing, "{ t: 'この点を活かして、' }")
+    .replace(
+      prototypeReflection,
+      "  segs.push({ t: c.self ? '自分でも強みとして選んでいた点を、複数の仲間からも挙げてもらいました。' : '複数の仲間から、同じ点を挙げてもらいました。' });\n",
     );
   const context = {
     CARDS: catalog.CARDS,

@@ -50,7 +50,15 @@ const quotesIn = (inputs: unknown) => {
     ),
   ].map((match) => match[1]);
 };
-/** A valid OpenAI-style answer with sentence-level evidence metadata. */
+/** A giver's "〜してくれた" retold as the owner's own act ("〜した"). */
+export const ownWords = (testimony: string) =>
+  testimony.replace(/([てで])くれ(た|て)/g, (_, te: string, end: string) =>
+    end === "た" ? (te === "て" ? "た" : "だ") : te,
+  );
+/**
+ * A valid OpenAI-style answer with sentence-level evidence metadata: plain
+ * prose that only restates the first two testimonies.
+ */
 export const goodAiResult = (inputs: unknown, completionTokens = 300) => ({
   choices: [
     {
@@ -59,13 +67,12 @@ export const goodAiResult = (inputs: unknown, completionTokens = 300) => ({
         content: JSON.stringify({
           claims: quotesIn(inputs)
             .slice(0, 2)
-            .map((quote, index) => ({
+            .map((words, index) => ({
               sentence:
                 index === 0
-                  ? `仲間から「${quote}」と言われました。`
-                  : `また、「${quote}」という言葉ももらいました。`,
+                  ? `仲間から、${ownWords(words)}と言われました。`
+                  : `また、${ownWords(words)}という声ももらいました。`,
               sourceIndexes: [index + 1],
-              quotes: [quote],
             })),
         }),
       },
@@ -77,7 +84,7 @@ const goodGroundingResult = (inputs: unknown) => ({
   answers: Object.fromEntries(
     Object.keys(
       (inputs as { questions: Record<string, unknown> }).questions,
-    ).map((key) => [key, 0.99]),
+    ).map((key) => [key, { type: "noul", noul: 0.99 }]),
   ),
 });
 export const TEST_GOOGLE_CLIENT_ID =

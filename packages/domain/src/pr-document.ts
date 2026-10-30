@@ -1,10 +1,8 @@
-import { CARDS } from "./catalog";
 import { derive, wordsOf } from "./game";
 import type { State } from "./types";
 
 export type PRSegment =
-  | { kind: "text" | "strength" | "quote" | "placeholder"; text: string }
-  | { kind: "break" };
+  { kind: "text" | "quote" | "placeholder"; text: string } | { kind: "break" };
 
 /** Keep quotations and writing prompts identifiable without inventing evidence. */
 export function buildPR(state: State, cardKey?: string) {
@@ -20,12 +18,9 @@ export function buildPR(state: State, cardKey?: string) {
       return true;
     })
     .slice(0, 3);
-  const segments: PRSegment[] = [
-    { kind: "text", text: "私の強みは" },
-    { kind: "strength", text: `「${card.name}」` },
-    { kind: "text", text: "です。" },
-    { kind: "break" },
-  ];
+  // The catalog card name reads as a game label, so the draft leaves it out
+  // and lets the givers' words say what the strength is.
+  const segments: PRSegment[] = [];
   let lastPlace = "";
   testimonies.forEach((piece, index) => {
     const place = (
@@ -34,7 +29,7 @@ export function buildPR(state: State, cardKey?: string) {
     ).trim();
     const prefix =
       index === 0
-        ? `${place ? place + "では、" : ""}一緒に活動した仲間から`
+        ? `${place ? place + "では、" : ""}仲間から`
         : `また、${place ? (place === lastPlace ? "同じ場で" : place + "で") : ""}別の仲間からも`;
     segments.push(
       { kind: "text", text: prefix },
@@ -46,32 +41,17 @@ export function buildPR(state: State, cardKey?: string) {
     );
     lastPlace = place || lastPlace;
   });
-  segments.push({ kind: "break" });
-  const selfNames = state.self
-    .filter((key) => key !== card.key && Object.hasOwn(CARDS, key))
-    .map((key) => CARDS[key].name)
-    .join("・");
-  if (card.self) {
-    segments.push({
-      kind: "text",
-      text: "自分でも意識していた強みですが、複数の仲間から同じ点を挙げてもらい、確信に変わりました。",
-    });
-  } else {
-    // Without other self-chosen strengths, claim neither a prior belief nor awareness.
-    segments.push(
-      {
-        kind: "text",
-        text: selfNames
-          ? `自分では${selfNames}を強みだと考えていましたが、複数の仲間から同じ点を挙げてもらったことで、`
-          : "複数の仲間から同じ点を挙げてもらったことで、",
-      },
-      { kind: "strength", text: card.name },
-      { kind: "text", text: "という一面に気づきました。" },
-    );
-  }
+  // Only what the app knows: the givers' words and the owner's own card choice.
   segments.push(
     { kind: "break" },
-    { kind: "text", text: "この強みを活かして、" },
+    {
+      kind: "text",
+      text: card.self
+        ? "自分でも強みとして選んでいた点を、複数の仲間からも挙げてもらいました。"
+        : "複数の仲間から、同じ点を挙げてもらいました。",
+    },
+    { kind: "break" },
+    { kind: "text", text: "この点を活かして、" },
     {
       kind: "placeholder",
       text: "（ここに、これから取り組みたいことを書こう）",

@@ -14,6 +14,7 @@ export * from "./sns-links";
 export * from "./ai-neurons";
 export * from "./pr-ai-prompt";
 export * from "./pr-ai-output";
+export * from "./pr-ai-repair";
 export * from "./pr-ai-grounding";
 export * from "./pr-ai-response";
 

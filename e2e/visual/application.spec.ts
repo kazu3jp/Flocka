@@ -230,7 +230,7 @@ test("real collected cards, profile, settings and exchange", async ({
   await page.getByRole("button", { name: "つながった人", exact: true }).click();
   await capture(page, "connections");
   await page.getByRole("tab", { name: "自己PR", exact: true }).click();
-  await expect(page.getByText(/私の強みは/)).toBeVisible();
+  await expect(page.getByText(/仲間から/)).toBeVisible();
   await reference.goto("/reference/?embed=pr");
   await reference.locator(".prdoc-body").click();
   await referenceComparison(page, reference, "self-pr", testInfo);

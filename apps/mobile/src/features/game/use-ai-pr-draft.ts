@@ -29,14 +29,22 @@ export function useAiPRDraft(cardKey: string | undefined) {
     adopting.run(async () => {
       if (!preview) return;
       const stillHere = startVisit();
-      let previous: Pick<State, "prDraft" | "prDraftSource"> | undefined;
+      let previous:
+        Pick<State, "prDraft" | "prDraftSource" | "prDraftOrigin"> | undefined;
       update((state) => {
         previous = {
           prDraft: state.prDraft,
           prDraftSource: state.prDraftSource,
+          prDraftOrigin: state.prDraftOrigin,
         };
         state.prDraft = preview.text;
         state.prDraftSource = preview.source;
+        // The saved text stays marked as AI-written, even after later edits.
+        state.prDraftOrigin = {
+          kind: "ai",
+          model: preview.model,
+          generatedAt: preview.generatedAt,
+        };
       });
       try {
         await savePreferences();
@@ -48,6 +56,8 @@ export function useAiPRDraft(cardKey: string | undefined) {
             state.prDraft = restore.prDraft;
             if (restore.prDraftSource === undefined) delete state.prDraftSource;
             else state.prDraftSource = restore.prDraftSource;
+            if (restore.prDraftOrigin === undefined) delete state.prDraftOrigin;
+            else state.prDraftOrigin = restore.prDraftOrigin;
           });
         throw error;
       }

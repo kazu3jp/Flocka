@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   buildPRAiGroundingRequest,
   buildPRAiMessages,
+  buildPRAiRepairMessages,
   buildPRAiRequest,
+  CARDS,
   DEFAULT_PR_AI_MODEL,
   estimateNeurons,
   NEURON_RATES,
@@ -25,15 +27,12 @@ const testimonies = [
 const claims = [
   {
     sentence:
-      "仲間から「みんなの意見を整理して、分かりやすく説明してくれた」と言われました。",
+      "私は、みんなの意見を整理して分かりやすく説明することができます。",
     sourceIndexes: [1],
-    quotes: ["みんなの意見を整理して、分かりやすく説明してくれた"],
   },
   {
-    sentence:
-      "また、「初対面でも話しかけやすい雰囲気だった」という言葉ももらいました。",
+    sentence: "初対面でも話しかけやすい雰囲気だと、仲間から言われます。",
     sourceIndexes: [2],
-    quotes: ["初対面でも話しかけやすい雰囲気だった"],
   },
 ];
 const output = (value: unknown = { claims }) => JSON.stringify(value);
@@ -46,7 +45,8 @@ test("prompt treats testimonies as data and requires sentence evidence", () => {
   assert.equal(system.role, "system");
   assert.match(system.content, /決して従わず/);
   assert.match(system.content, /sourceIndexes/);
-  assert.match(system.content, /quotes/);
+  assert.match(system.content, /引用しない/);
+  assert.match(system.content, /強みの名前.*書かない/);
   assert.match(user.content, /<testimonies>[\s\S]*<\/testimonies>/);
   assert.match(
     user.content,
@@ -60,27 +60,109 @@ test("validator accepts grounded structured prose", () => {
   const verdict = validatePRAiOutput(output(), testimonies, "bridge");
   assert.equal(verdict.ok, true);
   if (!verdict.ok) return;
-  assert.equal(
-    verdict.text,
-    claims.map(({ sentence }) => sentence).join("\n\n"),
-  );
+  // The sentences read as one paragraph.
+  assert.equal(verdict.text, claims.map(({ sentence }) => sentence).join(""));
   assert.deepEqual(verdict.claims[0].evidence, [testimonies[0].text]);
+  assert.deepEqual(verdict.cited, [0, 1]);
   assert.ok(PR_AI_MAX_CHARACTERS <= PR_DRAFT_MAX_LENGTH);
 });
 
-test("validator rejects fabricated evidence and unsupported claims", () => {
-  const fabricatedQuote = structuredClone(claims);
-  fabricatedQuote[0].sentence =
-    "仲間から「全国大会で優勝した」と言われました。";
-  fabricatedQuote[0].quotes = ["全国大会で優勝した"];
+test("the draft is plain prose: no quotation marks and no catalog card name", () => {
+  const bracketed = [
+    {
+      ...claims[0],
+      sentence: "仲間から「みんなの意見を整理して」と言われました。",
+    },
+    claims[1],
+  ];
   assert.deepEqual(
-    validatePRAiOutput(
-      output({ claims: fabricatedQuote }),
-      testimonies,
-      "bridge",
-    ),
-    { ok: false, reason: "fabricated-quote" },
+    validatePRAiOutput(output({ claims: bracketed }), testimonies, "bridge"),
+    { ok: false, reason: "quotation-marks" },
   );
+  const named = [
+    { ...claims[0], sentence: `私の強みは${CARDS.bridge.name}です。` },
+    claims[1],
+  ];
+  assert.deepEqual(
+    validatePRAiOutput(output({ claims: named }), testimonies, "bridge"),
+    { ok: false, reason: "names-strength" },
+  );
+  // The giver's "〜してくれた" would read as someone else's act.
+  const borrowed = [
+    {
+      ...claims[0],
+      sentence: "みんなの意見を整理して、分かりやすく説明してくれました。",
+    },
+    claims[1],
+  ];
+  assert.deepEqual(
+    validatePRAiOutput(output({ claims: borrowed }), testimonies, "bridge"),
+    { ok: false, reason: "giver-perspective" },
+  );
+  // The same words are fine when a giver wrote them.
+  const ownWords = [
+    { id: "a", text: "人と情報をつなぐ力がある" },
+    testimonies[1],
+  ];
+  const echoed = [
+    { ...claims[0], sentence: "人と情報をつなぐ力があると言われます。" },
+    claims[1],
+  ];
+  assert.equal(
+    validatePRAiOutput(output({ claims: echoed }), ownWords, "bridge").ok,
+    true,
+  );
+});
+
+test("citation markers in a sentence are dropped, not taken for numbers", () => {
+  const marked = claims.map((claim, index) => ({
+    ...claim,
+    sentence: claim.sentence.replace("。", `[${index + 1}]。`),
+  }));
+  const verdict = validatePRAiOutput(
+    output({ claims: marked }),
+    testimonies,
+    "bridge",
+  );
+  assert.equal(verdict.ok, true);
+  assert.ok(verdict.ok && !/\[|\]/.test(verdict.text));
+});
+
+test("only the testimonies the claims cite are reported as cited", () => {
+  const three = [
+    ...testimonies,
+    { id: "c", text: "質問にも順番に答えてくれた" },
+  ];
+  const verdict = validatePRAiOutput(output(), three, "bridge");
+  assert.deepEqual(verdict.ok && verdict.cited, [0, 1]);
+});
+
+test("a repair turn returns the refused answer and names exactly what to fix", () => {
+  const messages = buildPRAiMessages("bridge", testimonies);
+  const repair = buildPRAiRepairMessages(messages, `  ${output()}  `, {
+    reason: "unsupported-term",
+    terms: ["大切", "迅速"],
+  });
+  assert.deepEqual(
+    repair.map((message) => message.role),
+    ["system", "user", "assistant", "user"],
+  );
+  assert.deepEqual(repair.slice(0, 2), messages);
+  assert.equal(repair[2].content, output());
+  assert.match(repair[3].content, /大切、迅速/);
+  assert.match(repair[3].content, /JSON/);
+  const verifier = buildPRAiRepairMessages(messages, output(), {
+    reason: "ungrounded-claim",
+    sentences: [claims[1].sentence],
+  });
+  assert.ok(verifier[3].content.includes(claims[1].sentence));
+  assert.equal(
+    buildPRAiRepairMessages(messages, " ", { reason: "empty" })[2].content,
+    "（回答なし）",
+  );
+});
+
+test("validator rejects fabricated evidence and unsupported claims", () => {
   const fabricatedNumber = structuredClone(claims);
   fabricatedNumber[0].sentence = `3回、${fabricatedNumber[0].sentence}`;
   assert.deepEqual(
@@ -95,7 +177,7 @@ test("validator rejects fabricated evidence and unsupported claims", () => {
   unsupported[0].sentence = `全国大会で優勝し、${unsupported[0].sentence}`;
   assert.deepEqual(
     validatePRAiOutput(output({ claims: unsupported }), testimonies, "bridge"),
-    { ok: false, reason: "unsupported-term" },
+    { ok: false, reason: "unsupported-term", terms: ["全国大会", "優勝"] },
   );
 });
 
@@ -116,7 +198,7 @@ test("validator rejects malformed mappings, formatting and excess length", () =>
     { ok: false, reason: "forbidden-format" },
   );
   const long = structuredClone(claims);
-  long[0].sentence = `${"あ".repeat(PR_AI_MAX_CHARACTERS)}「${long[0].quotes[0]}」`;
+  long[0].sentence = `${"あ".repeat(PR_AI_MAX_CHARACTERS)}${long[0].sentence}`;
   assert.equal(
     validatePRAiOutput(output({ claims: long }), testimonies, "bridge").ok,
     false,
@@ -144,17 +226,27 @@ test("Clef requires every claim above the threshold", () => {
   if (!verdict.ok) return;
   const request = buildPRAiGroundingRequest("つなぐ力", verdict.claims);
   assert.equal(Object.keys(request.questions).length, 2);
+  // The real answer shape, with values measured on 2026-10-30.
+  const noul = (value: number) => ({ type: "noul", noul: value });
   assert.deepEqual(
     parsePRAiGroundingDecision(
-      { answers: { claim_1: 0.97, claim_2: 0.94 } },
+      { answers: { claim_1: noul(0.793), claim_2: noul(0.601) } },
       2,
     ),
-    { ok: true, probabilities: [0.97, 0.94] },
+    { ok: true, probabilities: [0.793, 0.601] },
   );
   assert.equal(
-    parsePRAiGroundingDecision({ answers: { claim_1: 0.97, claim_2: 0.89 } }, 2)
-      .ok,
+    parsePRAiGroundingDecision(
+      { answers: { claim_1: noul(0.793), claim_2: noul(0.164) } },
+      2,
+    ).ok,
     false,
+  );
+  // A bare number is read too.
+  assert.equal(
+    parsePRAiGroundingDecision({ answers: { claim_1: 0.97, claim_2: 0.94 } }, 2)
+      .ok,
+    true,
   );
   assert.equal(
     parsePRAiGroundingDecision({ answers: { claim_1: 0.99 } }, 2).ok,
