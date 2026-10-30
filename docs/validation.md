@@ -269,7 +269,15 @@ Bluetooth（Android 11以下では位置情報も）が途中でオフになる�
 - 遅い依頼に予備の依頼を送り、先の答えを使うこと
 - 出典が実際に根拠にした証言だけになり、AIの生成元とともに `PUT /v1/me/preferences` の検証を通ること
 
-2026-10-30に、実際のWorkers AIで生成からClefの判定・書き直しまでの流れを確かめました（18回中17回が合格。詳細は [ai-pr-generation.md](ai-pr-generation.md) の実測）。D1と利用枠を含む本番の経路は、偽のAIバインディングの結合テストで確認しています。2026-10-30の引き継ぎ時に、`npm run validate`（208件）とWeb・iOS・Androidの書き出しを再実行しました。追加した [pr-ai.spec.ts](../e2e/visual/pr-ai.spec.ts) は、ローカルAPI・D1と偽のAIバインディングを使い、4つの画面サイズのブラウザで、確認・キャンセル・採用・編集後と再読み込み後のAI生成記録・再生成時の記録クリアを検査します。AI呼び出し失敗と採用時の保存失敗では元の下書きが維持されることも検査します（計8件）。実機操作、本物のWorkers AIを接続したブラウザ操作、今回の変更全体の画像差分テストは未確認です。書き出しは現在のローカルAPI設定で行っており、本番向け接続先の検証とは別です。
+2026-10-30に、実際のWorkers AIで生成からClefの判定・書き直しまでの流れを確かめました（18回中17回が合格。詳細は [ai-pr-generation.md](ai-pr-generation.md) の実測）。D1と利用枠を含む本番の経路は、偽のAIバインディングの結合テストで確認しています。2026-10-30の引き継ぎ時に、`npm run validate`（213件）とWeb・iOS・Androidの書き出しを再実行しました。追加した [pr-ai.spec.ts](../e2e/visual/pr-ai.spec.ts) は、ローカルAPI・D1と偽のAIバインディングを使い、4つの画面サイズのブラウザで、確認・キャンセル・採用・編集後と再読み込み後のAI生成記録・再生成時の記録クリアを検査します。AI呼び出し失敗と採用時の保存失敗では元の下書きが維持されることも検査します（計8件）。実機操作、本物のWorkers AIを接続したブラウザ操作、今回の変更全体の画像差分テストは未確認です。書き出しは現在のローカルAPI設定で行っており、本番向け接続先の検証とは別です。
+
+2026-10-30に、この統合版を本番Worker `flocka-app-api` へデプロイしました（Version ID `dab86944-e4c2-4024-bd6f-502f92970f19`、ソースコミット `3fb51b2`）。本番D1の未適用マイグレーションはなし。`/health` は200、未認証の `POST /v1/me/pr-draft/ai` は401を確認しました。本番の認証済みAI生成は今回実行していません。
+
+## 手動のrelease準備
+
+[prepare-release.yml](../.github/workflows/prepare-release.yml) は `workflow_dispatch` のみで実行します。devの固定コミットを全体検証・書き出しし、実行ファイルだけをrelease構成へコピーし、バージョンを更新してrelease向けPRを作ります。使い方と対象範囲は [.github/release/README.md](../.github/release/README.md) に記載しています。
+
+[prepare-release.test.ts](../tests/prepare-release.test.ts) の3件で、対象ファイルの同期・削除・バージョン更新、無効/後退するバージョンの拒否、シンボリックリンクの拒否を検査しました。actionlintも成功。実際のrelease checkoutからローカルに1.0.1候補を生成し、lockfile更新・`npm ci`・型検査・API dry-run・Web/iOS/Android書き出しが成功しました。devのlockfileと比べて依存パッケージのバージョン変更はありません。GitHub上での手動実行は、導入PRをreleaseへマージした後に可能です。ローカル候補の1.0.1は検証専用で、releaseへの反映やタグ付けはしていません。
 
 ## 常時サーバー保存（手動バックアップの廃止）
 
