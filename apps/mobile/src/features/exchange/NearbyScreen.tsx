@@ -97,12 +97,8 @@ function openSettings(target: SettingsTarget) {
 }
 
 export function NearbyScreen() {
-  const { api, nav, s, refresh } = useApp(),
-    {
-      invite,
-      error: inviteError,
-      renew,
-    } = useInvite({ pollForExchange: false }),
+  const { api, nav, s, refresh, toast } = useApp(),
+    { invite, error: inviteError, renew } = useInvite(),
     focused = useScreenFocused(),
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
@@ -118,10 +114,10 @@ export function NearbyScreen() {
     [pendingSignal, setPendingSignal] = useState<NearbyExchangeSignal | null>(
       null,
     );
-  const exchangeActions = useRef({ refresh, nav });
+  const exchangeActions = useRef({ refresh, nav, toast });
   useEffect(() => {
-    exchangeActions.current = { refresh, nav };
-  }, [refresh, nav]);
+    exchangeActions.current = { refresh, nav, toast };
+  }, [refresh, nav, toast]);
   useEffect(() => {
     if (!focused || !invite || !Nearby) return;
     const bluetooth = Nearby;
@@ -157,6 +153,10 @@ export function NearbyScreen() {
     const exchange = createNearbyExchange({
       create: (code) => api.startExchange(code),
       notify: (code, id) => bluetooth.notifyExchangeStarted(code, id),
+      notificationFailed: () =>
+        exchangeActions.current.toast(
+          "Bluetooth通知を確認できませんでした。相手の画面は定期確認でも更新されます",
+        ),
       get: (id) => api.getExchange(id),
       peerId: async (code) => {
         const cached = previews.get(code);

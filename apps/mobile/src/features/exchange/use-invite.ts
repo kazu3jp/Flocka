@@ -19,10 +19,8 @@ function withLocalExpiry<Invite extends { code: string }>(invite: Invite) {
   };
 }
 
-/** QR watches the server; nearby receives a BLE wake-up and only uses this hook for expiry. */
-export function useInvite({
-  pollForExchange = true,
-}: { pollForExchange?: boolean } = {}) {
+/** Both exchange screens watch the server; nearby BLE notifications can wake them sooner. */
+export function useInvite() {
   const { api, refresh, nav } = useApp(),
     focused = useScreenFocused(),
     [invite, setInvite] = useState<ReturnType<
@@ -84,7 +82,6 @@ export function useInvite({
         await renew();
         return;
       }
-      if (!pollForExchange) return;
       checking = true;
       try {
         const status = await api.getInviteStatus(invite.code);
@@ -109,6 +106,6 @@ export function useInvite({
     };
     // Navigation methods are ref-backed; restarting a handshake on each sync would lose its state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, focused, invite, refresh, renew, pollForExchange]);
+  }, [api, focused, invite, refresh, renew]);
   return { invite: expired ? null : invite, expired, error, busy, renew };
 }

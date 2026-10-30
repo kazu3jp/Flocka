@@ -6,6 +6,7 @@ export type NearbyExchangeSignal = { code: string; exchangeId: string };
 type Dependencies = {
   create: (code: string) => Promise<RemoteExchange>;
   notify: (code: string, exchangeId: string) => Promise<void>;
+  notificationFailed: () => void;
   get: (id: string) => Promise<RemoteExchange>;
   peerId: (code: string) => Promise<string>;
   refresh: () => Promise<void>;
@@ -41,9 +42,9 @@ export function createNearbyExchange(deps: Dependencies) {
         try {
           await deps.notify(code, exchange.id);
         } catch {
-          throw new UserFacingError(
-            "交換の開始は保存されましたが、相手へBluetoothで通知できませんでした。両方の交換画面とBluetooth接続を確認して、もう一度お試しください",
-          );
+          // The exchange is saved. Report the missing BLE acknowledgement;
+          // the peer's normal invite-status polling can still discover it.
+          if (available()) deps.notificationFailed();
         }
         await open(exchange);
       }),

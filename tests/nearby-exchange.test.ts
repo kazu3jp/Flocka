@@ -40,6 +40,9 @@ function setup(
       assert.equal(actualId, id);
       calls.push("ble");
     },
+    notificationFailed: () => {
+      calls.push("notification-failed");
+    },
     peerId: async () => {
       calls.push("peer");
       return "peer";
@@ -87,19 +90,16 @@ test("a failed server write never sends a BLE success signal", async () => {
   assert.deepEqual(s.calls, []);
 });
 
-test("a failed notification leaves a retryable saved exchange and does not navigate", async () => {
-  let fail = true;
+test("a failed BLE notification is reported while the saved exchange still opens", async () => {
   const s = setup({
     notify: async () => {
-      if (fail) throw new Error("disconnected");
-      s.calls.push("ble");
+      throw new Error("disconnected");
     },
   });
-  await assert.rejects(s.coordinator.start(signal.code), /保存されましたが/);
-  assert.deepEqual(s.calls, ["save"]);
-  fail = false;
   await s.coordinator.start(signal.code);
-  assert.deepEqual(s.calls, ["save", "save", "ble", "refresh", "open"]);
+  assert.deepEqual(s.calls, ["save", "notification-failed", "refresh", "open"]);
+  await s.coordinator.receive(signal);
+  assert.equal(s.calls.filter((call) => call === "open").length, 1);
 });
 
 test("a BLE signal verifies server membership and refreshes before opening, only once", async () => {
