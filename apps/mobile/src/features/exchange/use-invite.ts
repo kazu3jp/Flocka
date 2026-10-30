@@ -19,7 +19,7 @@ function withLocalExpiry<Invite extends { code: string }>(invite: Invite) {
   };
 }
 
-export function useInvite() {
+export function useInvite(watchForExchange = true) {
   const { api, refresh, nav } = useApp(),
     focused = useScreenFocused(),
     [invite, setInvite] = useState<ReturnType<
@@ -81,6 +81,7 @@ export function useInvite() {
         await renew();
         return;
       }
+      if (!watchForExchange) return;
       checking = true;
       try {
         const status = await api.getInviteStatus(invite.code);
@@ -105,6 +106,6 @@ export function useInvite() {
     };
     // Navigation methods are ref-backed; restarting a handshake on each sync would lose its state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, focused, invite, refresh, renew]);
+  }, [api, focused, invite, refresh, renew, watchForExchange]);
   return { invite: expired ? null : invite, expired, error, busy, renew };
 }

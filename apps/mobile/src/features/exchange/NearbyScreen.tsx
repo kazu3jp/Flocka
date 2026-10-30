@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, Pressable, View } from "react-native";
 import { useScreenFocused } from "../../components/screen-focus";
 import {
@@ -21,8 +21,6 @@ import Nearby from "../../../modules/flocka-nearby/src/FlockaNearbyModule";
 import type { NearbyErrorCode } from "../../../modules/flocka-nearby/src/FlockaNearby.types";
 import { useInvite } from "./use-invite";
 import { useAction } from "../sync/use-action";
-import { useStartExchange } from "./use-start-exchange";
-import { useScreenVisit } from "../sync/use-screen-visit";
 import { userFacingError } from "../sync/user-facing-error";
 import { NearbyRadarPanel } from "./NearbyRadarPanel";
 import { NearbyTips, NearbyUnavailable } from "./NearbyTips";
@@ -33,6 +31,10 @@ import {
 } from "./nearby-status";
 import { useSearchedFor } from "./use-searched-for";
 import { createNearbyRadioSession } from "./nearby-radio-session";
+import {
+  createNearbyExchange,
+  type NearbyExchangeSignal,
+} from "./nearby-exchange";
 
 /** How long a checked code is trusted before asking the API again. */
 const PREVIEW_TTL_MS = 60_000;
@@ -95,8 +97,8 @@ function openSettings(target: SettingsTarget) {
 }
 
 export function NearbyScreen() {
-  const { api, nav, s } = useApp(),
-    { invite, error: inviteError, renew } = useInvite(),
+  const { api, nav, s, refresh } = useApp(),
+    { invite, error: inviteError, renew } = useInvite(false),
     focused = useScreenFocused(),
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
@@ -108,8 +110,12 @@ export function NearbyScreen() {
     [starting, setStarting] = useState(false),
     [ready, setReady] = useState(false),
     { busy, error, run } = useAction(),
-    startVisit = useScreenVisit(),
-    startExchange = useStartExchange();
+    coordinator = useRef<ReturnType<typeof createNearbyExchange> | null>(null),
+    [pendingSignal, setPendingSignal] = useState<NearbyExchangeSignal | null>(
+      null,
+    );
+  const exchangeActions = useRef({ refresh, nav });
+  exchangeActions.current = { refresh, nav };
   useEffect(() => {
     if (!focused || !invite || !Nearby) return;
     const bluetooth = Nearby;
@@ -142,6 +148,31 @@ export function NearbyScreen() {
       string,
       { player: RemotePlayer | null; expiresAt: number } | "pending"
     >();
+    const exchange = createNearbyExchange({
+      create: (code) => api.startExchange(code),
+      notify: (code, id) => bluetooth.notifyExchangeStarted(code, id),
+      get: (id) => api.getExchange(id),
+      peerId: async (code) => {
+        const cached = previews.get(code);
+        if (cached && cached !== "pending" && cached.player)
+          return cached.player.id;
+        return (await api.previewInvite(code)).id;
+      },
+      refresh: () => exchangeActions.current.refresh(),
+      open: (id) => exchangeActions.current.nav.replace("confirm", { cid: id }),
+    });
+    coordinator.current = exchange;
+    const exchangeStarted = bluetooth.addListener(
+      "onExchangeStarted",
+      (signal) => {
+        if (!active) return;
+        void exchange.receive(signal).catch((reason) => {
+          if (!active) return;
+          setPendingSignal(signal);
+          setPeerError(userFacingError(reason, "交換の確認に失敗しました"));
+        });
+      },
+    );
     const markSeen = (player: RemotePlayer, code: string) =>
       setPeers((peers) => {
         const now = Date.now(),
@@ -223,6 +254,10 @@ export function NearbyScreen() {
     );
     return () => {
       active = false;
+      exchange.dispose();
+      if (coordinator.current === exchange) coordinator.current = null;
+      setPendingSignal(null);
+      exchangeStarted.remove();
       setReady(false);
       setStarting(false);
       clearInterval(timer);
@@ -302,6 +337,18 @@ export function NearbyScreen() {
           ) : null}
         </View>
       )}
+      {pendingSignal ? (
+        <Btn
+          plain
+          label="交換の確認を再試行"
+          loading={busy}
+          onPress={() =>
+            void run(async () => {
+              await coordinator.current?.receive(pendingSignal);
+            })
+          }
+        />
+      ) : null}
       {peerList.map(({ player, code }, index) => (
         <StaggerItem key={player.id} itemKey={player.id} index={index}>
           <Pressable
@@ -309,7 +356,7 @@ export function NearbyScreen() {
             disabled={busy}
             onPress={() =>
               void run(async () => {
-                await startExchange(code, startVisit());
+                await coordinator.current?.start(code);
               })
             }
           >

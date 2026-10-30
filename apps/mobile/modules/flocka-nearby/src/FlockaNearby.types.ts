@@ -18,6 +18,8 @@ export type NearbyError = { code: NearbyErrorCode; message: string };
 export type NearbyPermissions = { granted: boolean; canAskAgain: boolean };
 export type FlockaNearbyModuleEvents = {
   onPeer: (peer: NearbyPeer) => void;
+  /** A connected peer saved an exchange; JS must verify it with the API. */
+  onExchangeStarted: (signal: { code: string; exchangeId: string }) => void;
   onError: (error: NearbyError) => void;
   /** Advertising and scanning resumed after a pause, without a new `start()`. */
   onReady: () => void;
