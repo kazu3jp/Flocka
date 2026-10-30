@@ -119,6 +119,8 @@ export async function runHedged(input: {
     )
       send(1);
   };
+  if (input.deadlineMs <= 0)
+    return { ok: false, error: new AiTimeoutError(), requests };
   send(0);
   for (;;) {
     const left = input.deadlineMs - elapsed();

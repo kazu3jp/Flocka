@@ -611,3 +611,46 @@ test("no repair once less than a fifth of the shared deadline is left", async ()
     await f.runtime.dispose();
   }
 });
+
+test("a repair without usage retains its own larger token reservation", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    f.ai.script = (inputs) => {
+      if (isRepair(inputs)) {
+        const result = goodAiResult(inputs);
+        return { result: { choices: result.choices } };
+      }
+      return claimsReply([quoted(1, GIVER_WORDS[0])]);
+    };
+    // Give the verifier an exact, known cost so only the generation estimates remain.
+    f.ai.groundingScript = (inputs) => ({
+      result: {
+        answers: Object.fromEntries(
+          Object.keys((inputs as { questions: object }).questions).map(
+            (key) => [key, noul(0.99)],
+          ),
+        ),
+        usage: { neurons: 1 },
+      },
+    });
+    await owner.api.generatePRDraftWithAI("bridge");
+    const repair = repairTurn(generations(f)[1].inputs);
+    const expected =
+      6 +
+      reserveNeurons(
+        DEFAULT_PR_AI_MODEL,
+        promptCharacters(repair),
+        PR_AI_MAX_COMPLETION_TOKENS,
+      ) +
+      1;
+    const used = await usage(f, owner.player.id);
+    assert.ok(
+      Math.abs(used.day!.neurons - expected) < 0.001,
+      `${used.day!.neurons} !== ${expected}`,
+    );
+    assert.equal(used.account!.calls, 1);
+  } finally {
+    await f.runtime.dispose();
+  }
+});

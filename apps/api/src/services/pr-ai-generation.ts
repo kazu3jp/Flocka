@@ -208,14 +208,14 @@ export async function generatePRAiDraft(input: {
       fullMs,
       remainingMs: () => fullMs - (Date.now() - started),
     };
-  const generationCost = (result: unknown) => {
+  const generationCost = (result: unknown, roundMessages: PRAiMessage[]) => {
     const parsed = parseWorkersAiResult(result);
     // Cloudflare's own figure first, then tokens x table.
     return (
       parsed.neurons ??
       (parsed.usage
         ? estimateNeurons(model, parsed.usage)
-        : generationNeurons(messages))
+        : generationNeurons(roundMessages))
     );
   };
   const rejections: string[] = [];
@@ -238,7 +238,7 @@ export async function generatePRAiDraft(input: {
         request: buildPRAiRequest(model, round.messages),
         reservation: round.generation,
         deadline,
-        costOf: generationCost,
+        costOf: (result) => generationCost(result, round.messages),
         failureMessage:
           "AIに接続できませんでした。少し待ってからもう一度お試しください",
       });
