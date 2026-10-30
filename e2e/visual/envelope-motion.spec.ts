@@ -1,3 +1,4 @@
+import { CARDS } from "@flocka/domain";
 import { test, expect } from "./test";
 import { ready, signInFixture } from "./helpers";
 
@@ -123,4 +124,35 @@ test("switching reduced motion on during opening finishes without a stranded env
   await expect(
     page.getByRole("button", { name: "デッキに加える", exact: true }),
   ).toBeEnabled();
+});
+
+test("an unexpected strength is celebrated as a discovery instead of a failure", async ({
+  page,
+  context,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await signInFixture(
+    context,
+    "collected",
+    `envelope-discovery-${testInfo.project.name}`,
+  );
+  await page.goto(`/piece?id=${fixture.unopenedId}`);
+  await ready(page);
+  const wrong = page
+    .getByRole("button", { name: /・自己申告$/ })
+    .filter({ hasNotText: "話しやすさ" })
+    .first();
+  const predictedName = (await wrong.getAttribute("aria-label"))!.split(
+    "・",
+  )[0];
+  await wrong.click();
+  await expect(page.getByText("新発見！", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("guess-reveal-gain")).toContainText("証言+1");
+  const snapshot = await (await context.request.get("/v1/sync")).json();
+  const piece = snapshot.inbox.find(
+    (value: { id: string }) => value.id === fixture.unopenedId,
+  );
+  expect(CARDS[piece.guess].name).toBe(predictedName);
+  expect(piece.card).toBe("warm");
+  expect(piece.opened).toBe(true);
 });
