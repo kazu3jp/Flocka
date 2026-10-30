@@ -263,7 +263,7 @@ Androidの新しいビルド同士で、1本の接続による双方の検出を
 - `npm run validate`: 型検査・lint・213件のテスト成功。
 - `npm run export:native`: iOS・Androidの書き出し成功。
 - `:flocka-nearby:testDebugUnitTest` / `:flocka-nearby:compileDebugKotlin`: 成功。追加のJVMテスト5件で、一方向だけの発見後のコード返信、複数送信元の混在防止、途中切断・停止時の破棄、不正データの拒否、自己コードの拒否を検査。
-- 未検証: Android実機2台での探索・相互表示・交換成立、Bluetoothオフ/復帰時のこの追加処理。実機は接続されていません。
+- 利用者確認: Android同士で相互発見できることを実機確認済みとの報告を受けました（2026-10-31）。エージェント側では実機を接続していません。Bluetoothオフ/復帰などの異常系は別途未検証です。
 
 ## Bluetoothによる交換開始通知（2026-10-31）
 
@@ -281,7 +281,7 @@ Android/iOSのGATTサービスに共通UUIDのwrite/indicate characteristicを�
 - `swiftc` で実装の `NearbyProtocol.swift` と `tests/native/nearby-protocol.swift` をコンパイル・実行。UUIDパケットのAndroidと同じバイト列、ACK、不正データの拒否、招待コードの分割受信を確認。
 - CodeRabbitのmajor指摘1件は近距離画面へのサーバー定期確認の復帰提案でした。代替手段を追加しないプロジェクト指示と、Bluetoothで通知し失敗時は再試行する今回の方針に従い、不採用としています。
 - iOS Simulator用の `xcodebuild ... -sdk iphonesimulator ... CODE_SIGNING_ALLOWED=NO build` がarm64/x86_64で成功。既存Podsと現在のExpoModulesCore/ExpoModulesWorkletsに差があったため、生成されたios構成で該当するローカルPodを更新してからビルドしました。生成されたnativeプロジェクトは手編集していません。
-- 実機2台での新しい交換開始通知・切断時挙動は未検証。前の相互発見修正に対する利用者の実機確認とは区別します。
+- 利用者確認: 新しいBluetooth交換開始通知の実機確認がOKとの報告を受けました（2026-10-31。会話で確認した端末構成はAndroid同士）。これは利用者による確認であり、エージェントが実機を操作した結果ではありません。切断・Bluetoothオフ/復帰などの異常系とiOS実機は未検証です。
 
 ## AIによる自己PRの下書き
 
