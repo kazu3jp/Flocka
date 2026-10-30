@@ -250,6 +250,21 @@ Bluetooth（Android 11以下では位置情報も）が途中でオフになる�
 
 `npm run typecheck`、`npm run lint -w @flocka/mobile`、`npm test`、`npm run export:native` に加え、Windows上で `expo prebuild --platform android --no-install` 後に `./gradlew :flocka-nearby:compileDebugKotlin -Pandroid.overridePathCheck=true` が通過しました（作業パスに非ASCII文字があるためAGPのパス確認だけを外しています）。SwiftはWindowsではコンパイルできず未検証です。Bluetooth・位置情報の切り替え、権限ダイアログ、スキャン回数制限の実機確認も未検証です。
 
+## Android同士の近距離交換での相互発見（2026-10-31）
+
+従来は、相手のGATT characteristicを読み取った端末だけが `onPeer` を受け取り、読み取られた端末は相手の交換コードを受け取っていませんでした。両方の端末が別々に探索・接続・読み取りを成功させる必要があり、一方向だけ成功した場合に片側だけ表示される構造でした。今回の実機の症状を再現したという意味ではありません。
+
+Androidの交換コードcharacteristicにwriteを追加し、読み取りに成功した接続で自分のコードを返します。最小ATT MTUでも送れる20・20・3バイトの3つのwriteを順番に送り、毎回の応答を確認してから次へ進みます。受信側は接続相手ごとに最大43バイトを組み立て、形式が正しく、自分のコードではない場合だけ `onPeer` を通知します。部分データ・過大なデータ・不正文字は相手の発見にせず、切断・セッション停止時には破棄します。GATTへの応答後に画面へ通知し、受信途中でJSが遷移して応答を失わないようにしています。プロフィール確認は引き続き認証付きAPIを使います。
+
+Androidの新しいビルド同士で、1本の接続による双方の検出を行います。iOSのネイティブ実装は変更しておらず、read-onlyの相手には既存の読み取りを維持します。この相互発見の改善を確認するにはAndroid両端末のネイティブアプリを再ビルド・再インストールしてください。Metroの更新だけでは反映されません。
+
+検証:
+
+- `npm run validate`: 型検査・lint・213件のテスト成功。
+- `npm run export:native`: iOS・Androidの書き出し成功。
+- `:flocka-nearby:testDebugUnitTest` / `:flocka-nearby:compileDebugKotlin`: 成功。追加のJVMテスト5件で、一方向だけの発見後のコード返信、複数送信元の混在防止、途中切断・停止時の破棄、不正データの拒否、自己コードの拒否を検査。
+- 未検証: Android実機2台での探索・相互表示・交換成立、Bluetoothオフ/復帰時のこの追加処理。実機は接続されていません。
+
 ## AIによる自己PRの下書き
 
 [pr-ai.test.ts](../tests/pr-ai.test.ts) が次を検査します。

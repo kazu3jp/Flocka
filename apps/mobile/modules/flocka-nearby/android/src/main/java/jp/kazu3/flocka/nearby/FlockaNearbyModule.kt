@@ -106,6 +106,8 @@ private class NearbySession(context: Context, private val code: String, private 
   private val connections = mutableMapOf<String, BluetoothGatt>()
   private val seen = mutableMapOf<String, Long>()
   private val signals = mutableMapOf<String, Int>()
+  private val invitations = NearbyInvitationExchange(code)
+  private val replies = mutableMapOf<BluetoothGatt, ArrayDeque<ByteArray>>()
 
   fun start(promise: Promise) { synchronized(lock) {
     if (manager == null || adapter == null || !context.packageManager.hasSystemFeature("android.hardware.bluetooth_le")) {
@@ -139,7 +141,11 @@ private class NearbySession(context: Context, private val code: String, private 
       if (opened == null) { radioUnavailable("GATTサーバーを起動できません"); return@radio }
       server = opened; running = true
       val service = BluetoothGattService(serviceID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-      service.addCharacteristic(BluetoothGattCharacteristic(codeID, BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ))
+      service.addCharacteristic(BluetoothGattCharacteristic(
+        codeID,
+        BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE,
+        BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE
+      ))
       if (!opened.addService(service)) radioUnavailable("交換サービスを追加できません")
     }
   }
@@ -181,7 +187,7 @@ private class NearbySession(context: Context, private val code: String, private 
     bestEffort { adapter?.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) }
     synchronized(connections) {
       connections.values.forEach { bestEffort { it.disconnect(); it.close() } }
-      connections.clear(); seen.clear(); signals.clear()
+      connections.clear(); seen.clear(); signals.clear(); replies.clear(); invitations.clear()
     }
     bestEffort { server?.close() }
     server = null
@@ -223,12 +229,39 @@ private class NearbySession(context: Context, private val code: String, private 
         if (advertiser == null) radioUnavailable("Bluetooth広告を開始できません") else advertiser.startAdvertising(settings, data, advertiseCallback)
       }
     } }
+    override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+      if (newState == BluetoothProfile.STATE_DISCONNECTED)
+        synchronized(connections) { invitations.disconnected(device.address) }
+    }
+    override fun onCharacteristicWriteRequest(device: BluetoothDevice, requestId: Int, characteristic: BluetoothGattCharacteristic, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray) { synchronized(lock) {
+      val opened = server ?: return
+      var peerCode: String? = null
+      val status = synchronized(connections) {
+        when {
+          !active || !running || characteristic.uuid != codeID || preparedWrite -> {
+            invitations.disconnected(device.address)
+            BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED
+          }
+          offset != 0 -> { invitations.disconnected(device.address); BluetoothGatt.GATT_INVALID_OFFSET }
+          else -> {
+            val receipt = invitations.receive(device.address, value)
+            peerCode = receipt.code
+            if (receipt.accepted) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH
+          }
+        }
+      }
+      // Acknowledge before JS can navigate away and stop the session.
+      var acknowledged = !responseNeeded
+      bestEffort { if (responseNeeded) acknowledged = opened.sendResponse(device, requestId, status, offset, null) }
+      if (active && acknowledged && status == BluetoothGatt.GATT_SUCCESS && peerCode != null)
+        emit("onPeer", mapOf("deviceId" to device.address, "code" to peerCode!!, "rssi" to 0))
+    } }
     override fun onCharacteristicReadRequest(device: BluetoothDevice, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic) {
       val server = server ?: return
       val bytes = code.toByteArray(Charsets.UTF_8)
       bestEffort {
         if (!active || characteristic.uuid != codeID) server.sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
-        else if (offset > bytes.size) server.sendResponse(device, requestId, BluetoothGatt.GATT_INVALID_OFFSET, offset, null)
+        else if (offset < 0 || offset > bytes.size) server.sendResponse(device, requestId, BluetoothGatt.GATT_INVALID_OFFSET, offset, null)
         else server.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, bytes.copyOfRange(offset, bytes.size))
       }
     }
@@ -278,6 +311,10 @@ private class NearbySession(context: Context, private val code: String, private 
       val characteristic = gatt.getService(serviceID)?.getCharacteristic(codeID)
       if (!active || status != BluetoothGatt.GATT_SUCCESS || characteristic == null || !gatt.readCharacteristic(characteristic)) close(gatt)
     }
+    override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+      if (status != BluetoothGatt.GATT_SUCCESS || characteristic.uuid != codeID) close(gatt)
+      else writeReplyChunk(gatt, characteristic)
+    }
     @Deprecated("Required for Android versions below API 33")
     override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
       @Suppress("DEPRECATION")
@@ -286,15 +323,44 @@ private class NearbySession(context: Context, private val code: String, private 
     override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) { received(gatt, characteristic, value, status) }
   }
   private fun received(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, bytes: ByteArray, status: Int) {
-    val value = bytes.toString(Charsets.UTF_8)
     val address = gatt.device.address
+    val current = synchronized(connections) { connections[address] === gatt }
+    val value = invitations.peerCode(bytes)
+    if (!active || !current || status != BluetoothGatt.GATT_SUCCESS || characteristic.uuid != codeID || value == null) {
+      close(gatt); return
+    }
     val rssi = synchronized(connections) { signals[address] ?: 0 }
-    if (active && status == BluetoothGatt.GATT_SUCCESS && characteristic.uuid == codeID && value != code && Regex("^[A-Za-z0-9_-]{43}$").matches(value))
-      emit("onPeer", mapOf("deviceId" to address, "code" to value, "rssi" to rssi))
-    close(gatt)
+    emit("onPeer", mapOf("deviceId" to address, "code" to value, "rssi" to rssi))
+    // One successful discovery must identify both participants, even when only
+    // one phone receives the other's advertisement. Reply on this same link.
+    // A read-only peer (older Android or iOS) still supports the existing read.
+    if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE == 0) { close(gatt); return }
+    synchronized(connections) { replies[gatt] = ArrayDeque(invitations.replyChunks()) }
+    writeReplyChunk(gatt, characteristic)
+  }
+  private fun writeReplyChunk(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+    val chunk = synchronized(connections) {
+      if (!active || connections[gatt.device.address] !== gatt) null else replies[gatt]?.removeFirstOrNull()
+    }
+    if (chunk == null) { close(gatt); return }
+    val sent = try {
+      if (Build.VERSION.SDK_INT >= 33) {
+        gatt.writeCharacteristic(characteristic, chunk, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothStatusCodes.SUCCESS
+      } else {
+        @Suppress("DEPRECATION")
+        characteristic.value = chunk
+        characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        @Suppress("DEPRECATION")
+        gatt.writeCharacteristic(characteristic)
+      }
+    } catch (_: SecurityException) { false } catch (_: IllegalStateException) { false }
+    if (!sent) close(gatt)
   }
   private fun close(gatt: BluetoothGatt) {
-    synchronized(connections) { if (connections.remove(gatt.device.address, gatt)) signals.remove(gatt.device.address) }
+    synchronized(connections) {
+      replies.remove(gatt)
+      if (connections.remove(gatt.device.address, gatt)) signals.remove(gatt.device.address)
+    }
     bestEffort { gatt.disconnect(); gatt.close() }
   }
 }
