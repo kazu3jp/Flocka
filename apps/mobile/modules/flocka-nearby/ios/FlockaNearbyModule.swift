@@ -181,27 +181,31 @@ private final class NearbySession: NSObject, CBCentralManagerDelegate, CBPeriphe
   }
   func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
     guard let first = requests.first else { return }
-    guard active, serviceAdded else { peripheral.respond(to: first, withResult: .writeNotPermitted); return }
+    guard active, serviceAdded else { rejectWrites(peripheral, requests: requests, result: .writeNotPermitted); return }
     // A batch is atomic: do not keep earlier chunks when a later request is invalid.
     var candidate = invitations
     var codes = inboundCodes
     var discovered: [(UUID, String)] = []
     var packets: [(String, Data)] = []
     for request in requests {
-      guard request.offset == 0, let value = request.value else { peripheral.respond(to: first, withResult: .invalidOffset); return }
+      guard request.offset == 0, let value = request.value else { rejectWrites(peripheral, requests: requests, result: .invalidOffset); return }
       if request.characteristic.uuid == codeID {
         let receipt = candidate.receive(value, from: request.central.identifier, ownCode: code)
-        guard receipt.accepted else { peripheral.respond(to: first, withResult: .invalidAttributeValueLength); return }
+        guard receipt.accepted else { rejectWrites(peripheral, requests: requests, result: .invalidAttributeValueLength); return }
         if let peerCode = receipt.code { codes[request.central.identifier] = peerCode; discovered.append((request.central.identifier, peerCode)) }
       } else if request.characteristic.uuid == signalID {
-        guard let peerCode = codes[request.central.identifier], NearbyExchangePacket.decode(value) != nil else { peripheral.respond(to: first, withResult: .writeNotPermitted); return }
+        guard let peerCode = codes[request.central.identifier], NearbyExchangePacket.decode(value) != nil else { rejectWrites(peripheral, requests: requests, result: .writeNotPermitted); return }
         packets.append((peerCode, value))
-      } else { peripheral.respond(to: first, withResult: .writeNotPermitted); return }
+      } else { rejectWrites(peripheral, requests: requests, result: .writeNotPermitted); return }
     }
     invitations = candidate; inboundCodes = codes
     peripheral.respond(to: first, withResult: .success)
     for (device, peerCode) in discovered { emit("onPeer", ["deviceId": device.uuidString, "code": peerCode, "rssi": 0]) }
     for (peerCode, packet) in packets { receiveSignal(peerCode, data: packet) }
+  }
+  private func rejectWrites(_ peripheral: CBPeripheralManager, requests: [CBATTRequest], result: CBATTError.Code) {
+    for request in requests { invitations.remove(request.central.identifier) }
+    if let first = requests.first { peripheral.respond(to: first, withResult: result) }
   }
   private func receiveSignal(_ peerCode: String, data: Data) {
     guard active, let decoded = NearbyExchangePacket.decode(data) else { return }

@@ -98,7 +98,11 @@ function openSettings(target: SettingsTarget) {
 
 export function NearbyScreen() {
   const { api, nav, s, refresh } = useApp(),
-    { invite, error: inviteError, renew } = useInvite(false),
+    {
+      invite,
+      error: inviteError,
+      renew,
+    } = useInvite({ pollForExchange: false }),
     focused = useScreenFocused(),
     [peers, setPeers] = useState<
       Record<string, { player: RemotePlayer; code: string; seenAt: number }>
@@ -115,7 +119,9 @@ export function NearbyScreen() {
       null,
     );
   const exchangeActions = useRef({ refresh, nav });
-  exchangeActions.current = { refresh, nav };
+  useEffect(() => {
+    exchangeActions.current = { refresh, nav };
+  }, [refresh, nav]);
   useEffect(() => {
     if (!focused || !invite || !Nearby) return;
     const bluetooth = Nearby;
@@ -353,7 +359,7 @@ export function NearbyScreen() {
         <StaggerItem key={player.id} itemKey={player.id} index={index}>
           <Pressable
             accessibilityRole="button"
-            disabled={busy}
+            disabled={busy || !ready}
             onPress={() =>
               void run(async () => {
                 await coordinator.current?.start(code);

@@ -467,7 +467,7 @@ private class NearbySession(context: Context, private val code: String, private 
     }
     override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) { received(gatt, characteristic, value, status) }
   }
-  private fun received(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, bytes: ByteArray, status: Int) {
+  private fun received(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, bytes: ByteArray, status: Int) { synchronized(lock) {
     val address = gatt.device.address
     val current = synchronized(connections) { connections[address] === gatt }
     val value = invitations.peerCode(bytes)
@@ -484,7 +484,7 @@ private class NearbySession(context: Context, private val code: String, private 
     if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE == 0) { close(gatt); return }
     synchronized(connections) { replies[gatt] = ArrayDeque(invitations.replyChunks()) }
     writeReplyChunk(gatt, characteristic)
-  }
+  } }
   private fun writeReplyChunk(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
     val chunk = synchronized(connections) {
       if (!active || connections[gatt.device.address] !== gatt) null else replies[gatt]?.removeFirstOrNull()
