@@ -7,5 +7,6 @@ declare class FlockaNearbyModule extends NativeModule<FlockaNearbyModuleEvents> 
   requestPermissions(): Promise<NearbyPermissions>;
   start(code: string): Promise<void>;
   stop(): Promise<void>;
+  notifyExchangeStarted(code: string, exchangeId: string): Promise<void>;
 }
 export default requireOptionalNativeModule<FlockaNearbyModule>("FlockaNearby");

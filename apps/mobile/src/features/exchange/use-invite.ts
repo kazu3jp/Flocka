@@ -19,6 +19,7 @@ function withLocalExpiry<Invite extends { code: string }>(invite: Invite) {
   };
 }
 
+/** Both exchange screens watch the server; nearby BLE notifications can wake them sooner. */
 export function useInvite() {
   const { api, refresh, nav } = useApp(),
     focused = useScreenFocused(),
