@@ -9,6 +9,7 @@ import {
   PR_AI_MAX_COMPLETION_TOKENS,
   promptCharacters,
   reserveNeurons,
+  type PRAiMessage,
 } from "@flocka/domain";
 import {
   createAuthRuntime,
@@ -412,7 +413,7 @@ const noul = (value: number) => ({ type: "noul", noul: value });
 const isRepair = (inputs: unknown) =>
   (inputs as { messages: unknown[] }).messages.length === 4;
 const repairTurn = (inputs: unknown) =>
-  (inputs as { messages: { role: string; content: string }[] }).messages;
+  (inputs as { messages: PRAiMessage[] }).messages;
 
 test("a refused draft is repaired once with the exact reason, on the same user call", async () => {
   const f = await createAuthRuntime();
