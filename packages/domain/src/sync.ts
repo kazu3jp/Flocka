@@ -10,10 +10,18 @@ export function preferencesOf(state: State): Preferences {
     ...(state.prDraftSource !== undefined
       ? { prDraftSource: state.prDraftSource }
       : {}),
+    ...(state.prDraftOrigin !== undefined
+      ? { prDraftOrigin: state.prDraftOrigin }
+      : {}),
   };
 }
 export function withPreferences(state: State, preferences: Preferences): State {
-  return { ...state, ...preferences, prDraftSource: preferences.prDraftSource };
+  return {
+    ...state,
+    ...preferences,
+    prDraftSource: preferences.prDraftSource,
+    prDraftOrigin: preferences.prDraftOrigin,
+  };
 }
 
 export function applySnapshot(
@@ -59,6 +67,9 @@ export function applySnapshot(
     prDraftSource: keepLocalPreferences
       ? previous.prDraftSource
       : snapshot.preferences.data.prDraftSource,
+    prDraftOrigin: keepLocalPreferences
+      ? previous.prDraftOrigin
+      : snapshot.preferences.data.prDraftOrigin,
     onboarded: true,
     profile: snapshot.player.profile,
     self: snapshot.player.self,

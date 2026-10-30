@@ -77,6 +77,7 @@ export type RequestRecord = {
   withdrawn?: boolean;
 };
 
+export type PRDraftOrigin = { kind: "ai"; model: string; generatedAt: string };
 export type State = {
   schemaVersion: 1;
   onboarded: boolean;
@@ -92,6 +93,8 @@ export type State = {
   deco: Record<string, DecoData>;
   prDraft: string | null;
   prDraftSource?: { card: string; pieceIds: string[] } | null;
+  /** Set when the saved draft text was written by AI, kept through later edits. */
+  prDraftOrigin?: PRDraftOrigin | null;
   blocked: string[];
   settings: { allowVibe: boolean; allowProof: boolean; onlyConnected: boolean };
   reports: RequestRecord[];

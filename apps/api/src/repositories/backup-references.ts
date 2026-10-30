@@ -52,5 +52,5 @@ export function backupWithLiveReferences(
   const invalidSource = invalidPRSource(snapshot, owner, excluded);
   const removed = `(${removedArrays}) OR ${invalidSource}`;
   const cleaned = `json_set(${snapshot}, ${paths.map(([path, value]) => `'$.${path}', json(${value})`).join(", ")}, '$.prDraft', CASE WHEN ${removed} THEN NULL ELSE json_extract(${snapshot}, '$.prDraft') END)`;
-  return `CASE WHEN ${removed} THEN json_remove(${cleaned}, '$.prDraftSource') ELSE ${cleaned} END`;
+  return `CASE WHEN ${removed} THEN json_remove(${cleaned}, '$.prDraftSource', '$.prDraftOrigin') ELSE ${cleaned} END`;
 }

@@ -29,7 +29,7 @@ export function PR() {
   const { d, nav, setOpening, peers } = useApp();
   const editor = usePRDocument();
   const headingTarget = useTourTarget(TOUR_TARGETS.prHeading);
-  const ai = useAiPRDraft(editor.generatedCardKey);
+  const ai = useAiPRDraft(editor.aiCard?.key);
   const { progress, reveal } = useTypedPR(
     editor.draft,
     editor.manual,
@@ -283,7 +283,8 @@ export function PR() {
             color={C.pale}
             style={{ textAlign: "center", lineHeight: 19.375 }}
           >
-            AIが文章を整えています。数秒かかります…
+            「{editor.aiCard?.name}
+            」の仲間の言葉から、AIが文章を整えています。数秒かかります…
           </T>
         </LoadingNotice>
       )}
@@ -293,9 +294,11 @@ export function PR() {
         color={C.pale}
         style={{ textAlign: "center", lineHeight: 19.375 }}
       >
-        {editor.manual
-          ? "手直しやAIで整えた文章です。仲間の言葉と違う内容が入っていないか確認してから使ってください。"
-          : "仲間の実際の言葉だけで組み立てた下書きです。経験や成果は足していません。"}
+        {editor.aiWritten
+          ? "AIが仲間の言葉をもとに書いた文章です。仲間の言葉と違う内容が入っていないか確認してから使ってください。"
+          : editor.manual
+            ? "手直しした文章です。仲間の言葉と違う内容が入っていないか確認してから使ってください。"
+            : "仲間の言葉をそのまま引用した下書きです。引用の外は、つなぎの言葉だけです。"}
       </T>
       {!editor.editing && editor.canRegenerate && (
         <Btn

@@ -79,12 +79,6 @@ export function PRBody({
                   key={index}
                   testID={`pr-segment-${segment.kind}`}
                   style={[
-                    segment.kind === "strength" && {
-                      backgroundColor: `${C.yellow}8c`,
-                      paddingHorizontal: 2,
-                      borderRadius: 3,
-                    },
-                    segment.kind === "quote" && { fontFamily: F.bold },
                     segment.kind === "placeholder" && {
                       color: "#a10128",
                       borderBottomWidth: OUTLINE.width,

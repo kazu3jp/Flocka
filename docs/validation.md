@@ -252,9 +252,32 @@ Bluetooth（Android 11以下では位置情報も）が途中でオフになる�
 
 ## AIによる自己PRの下書き
 
-[pr-ai.test.ts](../tests/pr-ai.test.ts) がプロンプト（指示文を含む証言をデータとして囲むこと）、出力検証（捏造した引用・数字、長さ、形式、`<think>` の除去）、応答の2形式の読み取り、Neuron計算を検査します。[pr-ai.integration.test.ts](../tests/pr-ai.integration.test.ts) は、MiniflareのWorkerとして差し込んだ偽の `AI` バインディング（良い出力・捏造した引用・思考ブロック・`usage` なし・旧形式・エラー・4006・タイムアウト）で、証言をD1から読むこと、1人1日5回、全体予算の並行予約、認証、失敗時に下書きを返さないこと、返した出典が `PUT /v1/me/preferences` の検証を通ることを実APIで検査します。[eval-pr-ai.test.ts](../tests/eval-pr-ai.test.ts) は評価ツールの認証情報なし拒否と `--dry-run` を検査します。
+[pr-ai.test.ts](../tests/pr-ai.test.ts) が次を検査します。
 
-実際のWorkers AIは呼んでおらず、モデルの出力品質と実Neuron消費は未検証です。モバイルの確認シートは型・lint・書き出しのみで、実機・ブラウザでの操作は未確認です。
+- プロンプト: 証言をデータとして囲むこと、引用とカード名を禁じること
+- 構造と語の検証: 引用符・カード名・「〜してくれた」・根拠の証言にない語や数字の拒否、`[1]` 形式の証言番号の除去、実際に根拠にした証言だけを出典にすること
+- Clefの応答（実際の `{"type":"noul","noul":…}` の形）としきい値
+- 書き直しの指示、応答の2形式の読み取り、Neuron計算
+
+[pr-ai.integration.test.ts](../tests/pr-ai.integration.test.ts) は、MiniflareのWorkerとして差し込んだ偽の `AI` バインディング（gemmaとClef）で、実APIに対して次を検査します。
+
+- 証言をD1から読むこと、認証、1人1日5回、生成とClefの利用枠をまとめた原子的な予約と並行予約
+- 失敗時に下書きを返さないこと
+- 検証やClefで落ちた下書きを、理由つきで1回だけ書き直させること（利用者の回数は1回）
+- 締切の残りが少なければ書き直さないこと
+- 一時的なエラー（`8005`）を1回だけすぐやり直し、それ以外はやり直さないこと
+- 遅い依頼に予備の依頼を送り、先の答えを使うこと
+- 出典が実際に根拠にした証言だけになり、AIの生成元とともに `PUT /v1/me/preferences` の検証を通ること
+
+2026-10-30に、実際のWorkers AIで生成からClefの判定・書き直しまでの流れを確かめました（18回中17回が合格。詳細は [ai-pr-generation.md](ai-pr-generation.md) の実測）。D1と利用枠を含む本番の経路は、偽のAIバインディングの結合テストで確認しています。2026-10-30の引き継ぎ時に、`npm run validate`（213件）とWeb・iOS・Androidの書き出しを再実行しました。追加した [pr-ai.spec.ts](../e2e/visual/pr-ai.spec.ts) は、ローカルAPI・D1と偽のAIバインディングを使い、4つの画面サイズのブラウザで、確認・キャンセル・採用・編集後と再読み込み後のAI生成記録・再生成時の記録クリアを検査します。AI呼び出し失敗と採用時の保存失敗では元の下書きが維持されることも検査します（計8件）。実機操作、本物のWorkers AIを接続したブラウザ操作、今回の変更全体の画像差分テストは未確認です。書き出しは現在のローカルAPI設定で行っており、本番向け接続先の検証とは別です。
+
+2026-10-30に、この統合版を本番Worker `flocka-app-api` へデプロイしました（Version ID `dab86944-e4c2-4024-bd6f-502f92970f19`、ソースコミット `3fb51b2`）。本番D1の未適用マイグレーションはなし。`/health` は200、未認証の `POST /v1/me/pr-draft/ai` は401を確認しました。本番の認証済みAI生成は今回実行していません。
+
+## 手動のrelease準備
+
+[prepare-release.yml](../.github/workflows/prepare-release.yml) は `workflow_dispatch` のみで実行します。devの固定コミットを全体検証・書き出しし、実行ファイルだけをrelease構成へコピーし、バージョンを更新してrelease向けPRを作ります。使い方と対象範囲は [.github/release/README.md](../.github/release/README.md) に記載しています。
+
+[prepare-release.test.ts](../tests/prepare-release.test.ts) の3件で、対象ファイルの同期・削除・バージョン更新、無効/後退するバージョンの拒否、シンボリックリンクの拒否を検査しました。actionlintも成功。実際のrelease checkoutからローカルに1.0.1候補を生成し、lockfile更新・`npm ci`・型検査・API dry-run・Web/iOS/Android書き出しが成功しました。devのlockfileと比べて依存パッケージのバージョン変更はありません。GitHub上での手動実行は、導入PRをreleaseへマージした後に可能です。ローカル候補の1.0.1は検証専用で、releaseへの反映やタグ付けはしていません。
 
 ## 常時サーバー保存（手動バックアップの廃止）
 

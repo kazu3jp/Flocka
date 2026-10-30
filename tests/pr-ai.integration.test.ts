@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiClientError } from "@flocka/api-client";
-import { goodAiResult, createAuthRuntime } from "./helpers/auth-runtime";
+import {
+  buildPRAiMessages,
+  DEFAULT_PR_AI_MODEL,
+  PR_AI_GROUNDING_MODEL,
+  PR_AI_MAX_CHARACTERS,
+  PR_AI_MAX_COMPLETION_TOKENS,
+  promptCharacters,
+  reserveNeurons,
+  type PRAiMessage,
+} from "@flocka/domain";
+import {
+  createAuthRuntime,
+  goodAiResult,
+  ownWords,
+} from "./helpers/auth-runtime";
 
 type Runtime = Awaited<ReturnType<typeof createAuthRuntime>>;
 const GIVER_WORDS = [
@@ -65,7 +79,11 @@ test("AI draft: evidence comes from D1, output is validated, and it saves as a d
       new Set(draft.source.pieceIds),
       new Set(givers.map((giver) => giver.pieceId)),
     );
-    assert.ok(GIVER_WORDS.some((words) => draft.text.includes(`「${words}」`)));
+    assert.ok(
+      GIVER_WORDS.every((words) => draft.text.includes(ownWords(words))),
+    );
+    // Plain prose: no quotation marks, no catalog card name.
+    assert.ok(!/[「」]/.test(draft.text));
     // The server sends its own copy of the testimonies, inside the data block.
     const sent = f.ai.calls[0].inputs as {
       messages: { role: string; content: string }[];
@@ -200,8 +218,9 @@ test("AI draft never returns text for rejected, failed or timed-out calls", asyn
       502,
       "AI_OUTPUT_REJECTED",
     );
+    // The draft and its one repair were both billed at Cloudflare's figure.
     assert.ok(
-      Math.abs((await usage(f)).day!.neurons - beforeLength - 8) < 0.001,
+      Math.abs((await usage(f)).day!.neurons - beforeLength - 16) < 0.001,
     );
 
     // Legacy response shape.
@@ -299,12 +318,28 @@ test("global budget is reserved atomically and concurrent calls cannot overshoot
   const f = await createAuthRuntime();
   try {
     const { owner } = await confirmedOwner(f);
-    // Leave room for exactly one generation + Clef reservation.
+    // Leave room for exactly one generation + Clef reservation, computed the
+    // way the server computes it.
+    const characters = promptCharacters(
+      buildPRAiMessages(
+        "bridge",
+        GIVER_WORDS.map((text, index) => ({ id: String(index), text })),
+      ),
+    );
+    const one =
+      reserveNeurons(
+        DEFAULT_PR_AI_MODEL,
+        characters,
+        PR_AI_MAX_COMPLETION_TOKENS,
+      ) +
+      reserveNeurons(
+        PR_AI_GROUNDING_MODEL,
+        characters + PR_AI_MAX_CHARACTERS + 1500,
+        0,
+      );
     await f.db
-      .prepare(
-        "INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, 8900, 0)",
-      )
-      .bind(today())
+      .prepare("INSERT INTO ai_usage_days(day, neurons, calls) VALUES(?, ?, 0)")
+      .bind(today(), 9000 - one * 1.5)
       .run();
     const results = await Promise.allSettled([
       owner.api.generatePRDraftWithAI("bridge"),
@@ -353,6 +388,269 @@ test("testimony text written by others is quoted as data and cannot steer the re
       .messages;
     assert.ok(!prompt[0].content.includes(injection));
     assert.ok(prompt[1].content.includes(`>${injection}</testimony>`));
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+const CLEF = "@cf/cloudflare/clef";
+type Claim = { sentence: string; sourceIndexes: number[] };
+const claimsReply = (claims: Claim[], neurons = 6) => ({
+  result: {
+    choices: [{ message: { content: JSON.stringify({ claims }) } }],
+    usage: { prompt_tokens: 500, completion_tokens: 80, neurons },
+  },
+});
+const quoted = (index: number, words: string, tail = "と言われました。") => ({
+  sentence: `仲間から、${ownWords(words)}${tail}`,
+  sourceIndexes: [index],
+});
+const generations = (f: Runtime) =>
+  f.ai.calls.filter((call) => call.model !== CLEF);
+const groundings = (f: Runtime) =>
+  f.ai.calls.filter((call) => call.model === CLEF);
+const noul = (value: number) => ({ type: "noul", noul: value });
+const isRepair = (inputs: unknown) =>
+  (inputs as { messages: unknown[] }).messages.length === 4;
+const repairTurn = (inputs: unknown) =>
+  (inputs as { messages: PRAiMessage[] }).messages;
+
+test("a refused draft is repaired once with the exact reason, on the same user call", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    const [first, second] = GIVER_WORDS;
+    f.ai.script = (inputs) =>
+      claimsReply(
+        isRepair(inputs)
+          ? [quoted(1, first), quoted(2, second, "という声ももらいました。")]
+          : [
+              quoted(1, first),
+              quoted(2, second, "という声をもらい、これからも大切にします。"),
+            ],
+      );
+    const draft = await owner.api.generatePRDraftWithAI("bridge");
+    assert.ok(!draft.text.includes("大切"));
+    assert.equal(generations(f).length, 2);
+    const repair = repairTurn(generations(f)[1].inputs);
+    assert.deepEqual(
+      repair.map((message) => message.role),
+      ["system", "user", "assistant", "user"],
+    );
+    assert.match(repair[2].content, /大切にします/);
+    assert.match(repair[3].content, /大切/);
+    // The refused draft never reached the verifier.
+    assert.equal(groundings(f).length, 1);
+    const used = await usage(f, owner.player.id);
+    assert.equal(used.account!.calls, 1, "the repair takes no extra user call");
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("a sentence the verifier refuses is named in the repair turn", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    f.ai.groundingScript = () => ({
+      result: {
+        answers:
+          groundings(f).length === 1
+            ? { claim_1: noul(0.79), claim_2: noul(0.16) }
+            : { claim_1: noul(0.79), claim_2: noul(0.77) },
+      },
+    });
+    const draft = await owner.api.generatePRDraftWithAI("bridge");
+    assert.ok(draft.text.includes(ownWords(GIVER_WORDS[1])));
+    assert.equal(groundings(f).length, 2);
+    const repair = repairTurn(generations(f)[1].inputs);
+    assert.match(repair[3].content, /裏づけられません/);
+    assert.ok(repair[3].content.includes(ownWords(GIVER_WORDS[1])));
+    assert.ok(!repair[3].content.includes(ownWords(GIVER_WORDS[0])));
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("the saved source names only the testimonies the claims cite", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const words = [...GIVER_WORDS, "質問にも順番に答えてくれた"];
+    const { owner, givers } = await confirmedOwner(f, words);
+    f.ai.script = () =>
+      claimsReply([
+        quoted(1, words[0]),
+        quoted(3, words[2], "という声ももらいました。"),
+      ]);
+    const draft = await owner.api.generatePRDraftWithAI("bridge");
+    assert.deepEqual(
+      new Set(draft.source.pieceIds),
+      new Set([givers[0].pieceId, givers[2].pieceId]),
+    );
+    // That narrower source, with the AI origin, passes the preference check.
+    const snapshot = await owner.api.getSnapshot();
+    const origin = {
+      kind: "ai" as const,
+      model: draft.model,
+      generatedAt: draft.generatedAt,
+    };
+    const saved = await owner.api.savePreferences(
+      {
+        ...snapshot.preferences.data,
+        prDraft: draft.text,
+        prDraftSource: draft.source,
+        prDraftOrigin: origin,
+      },
+      snapshot.preferences.revision,
+    );
+    assert.deepEqual(saved.data.prDraftOrigin, origin);
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("a transient Workers AI error is retried once at once; other errors are not", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    // 8005 came back within 3 s in the real measurements; the retry answers.
+    f.ai.script = (inputs) =>
+      generations(f).length === 1
+        ? { error: "AiError: 8005: Internal server error" }
+        : { result: goodAiResult(inputs) };
+    await owner.api.generatePRDraftWithAI("bridge");
+    assert.equal(generations(f).length, 2);
+    let used = await usage(f, owner.player.id);
+    assert.equal(used.account!.calls, 1, "the retry takes no extra user call");
+
+    // The verifier is retried the same way.
+    f.ai.script = (inputs) => ({ result: goodAiResult(inputs) });
+    const clefBefore = groundings(f).length;
+    f.ai.groundingScript = (inputs) =>
+      groundings(f).length === clefBefore + 1
+        ? { error: "AiError: 8005: Internal server error" }
+        : {
+            result: {
+              answers: Object.fromEntries(
+                Object.keys(
+                  (inputs as { questions: Record<string, unknown> }).questions,
+                ).map((key) => [key, noul(0.99)]),
+              ),
+            },
+          };
+    await owner.api.generatePRDraftWithAI("bridge");
+    assert.equal(groundings(f).length, clefBefore + 2);
+
+    await f.db.prepare("DELETE FROM ai_usage_days").run();
+    await f.db.prepare("DELETE FROM ai_usage_accounts").run();
+    // Both requests fail: nothing is charged and the user's call is given back.
+    f.ai.script = () => ({ error: "AiError: 8005: Internal server error" });
+    const before = generations(f).length;
+    await failsWith(
+      owner.api.generatePRDraftWithAI("bridge"),
+      502,
+      "AI_UNAVAILABLE",
+    );
+    assert.equal(generations(f).length, before + 2);
+    used = await usage(f, owner.player.id);
+    assert.equal(used.account!.calls, 0);
+    assert.equal(used.day!.calls, 0);
+    assert.equal(used.day!.neurons, 0);
+
+    // A non-transient error (an unknown model) is not worth a second request.
+    f.ai.script = () => ({ error: "AiError: 5007: No such model" });
+    const beforeFatal = generations(f).length;
+    await failsWith(
+      owner.api.generatePRDraftWithAI("bridge"),
+      502,
+      "AI_UNAVAILABLE",
+    );
+    assert.equal(generations(f).length, beforeFatal + 1);
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("a slow request gets one hedge request and the first answer wins", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    // The test deadline is 1.5 s, so the hedge goes out after 0.36 s.
+    f.ai.script = (inputs) =>
+      generations(f).length === 1
+        ? { result: goodAiResult(inputs), delayMs: 1300 }
+        : { result: goodAiResult(inputs) };
+    const started = Date.now();
+    await owner.api.generatePRDraftWithAI("bridge");
+    assert.ok(Date.now() - started < 1200, "answered by the hedge request");
+    assert.equal(generations(f).length, 2);
+    const used = await usage(f, owner.player.id);
+    assert.equal(used.account!.calls, 1, "the hedge takes no extra user call");
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("no repair once less than a fifth of the shared deadline is left", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    // Refused (one testimony only) after 1.25 s of the 1.5 s deadline. The slow
+    // request also drew one hedge request, which lost.
+    f.ai.script = () => ({
+      ...claimsReply([quoted(1, GIVER_WORDS[0]), quoted(1, GIVER_WORDS[0])]),
+      delayMs: 1250,
+    });
+    await failsWith(
+      owner.api.generatePRDraftWithAI("bridge"),
+      502,
+      "AI_OUTPUT_REJECTED",
+    );
+    assert.equal(generations(f).length, 2);
+    assert.ok(generations(f).every((call) => !isRepair(call.inputs)));
+  } finally {
+    await f.runtime.dispose();
+  }
+});
+
+test("a repair without usage retains its own larger token reservation", async () => {
+  const f = await createAuthRuntime();
+  try {
+    const { owner } = await confirmedOwner(f);
+    f.ai.script = (inputs) => {
+      if (isRepair(inputs)) {
+        const result = goodAiResult(inputs);
+        return { result: { choices: result.choices } };
+      }
+      return claimsReply([quoted(1, GIVER_WORDS[0])]);
+    };
+    // Give the verifier an exact, known cost so only the generation estimates remain.
+    f.ai.groundingScript = (inputs) => ({
+      result: {
+        answers: Object.fromEntries(
+          Object.keys((inputs as { questions: object }).questions).map(
+            (key) => [key, noul(0.99)],
+          ),
+        ),
+        usage: { neurons: 1 },
+      },
+    });
+    await owner.api.generatePRDraftWithAI("bridge");
+    const repair = repairTurn(generations(f)[1].inputs);
+    const expected =
+      6 +
+      reserveNeurons(
+        DEFAULT_PR_AI_MODEL,
+        promptCharacters(repair),
+        PR_AI_MAX_COMPLETION_TOKENS,
+      ) +
+      1;
+    const used = await usage(f, owner.player.id);
+    assert.ok(
+      Math.abs(used.day!.neurons - expected) < 0.001,
+      `${used.day!.neurons} !== ${expected}`,
+    );
+    assert.equal(used.account!.calls, 1);
   } finally {
     await f.runtime.dispose();
   }
