@@ -1,19 +1,16 @@
 import { useAction } from "../sync/use-action";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AccessibilityInfo,
-  ActivityIndicator,
-  Animated,
-  Modal,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import {
   Board,
   Btn,
   C,
-  Envelope,
   Header,
   Icon,
   InlineError,
@@ -27,7 +24,6 @@ import {
 import {
   CARDS,
   allPieces,
-  bareCard,
   derive,
   openPiece,
   optionsFor,
@@ -37,16 +33,19 @@ import {
 import { useSheetFeedback } from "../../components/feedback";
 import { useAppWidth, useModalFrame } from "../../components/app-frame";
 import { cardHeightInRow } from "../../components/responsive-scale";
-import { PopIn } from "../../components/motion";
+import { useReduceMotion } from "../../components/motion";
+import { GuessEnvelope } from "./GuessEnvelope";
+import { GuessReveal } from "./GuessReveal";
+import { GuessOption } from "./GuessOption";
 import { useApp } from "../../store";
 import { useOpenTestimony } from "./use-open-testimony";
-import { hapticSuccess } from "../haptics/haptics";
+import { hapticSelection, hapticSuccess } from "../haptics/haptics";
 
-/** The headline after opening; skipping is neither a hit nor a miss. */
 /** The true card and two wrong ones (optionsFor), side by side. */
 const GUESS_OPTION_COUNT = 3;
 const GUESS_OPTION_GAP = 8;
 
+/** Skipping is neither a hit nor a miss. */
 function openingResult(guess: string | null, card: string, self: boolean) {
   if (!guess || guess === "skip") return "開封！";
   if (guess === card) return "的中！";
@@ -63,22 +62,14 @@ function GuessContent({ id }: { id: string }) {
     // The option being saved, shown as chosen before the server answers.
     [pending, setPending] = useState<string | null>(null),
     [stage, setStage] = useState<"guess" | "opening" | "open">("guess"),
-    [reduced, setReduced] = useState(false),
-    [scale] = useState(() => new Animated.Value(1)),
-    timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    reduced = useReduceMotion(),
+    mounted = useRef(true),
+    choosing = useRef(false);
+  const reveal = useCallback(() => setStage("open"), []);
   useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((v) => {
-      if (active) setReduced(v);
-    });
-    const listener = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduced,
-    );
+    mounted.current = true;
     return () => {
-      active = false;
-      listener.remove();
-      if (timer.current) clearTimeout(timer.current);
+      mounted.current = false;
     };
   }, []);
   // Opening animation re-renders often; the projected card only depends on state and guess.
@@ -90,17 +81,22 @@ function GuessContent({ id }: { id: string }) {
     // p is re-found on each render; its id and card identify it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, p?.id, p?.card, guess]);
+  const appWidth = useAppWidth();
   const optionHeight = cardHeightInRow(
-    useAppWidth() - 2 * LAYOUT.screenPadding,
+    appWidth - 2 * LAYOUT.screenPadding,
     GUESS_OPTION_COUNT,
     GUESS_OPTION_GAP,
     220,
   );
   const became = !!after?.confirmed && !wasConfirmed,
     hit = !!p && guess === p.card;
-  // Celebrate only results the server saved: a correct guess or a new confirmed card.
+  // Celebrate saved hits, new discoveries and newly confirmed cards.
   useEffect(() => {
-    if (stage === "open" && (hit || became)) hapticSuccess();
+    if (
+      stage === "open" &&
+      (hit || became || (p && !s.self.includes(p.card) && guess !== "skip"))
+    )
+      hapticSuccess();
     // Runs once when the result appears.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
@@ -119,22 +115,17 @@ function GuessContent({ id }: { id: string }) {
     chosen = busy ? pending : stage === "opening" ? guess : null,
     locked = busy || stage !== "guess";
   const choose = (k: string) => {
-    if (locked) return;
+    if (locked || choosing.current) return;
+    choosing.current = true;
     setPending(k);
+    hapticSelection();
     void run(async () => {
       const saved = await openTestimony(p.id, k);
+      if (!mounted.current) return;
       setGuess(saved.guess ?? "skip");
-      if (reduced) {
-        setStage("open");
-        return;
-      }
-      setStage("opening");
-      Animated.timing(scale, {
-        toValue: 1.08,
-        duration: 450,
-        useNativeDriver: true,
-      }).start();
-      timer.current = setTimeout(() => setStage("open"), 450);
+      setStage(reduced ? "open" : "opening");
+    }).finally(() => {
+      choosing.current = false;
     });
   };
   return (
@@ -158,23 +149,13 @@ function GuessContent({ id }: { id: string }) {
       >
         {stage !== "open" ? (
           <>
-            <Animated.View
-              style={{
-                alignItems: "center",
-                paddingTop: 12,
-                transform: [{ scale }],
-              }}
-            >
-              <Envelope size={250} />
-              <T
-                display
-                size={16}
-                color={C.ink}
-                style={{ marginTop: -48, marginBottom: 30 }}
-              >
-                {peers[p.fromId]?.profile.name ?? "相手"}より
-              </T>
-            </Animated.View>
+            <GuessEnvelope
+              size={Math.min(280, (appWidth - 2 * LAYOUT.screenPadding) * 0.78)}
+              from={peers[p.fromId]?.profile.name ?? "相手"}
+              opening={stage === "opening"}
+              reduced={reduced}
+              onOpened={reveal}
+            />
             <T display size={24} style={{ textAlign: "center" }}>
               {peers[p.fromId]?.profile.name ?? "相手"}の
               {p.kind === "vibe" ? "印象" : "メモ"}は、
@@ -182,45 +163,18 @@ function GuessContent({ id }: { id: string }) {
             </T>
             <View style={[S.row, { gap: GUESS_OPTION_GAP }]}>
               {opts.map((k) => (
-                <View
+                <GuessOption
                   key={k}
-                  accessibilityState={{
-                    selected: chosen === k,
-                    disabled: locked,
-                    busy: busy && chosen === k,
-                  }}
-                  style={{
-                    flex: 1,
-                    height: optionHeight,
-                    opacity: chosen && chosen !== k ? 0.4 : 1,
-                    transform: [{ translateY: chosen === k ? -6 : 0 }],
-                  }}
-                >
-                  <StrengthCard
-                    card={bareCard(k, s.self.includes(k))}
-                    style={{ flex: 1 }}
-                    onPress={locked ? undefined : () => choose(k)}
-                  />
-                  {chosen === k && (
-                    <View
-                      pointerEvents="none"
-                      style={{
-                        position: "absolute",
-                        left: -4,
-                        right: -4,
-                        top: -4,
-                        bottom: -4,
-                        borderWidth: 3,
-                        borderColor: C.yellow,
-                        borderRadius: 17,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {busy && <ActivityIndicator color={C.yellow} />}
-                    </View>
-                  )}
-                </View>
+                  cardKey={k}
+                  self={s.self.includes(k)}
+                  chosen={chosen === k}
+                  hasChoice={Boolean(chosen)}
+                  busy={busy}
+                  locked={locked}
+                  height={optionHeight}
+                  reduced={reduced}
+                  onPress={() => choose(k)}
+                />
               ))}
             </View>
             <LinkButton
@@ -235,51 +189,68 @@ function GuessContent({ id }: { id: string }) {
           </>
         ) : (
           <>
-            <Panel>
-              <T size={12} color={C.muted}>
-                {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
-                {p.kind === "vibe" ? "第一印象" : "エピソード"}
-              </T>
-              <T display size={20} color={C.ink}>
-                「{wordsOf(p)}」
-              </T>
-              {p.label ? (
-                <T color={C.muted} size={13}>
-                  要約：{p.label}
+            <GuessReveal variant="note" reduced={reduced}>
+              <Panel>
+                <T size={12} color={C.muted}>
+                  {peers[p.fromId]?.profile.name ?? "相手"}より ·{" "}
+                  {p.kind === "vibe" ? "第一印象" : "エピソード"}
                 </T>
-              ) : null}
-            </Panel>
-            <View style={[S.row, { justifyContent: "center" }]}>
-              <PopIn>
+                <T display size={20} color={C.ink}>
+                  「{wordsOf(p)}」
+                </T>
+                {p.label ? (
+                  <T color={C.muted} size={13}>
+                    要約：{p.label}
+                  </T>
+                ) : null}
+              </Panel>
+            </GuessReveal>
+            <View style={[S.row, { justifyContent: "center", gap: 14 }]}>
+              <GuessReveal
+                variant="stamp"
+                reduced={reduced}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderWidth: 3.5,
+                  borderRadius: 10,
+                  borderColor: hit ? C.dark : C.stampInk,
+                  backgroundColor: C.paper,
+                }}
+              >
                 <T
                   display
-                  size={28}
-                  color={C.yellow}
-                  style={{ transform: [{ rotate: "-7deg" }] }}
+                  size={22}
+                  color={hit ? C.dark : C.stampInk}
+                  accessibilityLiveRegion="polite"
                 >
                   {openingResult(guess, p.card, s.self.includes(p.card))}
                 </T>
-              </PopIn>
+              </GuessReveal>
               {guess && guess !== p.card && Object.hasOwn(CARDS, guess) ? (
                 <T size={13}>予想：{CARDS[guess].name}</T>
               ) : null}
             </View>
-            <StrengthCard
-              large
-              card={after}
+            <GuessReveal
+              variant="card"
+              reduced={reduced}
               style={{ height: 300, width: 230, alignSelf: "center" }}
-            />
-            {became ? (
-              <PopIn>
+            >
+              <StrengthCard large card={after} style={{ flex: 1 }} />
+            </GuessReveal>
+            <GuessReveal variant="gain" reduced={reduced}>
+              {became ? (
+                <View>
+                  <T display size={18} style={{ textAlign: "center" }}>
+                    2人目の証言で、確認済みに！
+                  </T>
+                </View>
+              ) : (
                 <T display size={18} style={{ textAlign: "center" }}>
-                  2人目の証言で、確認済みに！
+                  {`「${CARDS[p.card].name}」に証言+1`}
                 </T>
-              </PopIn>
-            ) : (
-              <T display size={18} style={{ textAlign: "center" }}>
-                {`「${CARDS[p.card].name}」に証言+1`}
-              </T>
-            )}
+              )}
+            </GuessReveal>
           </>
         )}
       </ScrollView>

@@ -26,6 +26,7 @@ import {
 
 import {
   Nudge,
+  PopOnChange,
   ProgressFill,
   SquishPressable,
   StaggerItem,
@@ -338,7 +339,10 @@ export function Deck() {
                 },
               ]}
             >
-              <View style={{ width: 42, height: 32 }}>
+              <PopOnChange
+                trigger={d.unopened.length}
+                style={{ width: 42, height: 32 }}
+              >
                 {(challenge ? d.unopened.slice(0, 3) : [null]).map(
                   (piece, index) => (
                     <View
@@ -356,7 +360,7 @@ export function Deck() {
                     </View>
                   ),
                 )}
-              </View>
+              </PopOnChange>
               <View style={S.fill}>
                 <T
                   display
