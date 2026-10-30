@@ -290,7 +290,7 @@ export function NearbyScreen() {
     NEARBY_TIPS_AFTER_MS,
   );
   const message =
-    radioError?.message ?? inviteError ?? error ?? peerError ?? null;
+    error ?? radioError?.message ?? inviteError ?? peerError ?? null;
   const scanQr = () => nav.replace("scan");
   return (
     <Board scroll>

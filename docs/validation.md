@@ -280,6 +280,7 @@ Android/iOSのGATTサービスに共通UUIDのwrite/indicate characteristicを�
 - Android `:flocka-nearby:testDebugUnitTest` / `:flocka-nearby:compileDebugKotlin` 成功。JVMテストは既存5件＋通知パケット2件の計7件。
 - `swiftc` で実装の `NearbyProtocol.swift` と `tests/native/nearby-protocol.swift` をコンパイル・実行。UUIDパケットのAndroidと同じバイト列、ACK、不正データの拒否、招待コードの分割受信を確認。
 - CodeRabbitのmajor指摘1件は近距離画面へのサーバー定期確認の復帰提案でした。代替手段を追加しないプロジェクト指示と、Bluetoothで通知し失敗時は再試行する今回の方針に従い、不採用としています。
+- iOS Simulator用の `xcodebuild ... -sdk iphonesimulator ... CODE_SIGNING_ALLOWED=NO build` がarm64/x86_64で成功。既存Podsと現在のExpoModulesCore/ExpoModulesWorkletsに差があったため、生成されたios構成で該当するローカルPodを更新してからビルドしました。生成されたnativeプロジェクトは手編集していません。
 - 実機2台での新しい交換開始通知・切断時挙動は未検証。前の相互発見修正に対する利用者の実機確認とは区別します。
 
 ## AIによる自己PRの下書き
