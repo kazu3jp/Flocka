@@ -8,3 +8,9 @@ export function hapticSuccess() {
     Haptics.NotificationFeedbackType.Success,
   ).catch(() => {});
 }
+
+/** A prediction was selected; this does not imply that saving or opening succeeded. */
+export function hapticSelection() {
+  if (Platform.OS === "web") return;
+  void Haptics.selectionAsync().catch(() => {});
+}
