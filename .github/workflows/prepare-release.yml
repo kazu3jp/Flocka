@@ -1,0 +1,129 @@
+name: Prepare release PR
+run-name: Prepare release v${{ inputs.version }} from dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New stable version, for example 1.0.1 (without v)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  validate-dev:
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      source-sha: ${{ steps.source.outputs.sha }}
+    env:
+      EXPO_PUBLIC_API_URL: https://api.flocka.zofax.net
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+          path: source
+          persist-credentials: false
+      - name: Record the exact dev commit
+        id: source
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          node -e 'if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(process.env.RELEASE_VERSION)) process.exit(1)'
+          echo "sha=$(git -C source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: source/.nvmrc
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - name: Validate dev and export every platform
+        working-directory: source
+        run: |
+          npm ci
+          npm run validate
+          npm run export:web
+          npm run verify:export -- web
+          npm run export:native
+          npm run verify:export -- native
+
+  prepare-release:
+    needs: validate-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      EXPO_PUBLIC_API_URL: https://api.flocka.zofax.net
+      RELEASE_VERSION: ${{ inputs.version }}
+      SOURCE_SHA: ${{ needs.validate-dev.outputs.source-sha }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out the trusted workflow tools
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Check out the validated dev commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate-dev.outputs.source-sha }}
+          path: source
+          persist-credentials: false
+      - name: Check out release as the PR base
+        uses: actions/checkout@v7
+        with:
+          ref: release
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: source/.nvmrc
+      - name: Prepare the runtime files and version
+        run: node control/.github/release/prepare.mjs source candidate "$RELEASE_VERSION"
+      - name: Refresh the lockfile and validate the release tree
+        working-directory: candidate
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci
+          npm run validate
+          npm run export:web
+          git diff --check
+      - name: Open the release PR
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="automation/release-v${RELEASE_VERSION}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add --all
+          git commit -m "Prepare release v${RELEASE_VERSION} from ${SOURCE_SHA}"
+          gh auth setup-git
+          git push origin "$branch"
+          export RELEASE_BRANCH="$branch"
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          writeFileSync(process.env.RUNNER_TEMP + '/release-pr.md', [
+            `dev の確定コミット ${process.env.SOURCE_SHA} から v${process.env.RELEASE_VERSION} を準備しました。`,
+            '',
+            '- アプリ・API・共通パッケージ・実行アセット・ビルドツールのみを同期',
+            '- ルートと4つのworkspace、Expo設定、lockfileのバージョンを更新',
+            '- devの全体検証と全プラットフォーム書き出し、release構成の検証と書き出しを実行',
+            '- 手動マージ用のPRです。デプロイ・タグ・GitHub Releaseは作成していません。',
+            '',
+            `Workflow: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+          ].join('\n') + '\n');
+          NODE
+          url=$(gh pr create --base release --head "$branch" --title "Release v${RELEASE_VERSION}" --body-file "$RUNNER_TEMP/release-pr.md")
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
