@@ -198,6 +198,14 @@ export const prDraftSourceSchema = z
   })
   .nullable()
   .optional();
+export const prDraftOriginSchema = z
+  .object({
+    kind: z.literal("ai"),
+    model: z.string().min(1).max(100),
+    generatedAt: z.string().min(1).max(64),
+  })
+  .nullable()
+  .optional();
 
 export const appStateSchema: z.ZodType<State> = z.object({
   schemaVersion: z.literal(1),
@@ -225,6 +233,7 @@ export const appStateSchema: z.ZodType<State> = z.object({
   deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
   prDraftSource: prDraftSourceSchema,
+  prDraftOrigin: prDraftOriginSchema,
   blocked: z.array(z.string()),
   settings: settingsSchema,
   reports: z.array(requestSchema),
@@ -255,6 +264,7 @@ export const preferencesSchema = z.object({
   deco: z.record(strengthKeySchema, decorationSchema),
   prDraft: z.string().max(PR_DRAFT_MAX_LENGTH).nullable(),
   prDraftSource: prDraftSourceSchema,
+  prDraftOrigin: prDraftOriginSchema,
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
 export const preferencesRecordSchema = z.object({

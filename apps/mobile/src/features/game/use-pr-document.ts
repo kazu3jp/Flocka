@@ -47,6 +47,7 @@ export function usePRDocument() {
       update((state) => {
         state.prDraft = null;
         delete state.prDraftSource;
+        delete state.prDraftOrigin;
       });
       await savePreferences();
       if (!savingVisit || savingVisit !== visit.current) return;
@@ -83,9 +84,12 @@ export function usePRDocument() {
     // only a currently confirmed card can replace it.
     canRegenerate: generated !== null,
     regenerationStrength: generated?.card.name,
-    generatedCardKey: generated?.card.key,
+    // AI writes about the strength on screen: the saved draft's own card while
+    // its evidence holds, otherwise the generated draft's.
+    aiCard: document?.card,
     draft,
     manual: s.prDraft !== null,
+    aiWritten: s.prDraft !== null && s.prDraftOrigin?.kind === "ai",
     editing,
     beginEditing: () => {
       if (busy) return;

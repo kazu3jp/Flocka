@@ -1,6 +1,6 @@
 {
   "name": "flocka",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "workspaces": [
     "apps/mobile",
@@ -13,19 +13,20 @@
   },
   "scripts": {
     "dev:api": "npm run dev -w @flocka/api",
-    "db:migrate": "npm run db:migrate -w @flocka/api",
     "ios": "npm run ios -w @flocka/mobile",
     "android": "npm run android -w @flocka/mobile --",
+    "db:migrate": "npm run db:migrate -w @flocka/api",
     "export:web": "npm run export:web -w @flocka/mobile --",
     "export:native": "npm run export:native -w @flocka/mobile --",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "build:api": "npm run build -w @flocka/api",
-    "validate": "npm run typecheck && npm run build:api && npm run export:native",
     "apk:android": "node tools/build-apk.mjs",
-    "ipa:ios": "node tools/build-ipa.mjs"
+    "ipa:ios": "node tools/build-ipa.mjs",
+    "build:api": "npm run build -w @flocka/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "validate": "npm run typecheck && npm run build:api && npm run export:native"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
-    "expo": "~57.0.30"
+    "@types/node": "22",
+    "typescript": "~6.0.3"
   }
 }
