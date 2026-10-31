@@ -22,7 +22,7 @@ export async function eraseAccountRows(
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.reports') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces}))
         OR EXISTS(SELECT 1 FROM json_each(snapshot_json, '$.deletions') AS r WHERE json_extract(r.value, '$.pieceId') IN (${pieces})))`,
     // Only drafts quoting the erased player's testimonies lose their text; other drafts stay.
-    `UPDATE player_preferences SET data_json = json_remove(json_set(data_json, '$.prDraft', NULL), '$.prDraftSource'), revision = revision + 1
+    `UPDATE player_preferences SET data_json = json_remove(json_set(data_json, '$.prDraft', NULL), '$.prDraftSource', '$.prDraftOrigin'), revision = revision + 1
       WHERE account_id IN (SELECT recipient_id FROM testimonies WHERE sender_id = ?1)
         AND ${invalidPRSource("player_preferences.data_json", "player_preferences.account_id", "?1")}`,
     `DELETE FROM moderation_audit WHERE request_id IN (${requests})`,

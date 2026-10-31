@@ -30,9 +30,12 @@ export function AiDraftSheet({
         }}
       >
         <T size={13} style={{ fontFamily: F.bold, lineHeight: 20 }}>
-          AIが作った下書きです。内容を確認してください
+          AIが仲間の言葉をもとに書いた下書きです。仲間の言葉に沿っているかを自動で確かめていますが、使う前に読んで確認してください
         </T>
       </View>
+      <T testID="pr-ai-source" size={13} color={C.muted}>
+        仲間{draft.source.pieceIds.length}人の言葉から作成
+      </T>
       <T testID="pr-ai-text" selectable style={{ lineHeight: 26 }}>
         {draft.text}
       </T>
